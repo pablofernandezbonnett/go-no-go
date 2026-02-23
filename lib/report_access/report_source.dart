@@ -171,7 +171,9 @@ ReportSourceArtifactType? _detectType({
 }
 
 bool _isContextFile(String relativePath, String lowerFileName) {
-  if (!lowerFileName.endsWith('.txt')) {
+  final isContextExtension =
+      lowerFileName.endsWith('.txt') || lowerFileName.endsWith('.yaml') || lowerFileName.endsWith('.yml');
+  if (!isContextExtension) {
     return false;
   }
 
