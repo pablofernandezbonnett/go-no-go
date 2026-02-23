@@ -25,6 +25,23 @@ class OpsConfigPayload {
   }
 }
 
+class HealthPayload {
+  const HealthPayload({
+    required this.status,
+    required this.engineRoot,
+  });
+
+  final String status;
+  final String engineRoot;
+
+  factory HealthPayload.fromJson(Map<String, dynamic> json) {
+    return HealthPayload(
+      status: json['status']?.toString() ?? '',
+      engineRoot: json['engineRoot']?.toString() ?? '',
+    );
+  }
+}
+
 class CompanyPayload {
   const CompanyPayload({
     required this.id,

@@ -9,6 +9,18 @@ class OpsApiClient {
 
   static const String _jsonHeader = 'application/json';
 
+  Future<HealthPayload> fetchHealth() async {
+    final response = await http.get(Uri.parse('/api/health'));
+    if (response.statusCode != 200) {
+      throw StateError('Failed to load health (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid health response format.');
+    }
+    return HealthPayload.fromJson(decoded);
+  }
+
   Future<OpsConfigPayload> fetchConfig() async {
     final response = await http.get(Uri.parse('/api/config'));
     if (response.statusCode != 200) {
@@ -79,5 +91,32 @@ class OpsApiClient {
     }
 
     return RunPayload.fromJson(decoded);
+  }
+
+  Future<CompanyPayload> createCompany(Map<String, Object?> request) async {
+    final response = await http.post(
+      Uri.parse('/api/config/companies'),
+      headers: const {'content-type': _jsonHeader},
+      body: jsonEncode(request),
+    );
+
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode != 201) {
+      if (decoded is Map<String, dynamic>) {
+        throw StateError(decoded['message']?.toString() ?? 'Company create failed (${response.statusCode}).');
+      }
+      throw StateError('Company create failed (${response.statusCode}).');
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid company creation response format.');
+    }
+
+    final companyRaw = decoded['company'];
+    if (companyRaw is! Map<String, dynamic>) {
+      throw StateError('Missing company payload in response.');
+    }
+
+    return CompanyPayload.fromJson(companyRaw);
   }
 }

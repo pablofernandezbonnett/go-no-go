@@ -52,6 +52,65 @@ void main() async {
     }
   });
 
+  router.post('/api/config/companies', (request) async {
+    try {
+      final body = await request.readAsString();
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) {
+        return _jsonResponse(
+          {
+            'error': 'invalid_payload',
+            'message': 'Request body must be a JSON object.',
+          },
+          statusCode: HttpStatus.badRequest,
+        );
+      }
+
+      final created = await configRepository.addCompany(
+        CompanyCreateInput(
+          id: decoded['id']?.toString() ?? '',
+          name: decoded['name']?.toString() ?? '',
+          careerUrl: decoded['careerUrl']?.toString() ?? '',
+          corporateUrl: decoded['corporateUrl']?.toString() ?? '',
+          typeHint: decoded['typeHint']?.toString() ?? '',
+          region: decoded['region']?.toString() ?? '',
+          notes: decoded['notes']?.toString() ?? '',
+        ),
+      );
+      return _jsonResponse(
+        {
+          'status': 'created',
+          'company': created.toJson(),
+        },
+        statusCode: HttpStatus.created,
+      );
+    } on FormatException catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'invalid_request',
+          'message': error.message,
+        },
+        statusCode: HttpStatus.badRequest,
+      );
+    } on StateError catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'company_conflict',
+          'message': error.message,
+        },
+        statusCode: HttpStatus.conflict,
+      );
+    } catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'company_create_failed',
+          'message': error.toString(),
+        },
+        statusCode: HttpStatus.internalServerError,
+      );
+    }
+  });
+
   router.get('/api/runs', (request) {
     final runs = runManager.listRuns().map((item) => item.toJson(includeLogs: false)).toList();
     return _jsonResponse({'runs': runs});

@@ -65,6 +65,75 @@ class EngineConfigRepository {
     );
   }
 
+  Future<CompanyOption> addCompany(CompanyCreateInput input) async {
+    final normalized = input.normalized();
+    normalized.validate();
+
+    final companiesPath = p.join(engineRoot.path, _configFolder, _companiesFile);
+    final companiesFile = File(companiesPath);
+    final currentContent = await _readCurrentContent(companiesFile);
+    final existingCompanies = await _loadCompanies(companiesFile);
+    final duplicated = existingCompanies.any((entry) => entry.id == normalized.id);
+    if (duplicated) {
+      throw StateError('Company id "${normalized.id}" already exists.');
+    }
+
+    final entryBlock = _buildCompanyEntry(normalized);
+    final nextContent = _appendEntry(currentContent, entryBlock);
+    await companiesFile.writeAsString(nextContent);
+
+    return CompanyOption(id: normalized.id, name: normalized.name);
+  }
+
+  Future<String> _readCurrentContent(File companiesFile) async {
+    if (!await companiesFile.exists()) {
+      return '';
+    }
+    return companiesFile.readAsString();
+  }
+
+  String _appendEntry(String currentContent, String entryBlock) {
+    if (currentContent.trim().isEmpty) {
+      final buffer = StringBuffer();
+      buffer.writeln('$_companiesKey:');
+      buffer.writeln();
+      buffer.write(entryBlock);
+      return buffer.toString();
+    }
+
+    final buffer = StringBuffer();
+    buffer.write(currentContent);
+    if (!currentContent.endsWith('\n')) {
+      buffer.write('\n');
+    }
+    buffer.write('\n');
+    buffer.write(entryBlock);
+    return buffer.toString();
+  }
+
+  String _buildCompanyEntry(CompanyCreateInput input) {
+    final buffer = StringBuffer();
+    buffer.writeln('  - $_idKey: ${_yamlValue(input.id)}');
+    buffer.writeln('    $_nameKey: ${_yamlValue(input.name)}');
+    buffer.writeln('    career_url: ${_yamlValue(input.careerUrl)}');
+    buffer.writeln('    corporate_url: ${_yamlValue(input.corporateUrl)}');
+    buffer.writeln('    type_hint: ${_yamlValue(input.typeHint)}');
+    buffer.writeln('    region: ${_yamlValue(input.region)}');
+    buffer.writeln('    notes: ${_yamlValue(input.notes)}');
+    buffer.writeln('    profile_tags: []');
+    buffer.writeln('    risk_tags: []');
+    return buffer.toString();
+  }
+
+  String _yamlValue(String value) {
+    const safeScalarPattern = r'^[a-zA-Z0-9_.-]+$';
+    final safe = RegExp(safeScalarPattern);
+    if (safe.hasMatch(value)) {
+      return value;
+    }
+    return '\'${value.replaceAll('\'', '\'\'')}\'';
+  }
+
   Future<List<String>> _loadPersonaIds(File personasFile) async {
     if (!await personasFile.exists()) {
       return const [];
@@ -126,5 +195,56 @@ class EngineConfigRepository {
 
     values.sort((left, right) => left.id.compareTo(right.id));
     return values;
+  }
+}
+
+class CompanyCreateInput {
+  const CompanyCreateInput({
+    required this.id,
+    required this.name,
+    required this.careerUrl,
+    required this.corporateUrl,
+    required this.typeHint,
+    required this.region,
+    required this.notes,
+  });
+
+  static const String _defaultTypeHint = 'product';
+  static const String _defaultRegion = 'japan';
+  static const String _defaultNotes = 'Added from Operations UI.';
+
+  final String id;
+  final String name;
+  final String careerUrl;
+  final String corporateUrl;
+  final String typeHint;
+  final String region;
+  final String notes;
+
+  CompanyCreateInput normalized() {
+    return CompanyCreateInput(
+      id: id.trim(),
+      name: name.trim(),
+      careerUrl: careerUrl.trim(),
+      corporateUrl: corporateUrl.trim(),
+      typeHint: typeHint.trim().isEmpty ? _defaultTypeHint : typeHint.trim(),
+      region: region.trim().isEmpty ? _defaultRegion : region.trim(),
+      notes: notes.trim().isEmpty ? _defaultNotes : notes.trim(),
+    );
+  }
+
+  void validate() {
+    if (id.isEmpty) {
+      throw const FormatException('Field "id" is required.');
+    }
+    if (name.isEmpty) {
+      throw const FormatException('Field "name" is required.');
+    }
+    if (careerUrl.isEmpty) {
+      throw const FormatException('Field "careerUrl" is required.');
+    }
+    if (corporateUrl.isEmpty) {
+      throw const FormatException('Field "corporateUrl" is required.');
+    }
   }
 }

@@ -25,10 +25,8 @@ Tasks:
 
 Deliverable status:
 - first weekly digest pipeline available via CLI
-- no database and no UI (as planned)
-
-No database.
-No UI.
+- database intentionally deferred
+- UI intentionally deferred at this phase (added later in Phase 6)
 
 ---
 
@@ -69,8 +67,11 @@ No UI.
 
 ---
 
-## Phase 6 — Productization (optional)
+## Phase 6 — Productization (in progress)
 
-- API
-- simple web UI
-- expat community beta
+- [x] internal Ops UI scaffold in this repo (`ops-ui`, Jaspr)
+- [x] run execution from UI (`Create Run` + `Runs`/details)
+- [x] config onboarding form (`POST /api/config/companies`)
+- [x] settings screen (runtime UI options)
+- [ ] richer report browsing UX inside the same UI module
+- [ ] auth/access control (currently public/local)
