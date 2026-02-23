@@ -53,6 +53,10 @@ class Header extends StatelessComponent {
       display: .flex,
       flexDirection: .column,
       gap: Gap.all(1.rem),
+      raw: const {
+        'position': 'sticky',
+        'top': '0',
+      },
     ),
     css('.sidebar-brand').styles(
       display: .flex,
@@ -109,14 +113,39 @@ class Header extends StatelessComponent {
       css('.sidebar').styles(
         width: 100.percent,
         minHeight: 0.px,
+        padding: .all(0.85.rem),
+        raw: const {
+          'position': 'static',
+        },
       ),
       css('.sidebar-nav').styles(
         display: .flex,
         flexDirection: .row,
-        flexWrap: .wrap,
+        flexWrap: .nowrap,
+        overflow: Overflow.auto,
+        raw: const {
+          '-webkit-overflow-scrolling': 'touch',
+        },
+      ),
+      css('.sidebar-nav .nav-item').styles(
+        raw: const {
+          'flex': '0 0 auto',
+        },
       ),
       css('.sidebar-note').styles(
         display: .none,
+      ),
+    ]),
+    css.media(const MediaQuery.raw('(max-width: 620px)'), [
+      css('.sidebar').styles(
+        padding: .all(0.7.rem),
+      ),
+      css('.brand-subtitle').styles(
+        display: .none,
+      ),
+      css('.sidebar-nav .nav-item').styles(
+        padding: .symmetric(horizontal: 0.62.rem, vertical: 0.42.rem),
+        fontSize: 0.84.rem,
       ),
     ]),
   ];
