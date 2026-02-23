@@ -1,0 +1,451 @@
+cases:
+  - id: go_moneyforward_strong
+    job:
+      company_name: Money Forward
+      title: Senior Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 10,000,000 - 14,000,000"
+      remote_policy: "Hybrid (2 days onsite, 3 days remote)"
+      description: "English-first international team with product ownership, code review, automated testing, and flexible hours."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+        - product_company
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: go_mercari_remote_first
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 12,000,000"
+      remote_policy: "Remote-first policy"
+      description: "English first team building product roadmap with quality-first engineering and work-life balance."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - remote_friendly
+        - english_environment
+        - product_company
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: go_acme_public_product
+    job:
+      company_name: Acme Corp
+      title: Platform Engineer
+      location: Tokyo
+      salary_range: "JPY 8,500,000 - 11,500,000"
+      remote_policy: "Hybrid"
+      description: "English-first product ownership role with code review in a public company focused on work-life balance."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+        - product_company
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: go_example_inc_global
+    job:
+      company_name: Example Inc
+      title: Staff Engineer
+      location: Japan
+      salary_range: "USD 130,000 - 160,000"
+      remote_policy: "Remote"
+      description: "Global team, English-first collaboration, product roadmap ownership, and automated testing culture."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - remote_friendly
+        - english_environment
+        - engineering_culture
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: go_freee_balanced
+    job:
+      company_name: freee
+      title: Senior Software Engineer
+      location: Tokyo
+      salary_range: "JPY 9,500,000 - 13,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first team with product ownership, code review, and flexible hours."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+        - product_company
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: go_rakuten_enterprise
+    job:
+      company_name: Rakuten
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 8,000,000 - 11,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first environment with product ownership and engineering culture in an established company."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+        - stability
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: caution_language_friction_mercari
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 11,000,000"
+      remote_policy: "Hybrid"
+      description: "English first team, but business Japanese and JLPT N2 are required."
+    expected:
+      verdict: GO_WITH_CAUTION
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+      risk_signals_contains:
+        - language_friction
+      hard_reject_reasons_contains: []
+
+  - id: go_japanese_optional
+    job:
+      company_name: Money Forward
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,500,000 - 12,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first international team. Japanese is a plus but not required."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: caution_japanese_required_ja_text
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 11,000,000"
+      remote_policy: "Hybrid"
+      description: "グローバルチームですが、ビジネスレベルの日本語（日本語必須）です。"
+    expected:
+      verdict: GO_WITH_CAUTION
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+      risk_signals_contains:
+        - language_friction
+      hard_reject_reasons_contains: []
+
+  - id: caution_onsite_bias_hybrid
+    job:
+      company_name: Money Forward
+      title: Platform Engineer
+      location: Tokyo
+      salary_range: "JPY 8,500,000 - 10,500,000"
+      remote_policy: "Hybrid with onsite collaboration 4 days in office"
+      description: "English-first product ownership role."
+    expected:
+      verdict: GO_WITH_CAUTION
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+      risk_signals_contains:
+        - onsite_bias
+      hard_reject_reasons_contains: []
+
+  - id: caution_overtime_risk
+    job:
+      company_name: Money Forward
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 12,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first product role in a fast-paced, high-pressure environment with tight deadlines."
+    expected:
+      verdict: GO_WITH_CAUTION
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+      risk_signals_contains:
+        - overtime_risk
+      hard_reject_reasons_contains: []
+
+  - id: no_go_multi_risk_low_margin
+    job:
+      company_name: Acme Corp
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 8,000,000 - 10,000,000"
+      remote_policy: "Hybrid with frequent onsite office days"
+      description: "English-first product role but business Japanese is required and deadlines are tight."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+      risk_signals_contains:
+        - language_friction
+        - onsite_bias
+        - overtime_risk
+      hard_reject_reasons_contains: []
+
+  - id: no_go_salary_tbd
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "TBD"
+      remote_policy: "Hybrid"
+      description: "English-first product role with code review."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - hybrid_work
+      risk_signals_contains:
+        - salary_low_confidence
+      hard_reject_reasons_contains:
+        - salary information is missing or non-transparent
+
+  - id: no_go_salary_negotiable
+    job:
+      company_name: Money Forward
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "Negotiable"
+      remote_policy: "Remote"
+      description: "English first environment and product ownership."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - remote_friendly
+      risk_signals_contains:
+        - salary_low_confidence
+      hard_reject_reasons_contains:
+        - salary information is missing or non-transparent
+
+  - id: no_go_onsite_only
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 8,000,000 - 10,000,000"
+      remote_policy: "Onsite-only, Tokyo office"
+      description: "English first product team."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains: []
+      hard_reject_reasons_contains:
+        - onsite-only work policy detected
+
+  - id: no_go_consulting_detected
+    job:
+      company_name: Tech Partners
+      title: Java Engineer
+      location: Tokyo
+      salary_range: "JPY 7,000,000 - 9,000,000"
+      remote_policy: "Hybrid"
+      description: "Consulting role with client assignment model and staffing-oriented projects."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains:
+        - consulting_risk
+      hard_reject_reasons_contains:
+        - consulting / dispatch indicators detected
+
+  - id: no_go_blacklisted_company
+    job:
+      company_name: Randstad
+      title: Software Engineer
+      location: Tokyo
+      salary_range: "JPY 7,500,000 - 9,500,000"
+      remote_policy: "Hybrid"
+      description: "Engineering role with international collaboration."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains: []
+      hard_reject_reasons_contains:
+        - consulting / dispatch indicators detected
+
+  - id: no_go_abusive_overtime
+    job:
+      company_name: Money Forward
+      title: Platform Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 11,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first team, but mandatory overtime and weekend work required during releases."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains: []
+      hard_reject_reasons_contains:
+        - abusive overtime indicators detected
+
+  - id: no_go_early_stage_seed
+    job:
+      company_name: StartupX
+      title: Founding Engineer
+      location: Tokyo
+      salary_range: "JPY 8,500,000 - 11,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first pre-seed startup with product ownership and high growth."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains:
+        - startup_risk
+      hard_reject_reasons_contains:
+        - early-stage startup indicators detected
+
+  - id: no_go_score_only_risk_dominant
+    job:
+      company_name: Acme Labs
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 8,000,000 - 9,000,000"
+      remote_policy: "Hybrid with frequent onsite office collaboration"
+      description: "English-first role with business Japanese required in a fast-paced, high-pressure environment."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains:
+        - onsite_bias
+        - language_friction
+        - overtime_risk
+      hard_reject_reasons_contains: []
+
+  - id: no_go_combined_salary_and_onsite
+    job:
+      company_name: Mercari
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: ""
+      remote_policy: "On site only"
+      description: "English-first team."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains: []
+      risk_signals_contains: []
+      hard_reject_reasons_contains:
+        - onsite-only work policy detected
+        - salary information is missing or non-transparent
+
+  - id: no_go_client_assignment_dispatch
+    job:
+      company_name: Engineering Services Co
+      title: Software Engineer
+      location: Tokyo
+      salary_range: "JPY 7,000,000 - 8,500,000"
+      remote_policy: "Hybrid"
+      description: "Dispatch model with client assignment and system engineer service engagements."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+      risk_signals_contains:
+        - consulting_risk
+      hard_reject_reasons_contains:
+        - consulting / dispatch indicators detected
+
+  - id: go_engineering_environment_strong
+    job:
+      company_name: Atlas Labs
+      title: Platform Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 12,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first product team with end-to-end ownership, blameless postmortems, documented runbooks, and sustainable on-call with compensation."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - engineering_environment
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: caution_engineering_environment_risk
+    job:
+      company_name: Atlas Labs
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 8,500,000 - 10,500,000"
+      remote_policy: "Hybrid"
+      description: "English-first role with 24/7 on-call, frequent incidents, legacy monolith, and constant firefighting."
+    expected:
+      verdict: GO_WITH_CAUTION
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - english_environment
+      risk_signals_contains:
+        - engineering_environment_risk
+      hard_reject_reasons_contains: []
+
+  - id: go_reputation_strong_aggregated
+    job:
+      company_name: Money Forward
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 10,000,000 - 12,000,000"
+      remote_policy: "Hybrid"
+      description: "English-first team with profitable growth, high retention, and transparent leadership."
+    expected:
+      verdict: GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+        - company_reputation_positive
+      risk_signals_contains: []
+      hard_reject_reasons_contains: []
+
+  - id: no_go_reputation_risk_aggregated
+    job:
+      company_name: StartupX
+      title: Backend Engineer
+      location: Tokyo
+      salary_range: "JPY 9,000,000 - 10,000,000"
+      remote_policy: "Hybrid"
+      description: "Recent layoff and restructuring with hiring freeze and salary cuts."
+    expected:
+      verdict: NO_GO
+      positive_signals_contains:
+        - salary_transparency
+        - hybrid_work
+      risk_signals_contains:
+        - company_reputation_risk
+        - company_reputation_risk_high
+      hard_reject_reasons_contains: []

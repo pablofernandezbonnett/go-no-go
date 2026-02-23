@@ -1,0 +1,8 @@
+Company: Money Forward
+Title: Senior Backend Engineer
+Location: Tokyo
+Salary: JPY 10,000,000 - 14,000,000
+Work style: Hybrid (2 days onsite, 3 days remote)
+
+English-first international team with product ownership.
+Code review, automated testing, and flexible hours are part of the engineering culture.

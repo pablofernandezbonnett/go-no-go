@@ -1,0 +1,16 @@
+blacklisted_companies:
+
+  - name: Randstad
+    reason: "Recruitment / dispatch company"
+
+  - name: Fidel Consulting KK
+    reason: "Consulting / client assignment model"
+
+  - name: Persol
+    reason: "Dispatch / staffing"
+
+  - name: TechnoPro
+    reason: "SES / engineer dispatch"
+
+  - name: Outsourcing Technology
+    reason: "Engineer placement model"
