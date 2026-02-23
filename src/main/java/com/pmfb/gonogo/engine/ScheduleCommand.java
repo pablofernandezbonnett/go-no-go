@@ -21,9 +21,7 @@ public final class ScheduleCommand implements Callable<Integer> {
     private static final String DEFAULT_GRADLE_COMMAND = "./gradlew";
     private static final String DEFAULT_WORKING_DIR = ".";
     private static final String DEFAULT_RUN_COMMAND =
-            "pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids mercari,moneyforward "
-                    + "--raw-input-dir output/raw --raw-pattern *.txt --jobs-output-dir output/jobs "
-                    + "--batch-output-dir output --weekly-output-file output/weekly.md";
+            "pipeline run --company-ids mercari,moneyforward";
     private static final int EXPECTED_CRON_PARTS = 5;
     private static final String CRON_MACRO_PREFIX = "@";
     private static final String CRON_INSTALL_HINT = "Install manually when ready: crontab ";

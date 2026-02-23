@@ -40,7 +40,7 @@ public final class FetchWebCommand implements Callable<Integer> {
     @Option(
             names = {"--max-jobs-per-company"},
             description = "Maximum extracted job snippets per company.",
-            defaultValue = "10"
+            defaultValue = "5"
     )
     private int maxJobsPerCompany;
 

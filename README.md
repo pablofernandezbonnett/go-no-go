@@ -172,13 +172,13 @@ Run full pipeline in one command:
 ./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md"
 ```
 
-Run pipeline starting from real career pages (fetch + normalize + evaluate + weekly digest):
+Short command for real fetch + full evaluation (recommended):
 
 ```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids mercari,moneyforward --raw-input-dir output/raw --raw-pattern *.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md"
+./gradlew run --args="pipeline run --company-ids mercari,moneyforward"
 ```
 
-Run pipeline with explicit change-state file:
+Run pipeline with explicit change-state file (advanced/custom):
 
 ```bash
 ./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids mercari,moneyforward --raw-input-dir output/raw --raw-pattern *.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --change-state-file output/job-change-state-product_expat_engineer.yaml"
@@ -290,6 +290,11 @@ Pipeline integration:
 
 - `pipeline run --fetch-web-first` executes a fetch stage into `--raw-input-dir` before normalization/evaluation.
 - Recursive raw-file discovery is enabled automatically when `--fetch-web-first` is used.
+- `pipeline run --company-ids ...` is a convenience alias that enables fetch stage automatically.
+- Convenience defaults in `pipeline run`:
+  - `--persona=product_expat_engineer`
+  - `--raw-input-dir=output/raw`
+  - `--fetch-web-max-jobs-per-company=5`
 - Reliability flags are available in both commands:
   `--retries`, `--backoff-millis`, `--request-delay-millis`, `--cache-dir`, `--cache-ttl-minutes`, `--disable-cache`
   and pipeline-prefixed variants like `--fetch-web-retries`.

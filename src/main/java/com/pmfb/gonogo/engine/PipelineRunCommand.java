@@ -55,14 +55,14 @@ public final class PipelineRunCommand implements Callable<Integer> {
     @Option(
             names = {"--persona"},
             description = "Persona id from config/personas.yaml",
-            required = true
+            defaultValue = "product_expat_engineer"
     )
     private String personaId;
 
     @Option(
             names = {"--raw-input-dir"},
             description = "Directory with raw job text files.",
-            required = true
+            defaultValue = "output/raw"
     )
     private Path rawInputDir;
 
@@ -203,16 +203,16 @@ public final class PipelineRunCommand implements Callable<Integer> {
     private boolean fetchWebFirst;
 
     @Option(
-            names = {"--fetch-web-company-ids"},
+            names = {"--fetch-web-company-ids", "--company-ids"},
             split = ",",
-            description = "Optional comma-separated company ids to fetch when --fetch-web-first is enabled."
+            description = "Optional comma-separated company ids to fetch. If provided, fetch-web stage is enabled automatically."
     )
     private List<String> fetchWebCompanyIds;
 
     @Option(
             names = {"--fetch-web-max-jobs-per-company"},
             description = "Maximum extracted job snippets per company for the fetch stage.",
-            defaultValue = "10"
+            defaultValue = "5"
     )
     private int fetchWebMaxJobsPerCompany;
 
@@ -307,18 +307,20 @@ public final class PipelineRunCommand implements Callable<Integer> {
             return 1;
         }
 
-        if (fetchWebFirst) {
+        boolean effectiveFetchWebFirst = fetchWebFirst || hasRequestedCompanyIds();
+        if (effectiveFetchWebFirst) {
             int fetchExit = runFetchWebStage(config);
             if (fetchExit != 0) {
                 return fetchExit;
             }
         }
 
-        List<Path> rawFiles = collectRawInputFiles(recursive || fetchWebFirst);
+        List<Path> rawFiles = collectRawInputFiles(recursive || effectiveFetchWebFirst);
         if (rawFiles.isEmpty()) {
             System.err.println(
                     "No raw files found in '" + rawInputDir + "' with pattern '" + rawPattern + "'."
             );
+            System.err.println("Hint: provide --company-ids to run fetch + evaluate in one command.");
             return 1;
         }
 
@@ -597,6 +599,18 @@ public final class PipelineRunCommand implements Callable<Integer> {
         System.out.println("raw_input_dir: " + rawInputDir);
 
         return outcome.allSelectedCompaniesFailed() ? 1 : 0;
+    }
+
+    private boolean hasRequestedCompanyIds() {
+        if (fetchWebCompanyIds == null || fetchWebCompanyIds.isEmpty()) {
+            return false;
+        }
+        for (String companyId : fetchWebCompanyIds) {
+            if (companyId != null && !companyId.isBlank()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isChangedStatus(String status) {
