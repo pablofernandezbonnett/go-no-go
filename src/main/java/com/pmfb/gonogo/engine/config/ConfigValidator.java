@@ -63,6 +63,9 @@ public final class ConfigValidator {
             if (!isValidHttpUrl(company.careerUrl())) {
                 errors.add(context + ".career_url must be a valid http/https URL");
             }
+            if (!isValidHttpUrl(company.corporateUrl())) {
+                errors.add(context + ".corporate_url must be a valid http/https URL");
+            }
 
             checkDuplicates(company.profileTags(), context + ".profile_tags", errors);
             checkDuplicates(company.riskTags(), context + ".risk_tags", errors);

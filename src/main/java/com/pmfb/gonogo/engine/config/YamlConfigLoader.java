@@ -55,12 +55,23 @@ public final class YamlConfigLoader {
             String id = readRequiredString(item, "id", context, errors);
             String name = readRequiredString(item, "name", context, errors);
             String careerUrl = readRequiredString(item, "career_url", context, errors);
+            String corporateUrl = readOptionalString(item, "corporate_url", context, errors);
             String typeHint = readRequiredString(item, "type_hint", context, errors);
             String region = readRequiredString(item, "region", context, errors);
             String notes = readOptionalString(item, "notes", context, errors);
             List<String> profileTags = readOptionalStringList(item, "profile_tags", context, errors);
             List<String> riskTags = readOptionalStringList(item, "risk_tags", context, errors);
-            companies.add(new CompanyConfig(id, name, careerUrl, typeHint, region, notes, profileTags, riskTags));
+            companies.add(new CompanyConfig(
+                    id,
+                    name,
+                    careerUrl,
+                    corporateUrl,
+                    typeHint,
+                    region,
+                    notes,
+                    profileTags,
+                    riskTags
+            ));
         }
         return companies;
     }

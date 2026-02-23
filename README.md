@@ -282,6 +282,11 @@ If a field cannot be extracted, the command uses explicit fallback values and pr
 
 `gonogo fetch-web` reads `config/companies.yaml`, downloads selected career pages, and extracts job-like snippets into raw text files suitable for pipeline input.
 
+Company URL fields:
+
+- `career_url`: source used by `fetch-web` for job extraction.
+- `corporate_url`: company homepage/context source reserved for intelligence/reputation enrichment.
+
 Default output shape:
 
 - `output/raw/<company-id>/<index>-<slug>.txt`

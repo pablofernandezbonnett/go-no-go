@@ -103,6 +103,7 @@ Generates:
 - id
 - name
 - career_url
+- corporate_url
 - type_hint
 - region
 - notes

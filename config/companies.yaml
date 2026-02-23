@@ -3,6 +3,7 @@ companies:
   - id: mercari
     name: Mercari
     career_url: https://careers.mercari.com/
+    corporate_url: https://about.mercari.com/en/
     type_hint: product
     region: japan
     notes: "Marketplace product company, English-friendly teams."
@@ -16,6 +17,7 @@ companies:
   - id: paypay
     name: PayPay
     career_url: https://about.paypay.ne.jp/career/
+    corporate_url: https://about.paypay.ne.jp/
     type_hint: fintech_product
     region: japan
     notes: "Fintech scale-up, hybrid possible in some roles."
@@ -27,6 +29,7 @@ companies:
   - id: rakuten
     name: Rakuten
     career_url: https://corp.rakuten.co.jp/careers/
+    corporate_url: https://corp.rakuten.co.jp/
     type_hint: product_enterprise
     region: japan
     notes: "Large enterprise, mixed language environment."
@@ -39,6 +42,7 @@ companies:
   - id: moneyforward
     name: Money Forward
     career_url: https://corp.moneyforward.com/recruit/
+    corporate_url: https://corp.moneyforward.com/en/
     type_hint: fintech_product
     region: japan
     notes: "Strong engineering culture, product-focused."
@@ -52,6 +56,7 @@ companies:
   - id: smartnews
     name: SmartNews
     career_url: https://about.smartnews.com/careers/
+    corporate_url: https://about.smartnews.com/
     type_hint: product_scaleup
     region: japan
     notes: "Media tech, international exposure."
@@ -63,6 +68,7 @@ companies:
   - id: line_yahoo
     name: LINE Yahoo Japan
     career_url: https://www.lycorp.co.jp/en/recruit/
+    corporate_url: https://www.lycorp.co.jp/en/
     type_hint: product_enterprise
     region: japan
     notes: "Large product ecosystem, possible language friction."
@@ -75,6 +81,7 @@ companies:
   - id: woven
     name: Woven by Toyota
     career_url: https://woven.toyota/en/careers/
+    corporate_url: https://woven.toyota/en/
     type_hint: product_enterprise
     region: japan
     notes: "Mobility product engineering, English environment in some teams."
@@ -86,6 +93,7 @@ companies:
   - id: fast_retailing
     name: Fast Retailing
     career_url: https://www.fastretailing.com/employment/en/
+    corporate_url: https://www.fastretailing.com/eng/
     type_hint: retail_product
     region: japan
     notes: "Retail tech transformation focus."
@@ -98,6 +106,7 @@ companies:
   - id: freee
     name: freee
     career_url: https://jobs.freee.co.jp/
+    corporate_url: https://corp.freee.co.jp/
     type_hint: saas_product
     region: japan
     notes: "SaaS accounting product, hybrid possible."
@@ -110,6 +119,7 @@ companies:
   - id: sansan
     name: Sansan
     career_url: https://jp.corp-sansan.com/recruit/
+    corporate_url: https://jp.corp-sansan.com/en/
     type_hint: saas_product
     region: japan
     notes: "B2B SaaS, product ownership focus."
