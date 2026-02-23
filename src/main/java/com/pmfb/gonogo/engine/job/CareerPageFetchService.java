@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -18,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class CareerPageFetchService {
+    private static final int JOB_BOARD_DISCOVERY_MAX_URLS = 3;
     private static final int DEFAULT_RETRIES = 2;
     private static final long DEFAULT_BACKOFF_MILLIS = 300;
     private static final long DEFAULT_CACHE_TTL_MINUTES = 720;
@@ -83,8 +85,19 @@ public final class CareerPageFetchService {
                         Math.max(1, options.maxJobsPerCompany())
                 );
                 if (jobs.isEmpty()) {
-                    info.add("No job candidates detected for " + company.id() + ".");
-                    continue;
+                    jobs = extractFromDiscoveredJobBoardLinks(
+                            company,
+                            response,
+                            options,
+                            cache,
+                            lastRequestByHost,
+                            info,
+                            errors
+                    );
+                    if (jobs.isEmpty()) {
+                        info.add("No job candidates detected for " + company.id() + ".");
+                        continue;
+                    }
                 }
 
                 int written = writeCompanyRawFiles(options.outputDir(), company, jobs);
@@ -122,24 +135,46 @@ public final class CareerPageFetchService {
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
+        return chooseResponseForUrl(
+                company.id(),
+                company.careerUrl(),
+                options,
+                cachedResponse,
+                cache,
+                lastRequestByHost,
+                info,
+                errors
+        );
+    }
+
+    private CareerPageHttpFetcher.FetchResult chooseResponseForUrl(
+            String companyId,
+            String url,
+            FetchOptions options,
+            Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse,
+            CareerPageResponseCache cache,
+            Map<String, Long> lastRequestByHost,
+            List<String> info,
+            List<String> errors
+    ) throws InterruptedException {
         if (cachedResponse.isPresent() && isFresh(cachedResponse.get(), options.cacheTtlMinutes())) {
-            info.add("Using fresh cache for " + company.id() + ".");
+            info.add("Using fresh cache for " + companyId + ".");
             return cachedResponse.get().response();
         }
 
-        FetchAttemptOutcome attempt = fetchWithRetry(company.careerUrl(), options, lastRequestByHost);
+        FetchAttemptOutcome attempt = fetchWithRetry(url, options, lastRequestByHost);
         if (attempt.response() != null && attempt.response().statusCode() < 400) {
             if (attempt.retriesUsed() > 0) {
-                info.add("Recovered " + company.id() + " after " + attempt.retriesUsed() + " retry attempt(s).");
+                info.add("Recovered " + companyId + " after " + attempt.retriesUsed() + " retry attempt(s).");
             }
-            writeCacheSafely(cache, company.careerUrl(), attempt.response(), info);
+            writeCacheSafely(cache, url, attempt.response(), info);
             return attempt.response();
         }
 
         if (cachedResponse.isPresent()) {
-            info.add("Using stale cache for " + company.id() + " after fetch failure.");
+            info.add("Using stale cache for " + companyId + " after fetch failure.");
             if (attempt.errorMessage() != null && !attempt.errorMessage().isBlank()) {
-                errors.add("Fetch warning for " + company.id() + ": " + attempt.errorMessage());
+                errors.add("Fetch warning for " + companyId + ": " + attempt.errorMessage());
             }
             return cachedResponse.get().response();
         }
@@ -151,8 +186,78 @@ public final class CareerPageFetchService {
         String failureMessage = attempt.errorMessage() == null
                 ? "Unknown fetch failure."
                 : attempt.errorMessage();
-        errors.add("I/O failure for " + company.id() + ": " + failureMessage);
+        errors.add("I/O failure for " + companyId + ": " + failureMessage);
         return null;
+    }
+
+    private List<JobPostingCandidate> extractFromDiscoveredJobBoardLinks(
+            CompanyConfig company,
+            CareerPageHttpFetcher.FetchResult careerPageResponse,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            Map<String, Long> lastRequestByHost,
+            List<String> info,
+            List<String> errors
+    ) throws InterruptedException {
+        int maxItems = Math.max(1, options.maxJobsPerCompany());
+        List<String> discoveredUrls = extractor.discoverJobBoardUrls(
+                careerPageResponse.body(),
+                careerPageResponse.finalUrl(),
+                JOB_BOARD_DISCOVERY_MAX_URLS
+        );
+        if (discoveredUrls.isEmpty()) {
+            return List.of();
+        }
+
+        LinkedHashMap<String, JobPostingCandidate> collected = new LinkedHashMap<>();
+        for (String discoveredUrl : discoveredUrls) {
+            if (collected.size() >= maxItems) {
+                break;
+            }
+            CareerPageHttpFetcher.FetchResult page = chooseResponseForUrl(
+                    company.id(),
+                    discoveredUrl,
+                    options,
+                    readFromCache(cache, discoveredUrl),
+                    cache,
+                    lastRequestByHost,
+                    info,
+                    errors
+            );
+            if (page == null || page.statusCode() >= 400) {
+                continue;
+            }
+
+            List<JobPostingCandidate> extracted = extractor.extract(
+                    page.body(),
+                    page.finalUrl(),
+                    maxItems - collected.size()
+            );
+            for (JobPostingCandidate candidate : extracted) {
+                if (collected.size() >= maxItems) {
+                    break;
+                }
+                String key = normalizeKey(candidate);
+                collected.putIfAbsent(key, candidate);
+            }
+        }
+
+        if (!collected.isEmpty()) {
+            info.add(
+                    "Discovered additional career links for "
+                            + company.id()
+                            + " and extracted "
+                            + collected.size()
+                            + " job candidate(s)."
+            );
+        }
+        return List.copyOf(collected.values());
+    }
+
+    private String normalizeKey(JobPostingCandidate candidate) {
+        String title = candidate.title() == null ? "" : candidate.title().trim().toLowerCase(Locale.ROOT);
+        String url = candidate.url() == null ? "" : candidate.url().trim().toLowerCase(Locale.ROOT);
+        return title + "||" + url;
     }
 
     private FetchAttemptOutcome fetchWithRetry(

@@ -5,6 +5,8 @@ import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.job.JobInput;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +34,8 @@ public final class DecisionEngineV1 {
     private static final int LANGUAGE_INDEX_HIGH = 95;
     private static final int LANGUAGE_INDEX_COMPANY_RISK_FLOOR = 70;
     private static final int LANGUAGE_INDEX_ENGLISH_FRIENDLY_BONUS = 10;
+    private static final int LANGUAGE_INDEX_CORPORATE_ENGLISH_BONUS = 5;
+    private static final int LANGUAGE_INDEX_CORPORATE_JAPANESE_PENALTY = 3;
     private static final int LANGUAGE_INDEX_OPTIONAL_MAX = 15;
     private static final int REPUTATION_INDEX_NEUTRAL_BASE = 50;
     private static final int REPUTATION_INDEX_TAG_STRONG_BONUS = 20;
@@ -356,13 +360,15 @@ public final class DecisionEngineV1 {
         LinkedHashSet<String> riskSignals = new LinkedHashSet<>();
         List<String> hardRejectReasons = new ArrayList<>();
 
-        String combinedText = normalize(job.companyName() + " " + job.title() + " " + job.description());
+        String jobText = normalize(job.companyName() + " " + job.title() + " " + job.description());
+        Optional<CompanyConfig> trackedCompany = findTrackedCompany(job.companyName(), config.companies());
+        String companyContextText = buildCompanyContextText(trackedCompany);
+        String combinedText = normalize(jobText + " " + companyContextText);
         String remotePolicy = normalize(job.remotePolicy());
         String salaryRange = normalize(job.salaryRange());
         Set<String> personaHardNo = normalizeSet(persona.hardNo());
         Set<String> personaPriorities = normalizeSet(persona.priorities());
 
-        Optional<CompanyConfig> trackedCompany = findTrackedCompany(job.companyName(), config.companies());
         int languageFrictionIndex = computeLanguageFrictionIndex(combinedText, trackedCompany);
         int companyReputationIndex = computeCompanyReputationIndex(combinedText, trackedCompany);
 
@@ -428,7 +434,7 @@ public final class DecisionEngineV1 {
         if (remotePolicy.contains("remote")) {
             positiveSignals.add(SIGNAL_REMOTE_FRIENDLY);
         }
-        if (hasEnglishFriendlySignal(combinedText)) {
+        if (hasEnglishFriendlySignal(combinedText, trackedCompany)) {
             positiveSignals.add(SIGNAL_ENGLISH_ENVIRONMENT);
         }
         if (isProductCompanySignal(combinedText, trackedCompany)) {
@@ -653,8 +659,11 @@ public final class DecisionEngineV1 {
         return normalizedName.contains("corp") || normalizedName.contains("inc");
     }
 
-    private boolean hasEnglishFriendlySignal(String combinedText) {
-        return combinedText.contains("english") || containsAny(combinedText, ENGLISH_FRIENDLY_KEYWORDS);
+    private boolean hasEnglishFriendlySignal(String combinedText, Optional<CompanyConfig> trackedCompany) {
+        if (combinedText.contains("english") || containsAny(combinedText, ENGLISH_FRIENDLY_KEYWORDS)) {
+            return true;
+        }
+        return trackedCompany.map(company -> hasCorporateEnglishHint(company.corporateUrl())).orElse(false);
     }
 
     private boolean hasLanguageFrictionSignal(String combinedText) {
@@ -705,9 +714,17 @@ public final class DecisionEngineV1 {
             index = Math.max(index, LANGUAGE_INDEX_COMPANY_RISK_FLOOR);
         }
 
-        boolean englishFriendly = hasEnglishFriendlySignal(combinedText);
+        boolean englishFriendly = hasEnglishFriendlySignal(combinedText, trackedCompany);
         if (!hasStrongRequiredLanguage && englishFriendly) {
             index -= LANGUAGE_INDEX_ENGLISH_FRIENDLY_BONUS;
+        }
+        if (!hasStrongRequiredLanguage && trackedCompany.isPresent()) {
+            String corporateUrl = trackedCompany.get().corporateUrl();
+            if (hasCorporateEnglishHint(corporateUrl)) {
+                index -= LANGUAGE_INDEX_CORPORATE_ENGLISH_BONUS;
+            } else if (hasCorporateJapaneseHint(corporateUrl)) {
+                index += LANGUAGE_INDEX_CORPORATE_JAPANESE_PENALTY;
+            }
         }
         if (hasOptionalLanguage && !hasStrongRequiredLanguage) {
             index = Math.min(index, LANGUAGE_INDEX_OPTIONAL_MAX);
@@ -925,6 +942,62 @@ public final class DecisionEngineV1 {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String buildCompanyContextText(Optional<CompanyConfig> trackedCompany) {
+        if (trackedCompany.isEmpty()) {
+            return "";
+        }
+        CompanyConfig company = trackedCompany.get();
+        StringBuilder sb = new StringBuilder();
+        sb.append(company.notes()).append(" ");
+        sb.append(company.typeHint()).append(" ");
+        for (String tag : company.profileTags()) {
+            sb.append(tag).append(" ");
+        }
+        for (String tag : company.riskTags()) {
+            sb.append(tag).append(" ");
+        }
+        sb.append(buildCorporateUrlContext(company.corporateUrl()));
+        return sb.toString();
+    }
+
+    private String buildCorporateUrlContext(String corporateUrl) {
+        if (corporateUrl == null || corporateUrl.isBlank()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(corporateUrl).append(" ");
+        if (hasCorporateEnglishHint(corporateUrl)) {
+            sb.append("english site international team ");
+        }
+        if (hasCorporateJapaneseHint(corporateUrl)) {
+            sb.append("japanese language site ");
+        }
+        try {
+            URI uri = new URI(corporateUrl);
+            if (uri.getHost() != null && uri.getHost().toLowerCase(Locale.ROOT).endsWith(".co.jp")) {
+                sb.append("japan company context ");
+            }
+        } catch (URISyntaxException ignored) {
+        }
+        return sb.toString();
+    }
+
+    private boolean hasCorporateEnglishHint(String corporateUrl) {
+        String normalized = normalize(corporateUrl);
+        return normalized.contains("/en/")
+                || normalized.endsWith("/en")
+                || normalized.contains("locale=en")
+                || normalized.contains("/global");
+    }
+
+    private boolean hasCorporateJapaneseHint(String corporateUrl) {
+        String normalized = normalize(corporateUrl);
+        return normalized.contains("/jp/")
+                || normalized.endsWith("/jp")
+                || normalized.contains("locale=jp")
+                || normalized.contains(".co.jp");
     }
 
     private record ScoreRange(int min, int max) {

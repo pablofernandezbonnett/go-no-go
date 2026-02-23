@@ -1,0 +1,4 @@
+# Private-by-default deployment policy for Go/No-Go report UI.
+# Keep reports out of public search indexes unless you explicitly decide otherwise.
+User-agent: *
+Disallow: /

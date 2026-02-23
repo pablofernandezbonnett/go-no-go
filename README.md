@@ -296,6 +296,8 @@ Pipeline integration:
 - `pipeline run --fetch-web-first` executes a fetch stage into `--raw-input-dir` before normalization/evaluation.
 - Recursive raw-file discovery is enabled automatically when `--fetch-web-first` is used.
 - `pipeline run --company-ids ...` is a convenience alias that enables fetch stage automatically.
+- If no job candidates are found on the first page, fetch-web discovers likely job-board links and retries extraction.
+- Extractor includes anti-noise filters to avoid corporate/non-vacancy pages (for example sustainability/news/workplace sections).
 - Convenience defaults in `pipeline run`:
   - `--persona=product_expat_engineer`
   - `--raw-input-dir=output/raw`
@@ -341,6 +343,17 @@ Supported `risk_tags`:
 - `layoff_risk`
 
 These tags feed deterministic decision signals (for example `english_environment`, `engineering_culture`, `company_reputation_positive`, `company_reputation_risk`) and appear in explainable output.
+
+`DecisionEngineV1` now also consumes company context from config (`notes`, `profile_tags`, `risk_tags`, and `corporate_url` hints) as additional deterministic input for language/reputation interpretation.
+
+## robots.txt (UI deployment)
+
+The repository includes a conservative `robots.txt` at the project root:
+
+- `User-agent: *`
+- `Disallow: /`
+
+This is a privacy-safe default for report UIs so search engines do not index generated job evaluations.
 
 ## Engineering Environment Signals (v1)
 
