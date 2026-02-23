@@ -63,9 +63,10 @@ void main() async {
       return render(
         Document(
           title: 'go_no_go_reports_ui',
+          viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
           styles: [
             // Special import rule to include to another css file.
-            css.import('https://fonts.googleapis.com/css?family=Roboto'),
+            css.import('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap'),
             // Each style rule takes a valid css selector and a set of styles.
             // Styles are defined using type-safe css bindings and can be freely chained and nested.
             css('html, body').styles(
@@ -73,11 +74,10 @@ void main() async {
               minHeight: 100.vh,
               padding: .zero,
               margin: .zero,
-              fontFamily: const .list([FontFamily('Roboto'), FontFamilies.sansSerif]),
+              fontFamily: const .list([FontFamily('Space Grotesk'), FontFamilies.sansSerif]),
             ),
-            css('h1').styles(
-              margin: .unset,
-              fontSize: 4.rem,
+            css('*').styles(
+              boxSizing: .borderBox,
             ),
           ],
           body: App(),
