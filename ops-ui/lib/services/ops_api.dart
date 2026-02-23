@@ -119,4 +119,30 @@ class OpsApiClient {
 
     return CompanyPayload.fromJson(companyRaw);
   }
+
+  Future<String> createPersona(Map<String, Object?> request) async {
+    final response = await http.post(
+      Uri.parse('/api/config/personas'),
+      headers: const {'content-type': _jsonHeader},
+      body: jsonEncode(request),
+    );
+
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode != 201) {
+      if (decoded is Map<String, dynamic>) {
+        throw StateError(decoded['message']?.toString() ?? 'Persona create failed (${response.statusCode}).');
+      }
+      throw StateError('Persona create failed (${response.statusCode}).');
+    }
+
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid persona creation response format.');
+    }
+
+    final personaId = decoded['personaId']?.toString() ?? '';
+    if (personaId.isEmpty) {
+      throw StateError('Missing persona id in response.');
+    }
+    return personaId;
+  }
 }

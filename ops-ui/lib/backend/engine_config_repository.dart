@@ -49,6 +49,10 @@ class EngineConfigRepository {
   static const String _companiesKey = 'companies';
   static const String _idKey = 'id';
   static const String _nameKey = 'name';
+  static const String _descriptionKey = 'description';
+  static const String _prioritiesKey = 'priorities';
+  static const String _hardNoKey = 'hard_no';
+  static const String _acceptableIfKey = 'acceptable_if';
 
   final Directory engineRoot;
 
@@ -79,10 +83,30 @@ class EngineConfigRepository {
     }
 
     final entryBlock = _buildCompanyEntry(normalized);
-    final nextContent = _appendEntry(currentContent, entryBlock);
+    final nextContent = _appendEntryUnderRoot(currentContent, entryBlock, _companiesKey);
     await companiesFile.writeAsString(nextContent);
 
     return CompanyOption(id: normalized.id, name: normalized.name);
+  }
+
+  Future<String> addPersona(PersonaCreateInput input) async {
+    final normalized = input.normalized();
+    normalized.validate();
+
+    final personasPath = p.join(engineRoot.path, _configFolder, _personasFile);
+    final personasFile = File(personasPath);
+    final currentContent = await _readCurrentContent(personasFile);
+    final existingPersonas = await _loadPersonaIds(personasFile);
+    final duplicated = existingPersonas.any((entry) => entry == normalized.id);
+    if (duplicated) {
+      throw StateError('Persona id "${normalized.id}" already exists.');
+    }
+
+    final entryBlock = _buildPersonaEntry(normalized);
+    final nextContent = _appendEntryUnderRoot(currentContent, entryBlock, _personasKey);
+    await personasFile.writeAsString(nextContent);
+
+    return normalized.id;
   }
 
   Future<String> _readCurrentContent(File companiesFile) async {
@@ -92,10 +116,10 @@ class EngineConfigRepository {
     return companiesFile.readAsString();
   }
 
-  String _appendEntry(String currentContent, String entryBlock) {
+  String _appendEntryUnderRoot(String currentContent, String entryBlock, String rootKey) {
     if (currentContent.trim().isEmpty) {
       final buffer = StringBuffer();
-      buffer.writeln('$_companiesKey:');
+      buffer.writeln('$rootKey:');
       buffer.writeln();
       buffer.write(entryBlock);
       return buffer.toString();
@@ -122,6 +146,27 @@ class EngineConfigRepository {
     buffer.writeln('    notes: ${_yamlValue(input.notes)}');
     buffer.writeln('    profile_tags: []');
     buffer.writeln('    risk_tags: []');
+    return buffer.toString();
+  }
+
+  String _buildPersonaEntry(PersonaCreateInput input) {
+    final buffer = StringBuffer();
+    buffer.writeln('  - $_idKey: ${_yamlValue(input.id)}');
+    buffer.writeln('    $_descriptionKey: ${_yamlValue(input.description)}');
+    buffer.writeln('    $_prioritiesKey:');
+    for (final item in input.priorities) {
+      buffer.writeln('      - ${_yamlValue(item)}');
+    }
+    buffer.writeln();
+    buffer.writeln('    $_hardNoKey:');
+    for (final item in input.hardNo) {
+      buffer.writeln('      - ${_yamlValue(item)}');
+    }
+    buffer.writeln();
+    buffer.writeln('    $_acceptableIfKey:');
+    for (final item in input.acceptableIf) {
+      buffer.writeln('      - ${_yamlValue(item)}');
+    }
     return buffer.toString();
   }
 
@@ -246,5 +291,61 @@ class CompanyCreateInput {
     if (corporateUrl.isEmpty) {
       throw const FormatException('Field "corporateUrl" is required.');
     }
+  }
+}
+
+class PersonaCreateInput {
+  const PersonaCreateInput({
+    required this.id,
+    required this.description,
+    required this.priorities,
+    required this.hardNo,
+    required this.acceptableIf,
+  });
+
+  static const String _defaultDescription = 'Added from Operations UI.';
+  static const List<String> _defaultPriorities = [
+    'english_environment',
+    'product_company',
+    'hybrid_work',
+  ];
+  static const List<String> _defaultHardNo = [
+    'consulting_company',
+    'onsite_only',
+    'salary_missing',
+  ];
+  static const List<String> _defaultAcceptableIf = [
+    'hybrid_partial',
+    'japanese_not_blocking',
+  ];
+
+  final String id;
+  final String description;
+  final List<String> priorities;
+  final List<String> hardNo;
+  final List<String> acceptableIf;
+
+  PersonaCreateInput normalized() {
+    return PersonaCreateInput(
+      id: id.trim(),
+      description: description.trim().isEmpty ? _defaultDescription : description.trim(),
+      priorities: _normalizeList(priorities, _defaultPriorities),
+      hardNo: _normalizeList(hardNo, _defaultHardNo),
+      acceptableIf: _normalizeList(acceptableIf, _defaultAcceptableIf),
+    );
+  }
+
+  void validate() {
+    if (id.isEmpty) {
+      throw const FormatException('Field "id" is required.');
+    }
+  }
+
+  static List<String> _normalizeList(List<String> values, List<String> fallback) {
+    final normalized = values.map((item) => item.trim()).where((item) => item.isNotEmpty).toSet().toList();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+    return List<String>.from(fallback);
   }
 }

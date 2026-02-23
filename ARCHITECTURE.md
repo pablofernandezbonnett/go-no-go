@@ -78,6 +78,7 @@ Backend endpoints:
 - `GET /api/health`
 - `GET /api/config`
 - `POST /api/config/companies`
+- `POST /api/config/personas`
 - `GET /api/runs`
 - `GET /api/runs/:runId`
 - `POST /api/runs`
@@ -85,7 +86,8 @@ Backend endpoints:
 Screens:
 - `Create Run`
 - `Runs` (list + details)
-- `Config` (company onboarding form)
+- `Company` (company onboarding form)
+- `Persona` (persona onboarding form)
 - `Settings` (UI runtime options)
 
 Default port:

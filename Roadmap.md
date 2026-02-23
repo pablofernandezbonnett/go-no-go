@@ -71,7 +71,8 @@ Deliverable status:
 
 - [x] internal Ops UI scaffold in this repo (`ops-ui`, Jaspr)
 - [x] run execution from UI (`Create Run` + `Runs`/details)
-- [x] config onboarding form (`POST /api/config/companies`)
+- [x] company onboarding form (`POST /api/config/companies`)
+- [x] persona onboarding form (`POST /api/config/personas`)
 - [x] settings screen (runtime UI options)
 - [ ] richer report browsing UX inside the same UI module
 - [ ] auth/access control (currently public/local)

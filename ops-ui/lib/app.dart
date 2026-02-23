@@ -9,7 +9,8 @@ import 'services/ops_api.dart';
 enum OpsScreen {
   createRun,
   runs,
-  config,
+  company,
+  persona,
   settings,
 }
 
@@ -45,6 +46,7 @@ class AppState extends State<App> {
   bool _isLoading = true;
   bool _isSubmittingRun = false;
   bool _isSubmittingCompany = false;
+  bool _isSubmittingPersona = false;
 
   String? _errorMessage;
   String? _successMessage;
@@ -67,6 +69,12 @@ class AppState extends State<App> {
   String _newTypeHint = 'product';
   String _newRegion = 'japan';
   String _newNotes = '';
+
+  String _newPersonaId = '';
+  String _newPersonaDescription = '';
+  String _newPersonaPriorities = 'english_environment,product_company,hybrid_work';
+  String _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
+  String _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
 
   bool _autoRefreshRuns = true;
   int _pollIntervalSeconds = 3;
@@ -306,6 +314,54 @@ class AppState extends State<App> {
     }
   }
 
+  Future<void> _createPersona() async {
+    if (_isSubmittingPersona) {
+      return;
+    }
+
+    setState(() {
+      _isSubmittingPersona = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final createdId = await _api.createPersona({
+        'id': _newPersonaId,
+        'description': _newPersonaDescription,
+        'priorities': _csvToList(_newPersonaPriorities),
+        'hardNo': _csvToList(_newPersonaHardNo),
+        'acceptableIf': _csvToList(_newPersonaAcceptableIf),
+      });
+
+      await _refreshConfig();
+      setState(() {
+        _newPersonaId = '';
+        _newPersonaDescription = '';
+        _newPersonaPriorities = 'english_environment,product_company,hybrid_work';
+        _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
+        _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
+        _successMessage = 'Persona added: $createdId';
+      });
+    } catch (error) {
+      setState(() {
+        _errorMessage = error.toString();
+      });
+    } finally {
+      setState(() {
+        _isSubmittingPersona = false;
+      });
+    }
+  }
+
+  List<String> _csvToList(String raw) {
+    return raw
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
   RunPayload? _findRun(String? runId) {
     if (runId == null) {
       return null;
@@ -358,11 +414,13 @@ class AppState extends State<App> {
         nav(classes: 'menu', [
           _menuButton(OpsScreen.createRun, 'Create Run'),
           _menuButton(OpsScreen.runs, 'Runs'),
-          _menuButton(OpsScreen.config, 'Config'),
+          _menuButton(OpsScreen.company, 'Company'),
+          _menuButton(OpsScreen.persona, 'Persona'),
           _menuButton(OpsScreen.settings, 'Settings'),
         ]),
         div(classes: 'sidebar-meta', [
           p([.text('Companies: ${config.companies.length}')]),
+          p([.text('Personas: ${config.personaIds.length}')]),
           p([.text('Runs: ${_runs.length}')]),
         ]),
       ]),
@@ -389,8 +447,10 @@ class AppState extends State<App> {
         return _buildCreateRunScreen(config);
       case OpsScreen.runs:
         return _buildRunsScreen();
-      case OpsScreen.config:
-        return _buildConfigScreen(config);
+      case OpsScreen.company:
+        return _buildCompanyScreen(config);
+      case OpsScreen.persona:
+        return _buildPersonaScreen(config);
       case OpsScreen.settings:
         return _buildSettingsScreen(config);
     }
@@ -575,10 +635,10 @@ class AppState extends State<App> {
     ]);
   }
 
-  Component _buildConfigScreen(OpsConfigPayload config) {
+  Component _buildCompanyScreen(OpsConfigPayload config) {
     return div(classes: 'screen-stack', [
       section(classes: 'panel', [
-        h2([.text('Config')]),
+        h2([.text('Company')]),
         p([.text('Add a new company to config/companies.yaml.')]),
         div(classes: 'form-grid', [
           _textField(
@@ -640,6 +700,65 @@ class AppState extends State<App> {
             div(classes: 'company-item', [
               span(classes: 'company-name', [.text(company.name)]),
               code([.text(company.id)]),
+            ]),
+        ]),
+      ]),
+    ]);
+  }
+
+  Component _buildPersonaScreen(OpsConfigPayload config) {
+    return div(classes: 'screen-stack', [
+      section(classes: 'panel', [
+        h2([.text('Persona')]),
+        p([.text('Add a new persona to config/personas.yaml.')]),
+        div(classes: 'form-grid', [
+          _textField(
+            labelText: 'Persona id',
+            value: _newPersonaId,
+            placeholder: 'my_persona_id',
+            onChanged: (value) => setState(() => _newPersonaId = value),
+          ),
+          _textField(
+            labelText: 'Description',
+            value: _newPersonaDescription,
+            placeholder: 'Short persona description',
+            onChanged: (value) => setState(() => _newPersonaDescription = value),
+          ),
+          _textField(
+            labelText: 'Priorities (comma-separated)',
+            value: _newPersonaPriorities,
+            placeholder: 'english_environment,product_company,hybrid_work',
+            onChanged: (value) => setState(() => _newPersonaPriorities = value),
+          ),
+          _textField(
+            labelText: 'Hard no (comma-separated)',
+            value: _newPersonaHardNo,
+            placeholder: 'consulting_company,onsite_only,salary_missing',
+            onChanged: (value) => setState(() => _newPersonaHardNo = value),
+          ),
+          _textField(
+            labelText: 'Acceptable if (comma-separated)',
+            value: _newPersonaAcceptableIf,
+            placeholder: 'hybrid_partial,japanese_not_blocking',
+            onChanged: (value) => setState(() => _newPersonaAcceptableIf = value),
+          ),
+        ]),
+        div(classes: 'actions', [
+          button(
+            classes: 'primary',
+            onClick: _isSubmittingPersona ? null : _createPersona,
+            [if (_isSubmittingPersona) .text('Saving...') else .text('Add persona')],
+          ),
+          button(onClick: _refreshConfig, [.text('Reload config')]),
+        ]),
+      ]),
+      section(classes: 'panel', [
+        h3([.text('Registered personas (${config.personaIds.length})')]),
+        div(classes: 'company-list', [
+          for (final personaId in config.personaIds)
+            div(classes: 'company-item', [
+              span(classes: 'company-name', [.text(personaId)]),
+              code([.text(personaId)]),
             ]),
         ]),
       ]),
@@ -972,7 +1091,7 @@ class AppState extends State<App> {
           ),
           css('.menu').styles(
             raw: const {
-              'grid-template-columns': 'repeat(4, minmax(120px, 1fr))',
+              'grid-template-columns': 'repeat(5, minmax(110px, 1fr))',
             },
           ),
         ]),

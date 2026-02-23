@@ -111,6 +111,71 @@ void main() async {
     }
   });
 
+  router.post('/api/config/personas', (request) async {
+    try {
+      final body = await request.readAsString();
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) {
+        return _jsonResponse(
+          {
+            'error': 'invalid_payload',
+            'message': 'Request body must be a JSON object.',
+          },
+          statusCode: HttpStatus.badRequest,
+        );
+      }
+
+      List<String> parseList(String key) {
+        final raw = decoded[key];
+        if (raw is! List) {
+          return const [];
+        }
+        return raw.map((item) => item.toString()).toList();
+      }
+
+      final createdId = await configRepository.addPersona(
+        PersonaCreateInput(
+          id: decoded['id']?.toString() ?? '',
+          description: decoded['description']?.toString() ?? '',
+          priorities: parseList('priorities'),
+          hardNo: parseList('hardNo'),
+          acceptableIf: parseList('acceptableIf'),
+        ),
+      );
+      return _jsonResponse(
+        {
+          'status': 'created',
+          'personaId': createdId,
+        },
+        statusCode: HttpStatus.created,
+      );
+    } on FormatException catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'invalid_request',
+          'message': error.message,
+        },
+        statusCode: HttpStatus.badRequest,
+      );
+    } on StateError catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'persona_conflict',
+          'message': error.message,
+        },
+        statusCode: HttpStatus.conflict,
+      );
+    } catch (error) {
+      return _jsonResponse(
+        {
+          'error': 'persona_create_failed',
+          'message': error.toString(),
+        },
+        statusCode: HttpStatus.internalServerError,
+      );
+    }
+  });
+
   router.get('/api/runs', (request) {
     final runs = runManager.listRuns().map((item) => item.toJson(includeLogs: false)).toList();
     return _jsonResponse({'runs': runs});
