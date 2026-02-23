@@ -1,5 +1,6 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_router/jaspr_router.dart';
 
 import '../models/reports_index_payload.dart';
 
@@ -13,6 +14,21 @@ String buildRouteWithQuery(String path, Map<String, String?> queryValues) {
     filtered[entry.key] = value;
   }
   return Uri(path: path, queryParameters: filtered.isEmpty ? null : filtered).toString();
+}
+
+Map<String, String> currentQueryParams(BuildContext context) {
+  final routeState = RouteState.maybeOf(context);
+  final routeQueryParams = routeState?.queryParams ?? const <String, String>{};
+  if (!kIsWeb) {
+    return routeQueryParams;
+  }
+
+  final urlQueryParams = Uri.base.queryParameters;
+  if (urlQueryParams.isNotEmpty) {
+    return urlQueryParams;
+  }
+
+  return routeQueryParams;
 }
 
 ReportRunPayload? selectRun(List<ReportRunPayload> runs, String? requestedRunId) {
@@ -39,13 +55,13 @@ Component runTabs({
 }) {
   return div(classes: 'run-tabs', [
     for (final run in runs)
-      a(
-        href: buildRouteWithQuery(destinationPath, {
+      Link(
+        to: buildRouteWithQuery(destinationPath, {
           'run': run.runId,
           if (extraQueryKey != null) extraQueryKey: extraQueryValue,
         }),
         classes: run.runId == selectedRunId ? 'run-tab active' : 'run-tab',
-        [.text(run.runId)],
+        child: .text(run.runId),
       ),
   ]);
 }

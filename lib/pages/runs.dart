@@ -1,5 +1,6 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import 'package:jaspr_router/jaspr_router.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
@@ -136,10 +137,22 @@ class _RunsPageState extends State<RunsPage> {
                   td([.text('${run.trendHistoryReports.length + run.trendAlertsReports.length}')]),
                   td([
                     div(classes: 'actions', [
-                      a(href: buildRouteWithQuery('/batch', {'run': run.runId}), [.text('Batch')]),
-                      a(href: buildRouteWithQuery('/weekly', {'run': run.runId}), [.text('Weekly')]),
-                      a(href: buildRouteWithQuery('/context', {'run': run.runId}), [.text('Context')]),
-                      a(href: buildRouteWithQuery('/trends', {'run': run.runId}), [.text('Trends')]),
+                      Link(
+                        to: buildRouteWithQuery('/batch', {'run': run.runId}),
+                        child: .text('Batch'),
+                      ),
+                      Link(
+                        to: buildRouteWithQuery('/weekly', {'run': run.runId}),
+                        child: .text('Weekly'),
+                      ),
+                      Link(
+                        to: buildRouteWithQuery('/context', {'run': run.runId}),
+                        child: .text('Context'),
+                      ),
+                      Link(
+                        to: buildRouteWithQuery('/trends', {'run': run.runId}),
+                        child: .text('Trends'),
+                      ),
                     ]),
                   ]),
                 ]),
