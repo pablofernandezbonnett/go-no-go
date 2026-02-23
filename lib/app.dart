@@ -51,6 +51,7 @@ class App extends StatelessComponent {
     css('body').styles(
       backgroundColor: const Color('#eef2f7'),
       color: const Color('#101828'),
+      lineHeight: 1.45.em,
     ),
     css('.main', [
       css('&').styles(
@@ -67,21 +68,17 @@ class App extends StatelessComponent {
       display: .flex,
       flexDirection: .column,
       flex: Flex(grow: 1),
-      padding: .all(1.rem),
+      padding: .all(1.25.rem),
       boxSizing: .borderBox,
     ),
     css('section.page').styles(
       width: 100.percent,
-      maxWidth: 1160.px,
       padding: .all(1.4.rem),
       boxSizing: .borderBox,
-      raw: const {
-        'margin': '0 auto',
-      },
     ),
     css('section.page h1').styles(
       margin: Spacing.only(bottom: 0.65.rem),
-      fontSize: 2.8.rem,
+      fontSize: 2.35.rem,
       color: const Color('#0f1728'),
     ),
     css('section.page h2').styles(
@@ -94,6 +91,14 @@ class App extends StatelessComponent {
     ),
     css('section.page p').styles(
       lineHeight: 1.45.em,
+    ),
+    css('section.page code').styles(
+      backgroundColor: const Color('#eff3fa'),
+      padding: .symmetric(horizontal: 0.22.rem, vertical: 0.1.rem),
+      radius: .all(.circular(4.px)),
+      raw: const {
+        'overflow-wrap': 'anywhere',
+      },
     ),
     css('section.page table').styles(
       width: 100.percent,
@@ -136,7 +141,7 @@ class App extends StatelessComponent {
       backgroundColor: Colors.white,
       border: Border.all(width: 1.px, color: const Color('#d9dfeb')),
       radius: .all(.circular(12.px)),
-      padding: .all(1.rem),
+      padding: .all(1.05.rem),
       margin: Spacing.only(bottom: 0.9.rem),
       shadow: BoxShadow(
         color: Color('#0f172814'),
@@ -226,18 +231,74 @@ class App extends StatelessComponent {
       cursor: Cursor.pointer,
       fontWeight: .w600,
     ),
+    css('section.page button:hover').styles(
+      backgroundColor: const Color('#01477d'),
+    ),
     css.media(const MediaQuery.raw('(max-width: 920px)'), [
       css('.layout').styles(
         flexDirection: .column,
       ),
       css('.content-shell').styles(
-        padding: .all(0.45.rem),
+        padding: .all(0.65.rem),
       ),
       css('section.page').styles(
-        padding: .all(0.85.rem),
+        padding: .all(0.75.rem),
       ),
       css('section.page h1').styles(
-        fontSize: 2.1.rem,
+        fontSize: 2.rem,
+      ),
+      css('.card').styles(
+        padding: .all(0.8.rem),
+      ),
+      css('.controls label').styles(
+        width: 100.percent,
+      ),
+      css('.controls select').styles(
+        width: 100.percent,
+      ),
+      css('section.page table').styles(
+        display: .block,
+        overflow: Overflow.auto,
+        raw: const {
+          'white-space': 'nowrap',
+        },
+      ),
+    ]),
+    css.media(const MediaQuery.raw('(max-width: 620px)'), [
+      css('.content-shell').styles(
+        padding: .all(0.4.rem),
+      ),
+      css('section.page').styles(
+        padding: .all(0.45.rem),
+      ),
+      css('section.page h1').styles(
+        fontSize: 1.75.rem,
+      ),
+      css('section.page h2').styles(
+        fontSize: 1.25.rem,
+      ),
+      css('section.page h3').styles(
+        fontSize: 1.02.rem,
+      ),
+      css('.card').styles(
+        padding: .all(0.72.rem),
+      ),
+      css('.run-tabs, .digest-tabs, .context-tabs').styles(
+        flexWrap: .nowrap,
+        overflow: Overflow.auto,
+        raw: const {
+          '-webkit-overflow-scrolling': 'touch',
+        },
+      ),
+      css('.run-tab, .digest-tab, .context-tab').styles(
+        raw: const {
+          'flex': '0 0 auto',
+        },
+      ),
+      css('.summary-grid').styles(
+        raw: const {
+          'grid-template-columns': '1fr',
+        },
       ),
     ]),
   ];
