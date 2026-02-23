@@ -312,7 +312,8 @@ Pipeline integration:
 - Robots policy for remote sites is configurable via `--robots-mode` / `--fetch-web-robots-mode`:
   `strict` (default), `warn`, `off`.
 - On fetch failure, stale cache is used as fallback when available.
-- Company context files are generated in `output/company-context` (or `--context-output-dir` / `--company-context-dir`).
+- Company context files are generated in `output/company-context` as deduplicated YAML (`<company-id>.yaml`)
+  (or `--context-output-dir` / `--company-context-dir`).
 - Job change detection is enabled by default in `pipeline run` and persists state in:
   `output/job-change-state-<persona>.yaml` (or `--change-state-file`).
 - Disable change detection with `--disable-change-detection`.

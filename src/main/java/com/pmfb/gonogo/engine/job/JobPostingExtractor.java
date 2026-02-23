@@ -272,19 +272,36 @@ public final class JobPostingExtractor {
     }
 
     public String extractContextSummary(String html, String baseUrl) {
-        Document doc = sanitizedDocument(html, baseUrl);
+        ContextSummary summary = extractContextSummaryData(html, baseUrl);
         List<String> parts = new java.util.ArrayList<>();
+        if (!summary.pageTitle().isBlank()) {
+            parts.add("page_title: " + summary.pageTitle());
+        }
+        if (!summary.pageDescription().isBlank()) {
+            parts.add("page_description: " + summary.pageDescription());
+        }
+        for (String context : summary.contexts()) {
+            parts.add("context: " + context);
+        }
+        return String.join("\n", parts);
+    }
+
+    public ContextSummary extractContextSummaryData(String html, String baseUrl) {
+        Document doc = sanitizedDocument(html, baseUrl);
+        String pageTitle = "";
+        String pageDescription = "";
+        LinkedHashMap<String, String> contexts = new LinkedHashMap<>();
 
         String title = normalizeWhitespace(doc.title());
         if (!title.isBlank()) {
-            parts.add("page_title: " + shorten(title, CONTEXT_SUMMARY_MAX_LENGTH));
+            pageTitle = shorten(title, CONTEXT_SUMMARY_MAX_LENGTH);
         }
 
         Element metaDescription = doc.selectFirst("meta[name=description],meta[property=og:description]");
         if (metaDescription != null) {
             String description = normalizeWhitespace(metaDescription.attr("content"));
             if (!description.isBlank()) {
-                parts.add("page_description: " + shorten(description, CONTEXT_SUMMARY_MAX_LENGTH));
+                pageDescription = shorten(description, CONTEXT_SUMMARY_MAX_LENGTH);
             }
         }
 
@@ -302,11 +319,13 @@ public final class JobPostingExtractor {
             if (!containsAny(lowered, CONTEXT_SUMMARY_KEYWORDS)) {
                 continue;
             }
-            parts.add("context: " + shorten(text, CONTEXT_SUMMARY_MAX_LENGTH));
+            String value = shorten(text, CONTEXT_SUMMARY_MAX_LENGTH);
+            String key = normalizeWhitespace(value).toLowerCase(Locale.ROOT);
+            contexts.putIfAbsent(key, value);
             added++;
         }
 
-        return String.join("\n", parts);
+        return new ContextSummary(pageTitle, pageDescription, List.copyOf(contexts.values()));
     }
 
     private Document sanitizedDocument(String html, String baseUrl) {
@@ -543,5 +562,17 @@ public final class JobPostingExtractor {
             String title,
             String url
     ) {
+    }
+
+    public record ContextSummary(
+            String pageTitle,
+            String pageDescription,
+            List<String> contexts
+    ) {
+        public ContextSummary {
+            pageTitle = pageTitle == null ? "" : pageTitle;
+            pageDescription = pageDescription == null ? "" : pageDescription;
+            contexts = contexts == null ? List.of() : List.copyOf(contexts);
+        }
     }
 }
