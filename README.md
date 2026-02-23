@@ -160,6 +160,16 @@ Batch evaluate a directory of job YAML files:
 ./gradlew run --args="evaluate-batch --persona product_expat_engineer --input-dir examples --pattern job-input*.yaml --output-dir output"
 ```
 
+Operations UI (MVP, in this repo):
+
+```bash
+cd ops-ui
+dart pub get
+jaspr serve
+```
+
+Default URL: `http://localhost:8791`
+
 Generate weekly digest from batch JSON:
 
 ```bash
