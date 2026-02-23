@@ -20,12 +20,18 @@ import java.util.Set;
 
 public final class CareerPageFetchService {
     private static final int JOB_BOARD_DISCOVERY_MAX_URLS = 3;
+    private static final int CONTEXT_DISCOVERY_MAX_URLS = 6;
+    private static final int CONTEXT_SUMMARY_MAX_PAGES = 3;
+    private static final Path DEFAULT_CONTEXT_OUTPUT_DIR = Path.of("output/company-context");
     private static final int DEFAULT_RETRIES = 2;
     private static final long DEFAULT_BACKOFF_MILLIS = 300;
     private static final long DEFAULT_CACHE_TTL_MINUTES = 720;
     private static final long DEFAULT_REQUEST_DELAY_MILLIS = 1200;
     private static final Path DEFAULT_CACHE_DIR = Path.of(".cache/fetch-web");
     private static final long MAX_BACKOFF_MILLIS = 10_000;
+    private static final String ROBOTS_MODE_STRICT = "strict";
+    private static final String ROBOTS_MODE_WARN = "warn";
+    private static final String ROBOTS_MODE_OFF = "off";
 
     private final CareerPageFetcher fetcher;
     private final JobPostingExtractor extractor;
@@ -42,14 +48,16 @@ public final class CareerPageFetchService {
     public FetchOutcome fetchToRawFiles(List<CompanyConfig> companies, FetchOptions options) {
         List<CompanyConfig> selectedCompanies = selectCompanies(companies, options.companyIds());
         if (selectedCompanies.isEmpty()) {
-            return new FetchOutcome(0, 0, 0, List.of(), List.of());
+            return new FetchOutcome(0, 0, 0, 0, List.of(), List.of());
         }
 
         int totalFiles = 0;
+        int contextFiles = 0;
         int companyFailures = 0;
         List<String> info = new ArrayList<>();
         List<String> errors = new ArrayList<>();
         Map<String, Long> lastRequestByHost = new HashMap<>();
+        Map<String, Optional<RobotsTxtRules>> robotsRulesByHost = new HashMap<>();
         CareerPageResponseCache cache = options.cacheEnabled()
                 ? new CareerPageResponseCache(options.cacheDir())
                 : null;
@@ -63,6 +71,7 @@ public final class CareerPageFetchService {
                         cachedResponse,
                         cache,
                         lastRequestByHost,
+                        robotsRulesByHost,
                         info,
                         errors
                 );
@@ -79,6 +88,23 @@ public final class CareerPageFetchService {
                     continue;
                 }
 
+                if (options.contextEnabled()) {
+                    String contextText = buildCompanyContextText(
+                            company,
+                            response,
+                            options,
+                            cache,
+                            lastRequestByHost,
+                            robotsRulesByHost,
+                            info,
+                            errors
+                    );
+                    if (!contextText.isBlank()) {
+                        writeCompanyContextFile(options.contextOutputDir(), company, contextText);
+                        contextFiles++;
+                    }
+                }
+
                 List<JobPostingCandidate> jobs = extractor.extract(
                         response.body(),
                         response.finalUrl(),
@@ -91,6 +117,7 @@ public final class CareerPageFetchService {
                             options,
                             cache,
                             lastRequestByHost,
+                            robotsRulesByHost,
                             info,
                             errors
                     );
@@ -121,6 +148,7 @@ public final class CareerPageFetchService {
                 selectedCompanies.size(),
                 companyFailures,
                 totalFiles,
+                contextFiles,
                 List.copyOf(info),
                 List.copyOf(errors)
         );
@@ -132,6 +160,7 @@ public final class CareerPageFetchService {
             Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse,
             CareerPageResponseCache cache,
             Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -142,6 +171,7 @@ public final class CareerPageFetchService {
                 cachedResponse,
                 cache,
                 lastRequestByHost,
+                robotsRulesByHost,
                 info,
                 errors
         );
@@ -154,9 +184,13 @@ public final class CareerPageFetchService {
             Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse,
             CareerPageResponseCache cache,
             Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
+        if (!isAllowedByRobots(url, options, lastRequestByHost, robotsRulesByHost, info, errors, companyId)) {
+            return null;
+        }
         if (cachedResponse.isPresent() && isFresh(cachedResponse.get(), options.cacheTtlMinutes())) {
             info.add("Using fresh cache for " + companyId + ".");
             return cachedResponse.get().response();
@@ -196,6 +230,7 @@ public final class CareerPageFetchService {
             FetchOptions options,
             CareerPageResponseCache cache,
             Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -221,6 +256,7 @@ public final class CareerPageFetchService {
                     readFromCache(cache, discoveredUrl),
                     cache,
                     lastRequestByHost,
+                    robotsRulesByHost,
                     info,
                     errors
             );
@@ -258,6 +294,255 @@ public final class CareerPageFetchService {
         String title = candidate.title() == null ? "" : candidate.title().trim().toLowerCase(Locale.ROOT);
         String url = candidate.url() == null ? "" : candidate.url().trim().toLowerCase(Locale.ROOT);
         return title + "||" + url;
+    }
+
+    private String buildCompanyContextText(
+            CompanyConfig company,
+            CareerPageHttpFetcher.FetchResult careerResponse,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            List<String> info,
+            List<String> errors
+    ) throws InterruptedException {
+        LinkedHashSet<String> lines = new LinkedHashSet<>();
+        lines.add("company_id: " + company.id());
+        lines.add("company_name: " + company.name());
+        lines.add("career_url: " + company.careerUrl());
+        lines.add("corporate_url: " + company.corporateUrl());
+
+        String careerSummary = extractor.extractContextSummary(careerResponse.body(), careerResponse.finalUrl());
+        if (!careerSummary.isBlank()) {
+            lines.add(careerSummary);
+        }
+        List<JobPostingExtractor.ContextLink> contextLinks = extractor.discoverCompanyContextLinks(
+                careerResponse.body(),
+                careerResponse.finalUrl(),
+                CONTEXT_DISCOVERY_MAX_URLS
+        );
+        for (JobPostingExtractor.ContextLink link : contextLinks) {
+            lines.add("context_link: " + link.title() + " -> " + link.url());
+        }
+
+        CareerPageHttpFetcher.FetchResult corporateResponse = fetchCorporateContextPage(
+                company,
+                options,
+                cache,
+                lastRequestByHost,
+                robotsRulesByHost,
+                info,
+                errors
+        );
+        if (corporateResponse != null) {
+            String corporateSummary = extractor.extractContextSummary(corporateResponse.body(), corporateResponse.finalUrl());
+            if (!corporateSummary.isBlank()) {
+                lines.add(corporateSummary);
+            }
+            List<JobPostingExtractor.ContextLink> corporateLinks = extractor.discoverCompanyContextLinks(
+                    corporateResponse.body(),
+                    corporateResponse.finalUrl(),
+                    CONTEXT_DISCOVERY_MAX_URLS
+            );
+            int linkedPages = 0;
+            for (JobPostingExtractor.ContextLink link : corporateLinks) {
+                lines.add("context_link: " + link.title() + " -> " + link.url());
+                if (!isInternalCompanyUrl(company, link.url())) {
+                    continue;
+                }
+                if (linkedPages >= CONTEXT_SUMMARY_MAX_PAGES) {
+                    continue;
+                }
+                CareerPageHttpFetcher.FetchResult linkedContextPage = chooseResponseForUrl(
+                        company.id(),
+                        link.url(),
+                        options,
+                        readFromCache(cache, link.url()),
+                        cache,
+                        lastRequestByHost,
+                        robotsRulesByHost,
+                        info,
+                        errors
+                );
+                if (linkedContextPage == null || linkedContextPage.statusCode() >= 400) {
+                    continue;
+                }
+                String linkedSummary = extractor.extractContextSummary(
+                        linkedContextPage.body(),
+                        linkedContextPage.finalUrl()
+                );
+                if (!linkedSummary.isBlank()) {
+                    lines.add(linkedSummary);
+                    linkedPages++;
+                }
+            }
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            if (line == null || line.isBlank()) {
+                continue;
+            }
+            sb.append(line).append("\n");
+        }
+        return sb.toString().trim();
+    }
+
+    private boolean isInternalCompanyUrl(CompanyConfig company, String targetUrl) {
+        String targetHost = hostKey(targetUrl);
+        String careerHost = hostKey(company.careerUrl());
+        String corporateHost = hostKey(company.corporateUrl());
+        return isSameDomainOrSubdomain(targetHost, careerHost)
+                || isSameDomainOrSubdomain(targetHost, corporateHost);
+    }
+
+    private boolean isSameDomainOrSubdomain(String candidateHost, String baseHost) {
+        if (candidateHost == null || candidateHost.isBlank() || baseHost == null || baseHost.isBlank()) {
+            return false;
+        }
+        String normalizedCandidate = candidateHost.toLowerCase(Locale.ROOT);
+        String normalizedBase = baseHost.toLowerCase(Locale.ROOT);
+        return normalizedCandidate.equals(normalizedBase)
+                || normalizedCandidate.endsWith("." + normalizedBase);
+    }
+
+    private CareerPageHttpFetcher.FetchResult fetchCorporateContextPage(
+            CompanyConfig company,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            List<String> info,
+            List<String> errors
+    ) throws InterruptedException {
+        if (company.corporateUrl() == null || company.corporateUrl().isBlank()) {
+            return null;
+        }
+        if (normalize(company.careerUrl()).equals(normalize(company.corporateUrl()))) {
+            return null;
+        }
+        CareerPageHttpFetcher.FetchResult corporateResponse = chooseResponseForUrl(
+                company.id(),
+                company.corporateUrl(),
+                options,
+                readFromCache(cache, company.corporateUrl()),
+                cache,
+                lastRequestByHost,
+                robotsRulesByHost,
+                info,
+                errors
+        );
+        if (corporateResponse != null && corporateResponse.statusCode() < 400) {
+            return corporateResponse;
+        }
+        return null;
+    }
+
+    private void writeCompanyContextFile(Path contextOutputDir, CompanyConfig company, String contextText) throws IOException {
+        if (contextOutputDir == null || contextText == null || contextText.isBlank()) {
+            return;
+        }
+        Files.createDirectories(contextOutputDir);
+        Path contextFile = contextOutputDir.resolve(sanitizeSlug(company.id()) + ".txt");
+        Files.writeString(contextFile, contextText + "\n", StandardCharsets.UTF_8);
+    }
+
+    private boolean isAllowedByRobots(
+            String url,
+            FetchOptions options,
+            Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            List<String> info,
+            List<String> errors,
+            String companyId
+    ) throws InterruptedException {
+        String mode = normalizeRobotsMode(options.robotsMode());
+        if (ROBOTS_MODE_OFF.equals(mode)) {
+            return true;
+        }
+
+        Optional<RobotsTxtRules> rulesOptional = loadRobotsRules(
+                url,
+                options,
+                lastRequestByHost,
+                robotsRulesByHost,
+                info
+        );
+        if (rulesOptional.isEmpty()) {
+            return true;
+        }
+        boolean allowed = rulesOptional.get().isAllowed(url, options.userAgent());
+        if (allowed) {
+            return true;
+        }
+        if (ROBOTS_MODE_WARN.equals(mode)) {
+            info.add("robots_warning: " + companyId + " URL may be disallowed by robots.txt, continuing due to warn mode: " + url);
+            return true;
+        }
+
+        errors.add("Blocked by robots.txt for " + companyId + ": " + url);
+        return false;
+    }
+
+    private Optional<RobotsTxtRules> loadRobotsRules(
+            String targetUrl,
+            FetchOptions options,
+            Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            List<String> info
+    ) throws InterruptedException {
+        String host = hostKey(targetUrl);
+        Optional<RobotsTxtRules> cached = robotsRulesByHost.get(host);
+        if (cached != null) {
+            return cached;
+        }
+
+        String robotsUrl = buildRobotsUrl(targetUrl);
+        if (robotsUrl.isBlank()) {
+            Optional<RobotsTxtRules> empty = Optional.empty();
+            robotsRulesByHost.put(host, empty);
+            return empty;
+        }
+
+        try {
+            applyRequestDelay(robotsUrl, options.requestDelayMillis(), lastRequestByHost);
+            CareerPageHttpFetcher.FetchResult robotsResponse = fetcher.fetch(
+                    robotsUrl,
+                    Duration.ofSeconds(Math.max(5, options.timeoutSeconds())),
+                    options.userAgent()
+            );
+            if (robotsResponse.statusCode() >= 400) {
+                Optional<RobotsTxtRules> empty = Optional.empty();
+                robotsRulesByHost.put(host, empty);
+                return empty;
+            }
+            Optional<RobotsTxtRules> parsed = Optional.of(RobotsTxtRules.parse(robotsResponse.body()));
+            robotsRulesByHost.put(host, parsed);
+            return parsed;
+        } catch (IOException e) {
+            info.add("robots_warning: failed to read robots.txt for " + host + ": " + e.getMessage());
+            Optional<RobotsTxtRules> empty = Optional.empty();
+            robotsRulesByHost.put(host, empty);
+            return empty;
+        }
+    }
+
+    private String buildRobotsUrl(String targetUrl) {
+        try {
+            URI uri = URI.create(targetUrl);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null || host.isBlank()) {
+                return "";
+            }
+            int port = uri.getPort();
+            if (port > 0) {
+                return scheme + "://" + host + ":" + port + "/robots.txt";
+            }
+            return scheme + "://" + host + "/robots.txt";
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
     }
 
     private FetchAttemptOutcome fetchWithRetry(
@@ -434,6 +719,18 @@ public final class CareerPageFetchService {
         return slug.isBlank() ? "unknown" : slug;
     }
 
+    private static String normalizeRobotsMode(String robotsMode) {
+        String normalized = robotsMode == null ? ROBOTS_MODE_STRICT : robotsMode.trim().toLowerCase(Locale.ROOT);
+        if (ROBOTS_MODE_WARN.equals(normalized) || ROBOTS_MODE_OFF.equals(normalized)) {
+            return normalized;
+        }
+        return ROBOTS_MODE_STRICT;
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
     public record FetchOptions(
             Path outputDir,
             List<String> companyIds,
@@ -443,6 +740,9 @@ public final class CareerPageFetchService {
             int retries,
             long backoffMillis,
             long requestDelayMillis,
+            Path contextOutputDir,
+            boolean contextEnabled,
+            String robotsMode,
             Path cacheDir,
             long cacheTtlMinutes,
             boolean cacheEnabled
@@ -457,6 +757,9 @@ public final class CareerPageFetchService {
                     DEFAULT_RETRIES,
                     DEFAULT_BACKOFF_MILLIS,
                     DEFAULT_REQUEST_DELAY_MILLIS,
+                    DEFAULT_CONTEXT_OUTPUT_DIR,
+                    true,
+                    ROBOTS_MODE_STRICT,
                     DEFAULT_CACHE_DIR,
                     DEFAULT_CACHE_TTL_MINUTES,
                     true
@@ -474,6 +777,8 @@ public final class CareerPageFetchService {
             retries = Math.max(0, retries);
             backoffMillis = Math.max(0, backoffMillis);
             requestDelayMillis = Math.max(0, requestDelayMillis);
+            contextOutputDir = contextOutputDir == null ? DEFAULT_CONTEXT_OUTPUT_DIR : contextOutputDir;
+            robotsMode = normalizeRobotsMode(robotsMode);
             cacheDir = cacheDir == null ? DEFAULT_CACHE_DIR : cacheDir;
             cacheTtlMinutes = Math.max(1, cacheTtlMinutes);
         }
@@ -483,6 +788,7 @@ public final class CareerPageFetchService {
             int selectedCompanies,
             int companiesFailed,
             int rawFilesGenerated,
+            int contextFilesGenerated,
             List<String> informationalMessages,
             List<String> errorMessages
     ) {

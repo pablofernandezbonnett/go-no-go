@@ -133,6 +133,63 @@ public final class JobPostingExtractor {
             "tel:",
             "javascript:"
     );
+    private static final Set<String> CONTEXT_LINK_TEXT_HINTS = Set.of(
+            "workplace",
+            "benefits",
+            "culture",
+            "values",
+            "mission",
+            "vision",
+            "engineering culture",
+            "working style",
+            "work style",
+            "people",
+            "team",
+            "environment",
+            "diversity",
+            "inclusion",
+            "well-being",
+            "福利厚生",
+            "働き方",
+            "文化",
+            "カルチャー",
+            "採用情報"
+    );
+    private static final Set<String> CONTEXT_URL_HINTS = Set.of(
+            "/workplace",
+            "/benefits",
+            "/culture",
+            "/values",
+            "/mission",
+            "/vision",
+            "/people",
+            "/team",
+            "/environment",
+            "/diversity",
+            "/inclusion",
+            "/well-being",
+            "/wellbeing",
+            "/about",
+            "/who-we-are",
+            "/philosophy"
+    );
+    private static final Set<String> CONTEXT_SUMMARY_KEYWORDS = Set.of(
+            "culture",
+            "workplace",
+            "benefits",
+            "values",
+            "mission",
+            "vision",
+            "engineering",
+            "team",
+            "diversity",
+            "inclusion",
+            "働き方",
+            "福利厚生",
+            "カルチャー"
+    );
+    private static final int CONTEXT_SUMMARY_MAX_ITEMS = 5;
+    private static final int CONTEXT_SUMMARY_MAX_LENGTH = 220;
 
     public List<JobPostingCandidate> extract(String html, String baseUrl, int maxItems) {
         Document doc = sanitizedDocument(html, baseUrl);
@@ -163,6 +220,9 @@ public final class JobPostingExtractor {
             if (url.isBlank()) {
                 continue;
             }
+            if (text.isBlank()) {
+                continue;
+            }
             if (normalizeWhitespace(url).equalsIgnoreCase(normalizedBaseUrl)) {
                 continue;
             }
@@ -176,6 +236,77 @@ public final class JobPostingExtractor {
         }
 
         return List.copyOf(urls);
+    }
+
+    public List<ContextLink> discoverCompanyContextLinks(String html, String baseUrl, int maxItems) {
+        if (maxItems < 1) {
+            return List.of();
+        }
+        Document doc = sanitizedDocument(html, baseUrl);
+        LinkedHashMap<String, ContextLink> links = new LinkedHashMap<>();
+        String normalizedBaseUrl = normalizeWhitespace(baseUrl);
+
+        Elements anchors = doc.select("a[href]");
+        for (Element anchor : anchors) {
+            if (links.size() >= maxItems) {
+                break;
+            }
+            String text = normalizeWhitespace(anchor.text());
+            String url = resolveUrl(anchor);
+            if (url.isBlank()) {
+                continue;
+            }
+            if (normalizeWhitespace(url).equalsIgnoreCase(normalizedBaseUrl)) {
+                continue;
+            }
+            if (!looksLikeContextLink(text, url)) {
+                continue;
+            }
+            if (looksLikeJobBoardLink(text, url)) {
+                continue;
+            }
+            String key = normalizeWhitespace(text + "||" + url).toLowerCase(Locale.ROOT);
+            links.putIfAbsent(key, new ContextLink(text, url));
+        }
+        return List.copyOf(links.values());
+    }
+
+    public String extractContextSummary(String html, String baseUrl) {
+        Document doc = sanitizedDocument(html, baseUrl);
+        List<String> parts = new java.util.ArrayList<>();
+
+        String title = normalizeWhitespace(doc.title());
+        if (!title.isBlank()) {
+            parts.add("page_title: " + shorten(title, CONTEXT_SUMMARY_MAX_LENGTH));
+        }
+
+        Element metaDescription = doc.selectFirst("meta[name=description],meta[property=og:description]");
+        if (metaDescription != null) {
+            String description = normalizeWhitespace(metaDescription.attr("content"));
+            if (!description.isBlank()) {
+                parts.add("page_description: " + shorten(description, CONTEXT_SUMMARY_MAX_LENGTH));
+            }
+        }
+
+        Elements candidates = doc.select("h1,h2,h3,p,li");
+        int added = 0;
+        for (Element candidate : candidates) {
+            if (added >= CONTEXT_SUMMARY_MAX_ITEMS) {
+                break;
+            }
+            String text = normalizeWhitespace(candidate.text());
+            if (text.length() < MIN_TITLE_LENGTH) {
+                continue;
+            }
+            String lowered = text.toLowerCase(Locale.ROOT);
+            if (!containsAny(lowered, CONTEXT_SUMMARY_KEYWORDS)) {
+                continue;
+            }
+            parts.add("context: " + shorten(text, CONTEXT_SUMMARY_MAX_LENGTH));
+            added++;
+        }
+
+        return String.join("\n", parts);
     }
 
     private Document sanitizedDocument(String html, String baseUrl) {
@@ -322,6 +453,15 @@ public final class JobPostingExtractor {
         return hasJobUrlHint(url);
     }
 
+    private boolean looksLikeContextLink(String text, String url) {
+        String loweredText = normalizeWhitespace(text).toLowerCase(Locale.ROOT);
+        if (containsAny(loweredText, CONTEXT_LINK_TEXT_HINTS)) {
+            return true;
+        }
+        String loweredUrl = normalizeWhitespace(url).toLowerCase(Locale.ROOT);
+        return containsAny(loweredUrl, CONTEXT_URL_HINTS);
+    }
+
     private boolean hasJobUrlHint(String url) {
         String lowered = normalizeWhitespace(url).toLowerCase(Locale.ROOT);
         for (String hint : JOB_URL_HINTS) {
@@ -397,5 +537,11 @@ public final class JobPostingExtractor {
             return "";
         }
         return input.replaceAll("\\s+", " ").trim();
+    }
+
+    public record ContextLink(
+            String title,
+            String url
+    ) {
     }
 }

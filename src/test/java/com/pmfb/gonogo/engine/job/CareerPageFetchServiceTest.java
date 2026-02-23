@@ -43,6 +43,9 @@ final class CareerPageFetchServiceTest {
                 2,
                 0,
                 0,
+                tempDir.resolve("context"),
+                true,
+                "off",
                 tempDir.resolve("cache"),
                 720,
                 true
@@ -89,6 +92,9 @@ final class CareerPageFetchServiceTest {
                 2,
                 0,
                 0,
+                tempDir.resolve("context"),
+                true,
+                "off",
                 cacheDir,
                 720,
                 true
@@ -146,6 +152,9 @@ final class CareerPageFetchServiceTest {
                 1,
                 0,
                 0,
+                tempDir.resolve("context"),
+                true,
+                "off",
                 cacheDir,
                 1,
                 true

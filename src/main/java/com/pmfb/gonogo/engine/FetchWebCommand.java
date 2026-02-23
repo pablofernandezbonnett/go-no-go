@@ -80,6 +80,27 @@ public final class FetchWebCommand implements Callable<Integer> {
     private long requestDelayMillis;
 
     @Option(
+            names = {"--context-output-dir"},
+            description = "Directory for extracted company context files (culture/reputation pages).",
+            defaultValue = "output/company-context"
+    )
+    private Path contextOutputDir;
+
+    @Option(
+            names = {"--disable-company-context"},
+            description = "Disable company context extraction from corporate/workplace pages.",
+            defaultValue = "false"
+    )
+    private boolean disableCompanyContext;
+
+    @Option(
+            names = {"--robots-mode"},
+            description = "Robots mode: strict, warn, off.",
+            defaultValue = "strict"
+    )
+    private String robotsMode;
+
+    @Option(
             names = {"--cache-dir"},
             description = "Directory to store cached career page responses.",
             defaultValue = ".cache/fetch-web"
@@ -125,6 +146,9 @@ public final class FetchWebCommand implements Callable<Integer> {
                 retries,
                 backoffMillis,
                 requestDelayMillis,
+                contextOutputDir,
+                !disableCompanyContext,
+                robotsMode,
                 cacheDir,
                 cacheTtlMinutes,
                 !disableCache
@@ -150,7 +174,11 @@ public final class FetchWebCommand implements Callable<Integer> {
         System.out.println("companies_processed: " + outcome.selectedCompanies());
         System.out.println("companies_failed: " + outcome.companiesFailed());
         System.out.println("raw_files_generated: " + outcome.rawFilesGenerated());
+        System.out.println("context_files_generated: " + outcome.contextFilesGenerated());
         System.out.println("output_dir: " + outputDir);
+        if (!disableCompanyContext) {
+            System.out.println("context_output_dir: " + contextOutputDir);
+        }
 
         return outcome.allSelectedCompaniesFailed() ? 1 : 0;
     }

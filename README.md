@@ -285,7 +285,7 @@ If a field cannot be extracted, the command uses explicit fallback values and pr
 Company URL fields:
 
 - `career_url`: source used by `fetch-web` for job extraction.
-- `corporate_url`: company homepage/context source reserved for intelligence/reputation enrichment.
+- `corporate_url`: company homepage/context source used for culture/reputation enrichment.
 
 Default output shape:
 
@@ -298,6 +298,8 @@ Pipeline integration:
 - `pipeline run --company-ids ...` is a convenience alias that enables fetch stage automatically.
 - If no job candidates are found on the first page, fetch-web discovers likely job-board links and retries extraction.
 - Extractor includes anti-noise filters to avoid corporate/non-vacancy pages (for example sustainability/news/workplace sections).
+- Corporate/workplace/benefits pages are captured into a separate company-context stream (not as job postings).
+- Company context extraction runs independently from job extraction, so context can still be generated even when no vacancies are detected.
 - Convenience defaults in `pipeline run`:
   - `--persona=product_expat_engineer`
   - `--raw-input-dir=output/raw`
@@ -307,7 +309,10 @@ Pipeline integration:
   and pipeline-prefixed variants like `--fetch-web-retries`.
 - By default, fetch-web enforces a host-level politeness delay (`--request-delay-millis=1200`).
 - For pipeline fetch stage, the equivalent flag is `--fetch-web-request-delay-millis`.
+- Robots policy for remote sites is configurable via `--robots-mode` / `--fetch-web-robots-mode`:
+  `strict` (default), `warn`, `off`.
 - On fetch failure, stale cache is used as fallback when available.
+- Company context files are generated in `output/company-context` (or `--context-output-dir` / `--company-context-dir`).
 - Job change detection is enabled by default in `pipeline run` and persists state in:
   `output/job-change-state-<persona>.yaml` (or `--change-state-file`).
 - Disable change detection with `--disable-change-detection`.
@@ -344,7 +349,12 @@ Supported `risk_tags`:
 
 These tags feed deterministic decision signals (for example `english_environment`, `engineering_culture`, `company_reputation_positive`, `company_reputation_risk`) and appear in explainable output.
 
-`DecisionEngineV1` now also consumes company context from config (`notes`, `profile_tags`, `risk_tags`, and `corporate_url` hints) as additional deterministic input for language/reputation interpretation.
+`DecisionEngineV1` now also consumes company context from:
+
+- config (`notes`, `profile_tags`, `risk_tags`, `corporate_url` hints)
+- fetched company-context files (workplace/benefits/culture pages)
+
+as additional deterministic input for language/reputation interpretation.
 
 ## robots.txt (UI deployment)
 

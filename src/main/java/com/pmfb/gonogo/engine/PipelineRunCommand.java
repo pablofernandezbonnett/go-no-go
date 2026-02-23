@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.config.ConfigLoadException;
+import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
@@ -37,8 +38,10 @@ import java.nio.file.PathMatcher;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -252,6 +255,27 @@ public final class PipelineRunCommand implements Callable<Integer> {
     private long fetchWebRequestDelayMillis;
 
     @Option(
+            names = {"--company-context-dir"},
+            description = "Directory for company context files used in evaluation.",
+            defaultValue = "output/company-context"
+    )
+    private Path companyContextDir;
+
+    @Option(
+            names = {"--disable-company-context"},
+            description = "Disable company context enrichment from company-context files.",
+            defaultValue = "false"
+    )
+    private boolean disableCompanyContext;
+
+    @Option(
+            names = {"--fetch-web-robots-mode"},
+            description = "Robots mode for fetch stage: strict, warn, off.",
+            defaultValue = "strict"
+    )
+    private String fetchWebRobotsMode;
+
+    @Option(
             names = {"--fetch-web-cache-dir"},
             description = "Directory for fetch-web response cache in pipeline.",
             defaultValue = ".cache/fetch-web"
@@ -421,8 +445,10 @@ public final class PipelineRunCommand implements Callable<Integer> {
                     .toList();
         }
 
+        Map<String, String> companyContextById = loadCompanyContextById(config.companies());
         for (EvaluableJob job : jobsToEvaluate) {
-            EvaluationResult evaluation = engine.evaluate(job.jobInput(), persona.get(), config);
+            String externalContext = resolveCompanyContext(job.jobInput().companyName(), config.companies(), companyContextById);
+            EvaluationResult evaluation = engine.evaluate(job.jobInput(), persona.get(), config, externalContext);
             items.add(new BatchEvaluationItem(
                     job.sourceFile(),
                     job.jobInput(),
@@ -571,6 +597,9 @@ public final class PipelineRunCommand implements Callable<Integer> {
                 fetchWebRetries,
                 fetchWebBackoffMillis,
                 fetchWebRequestDelayMillis,
+                companyContextDir,
+                !disableCompanyContext,
+                fetchWebRobotsMode,
                 fetchWebCacheDir,
                 fetchWebCacheTtlMinutes,
                 !fetchWebDisableCache
@@ -596,7 +625,11 @@ public final class PipelineRunCommand implements Callable<Integer> {
         System.out.println("companies_processed: " + outcome.selectedCompanies());
         System.out.println("companies_failed: " + outcome.companiesFailed());
         System.out.println("raw_files_generated: " + outcome.rawFilesGenerated());
+        System.out.println("context_files_generated: " + outcome.contextFilesGenerated());
         System.out.println("raw_input_dir: " + rawInputDir);
+        if (!disableCompanyContext) {
+            System.out.println("company_context_dir: " + companyContextDir);
+        }
 
         return outcome.allSelectedCompaniesFailed() ? 1 : 0;
     }
@@ -611,6 +644,60 @@ public final class PipelineRunCommand implements Callable<Integer> {
             }
         }
         return false;
+    }
+
+    private Map<String, String> loadCompanyContextById(List<CompanyConfig> companies) {
+        Map<String, String> contextById = new LinkedHashMap<>();
+        for (CompanyConfig company : companies) {
+            String contextText = "";
+            if (!disableCompanyContext) {
+                Path contextFile = companyContextDir.resolve(sanitizeCompanyId(company.id()) + ".txt");
+                if (Files.exists(contextFile) && Files.isRegularFile(contextFile)) {
+                    try {
+                        contextText = Files.readString(contextFile, StandardCharsets.UTF_8);
+                    } catch (IOException e) {
+                        System.err.println("company_context_warning: failed to read " + contextFile + " (" + e.getMessage() + ")");
+                    }
+                }
+            }
+            if (contextText == null) {
+                contextText = "";
+            }
+            contextById.put(sanitizeCompanyId(company.id()), contextText);
+        }
+        return Map.copyOf(contextById);
+    }
+
+    private String resolveCompanyContext(
+            String companyName,
+            List<CompanyConfig> companies,
+            Map<String, String> contextById
+    ) {
+        String normalizedCompanyName = normalize(companyName);
+        if (normalizedCompanyName.isBlank()) {
+            return "";
+        }
+        for (CompanyConfig company : companies) {
+            String normalizedConfigName = normalize(company.name());
+            if (normalizedConfigName.isBlank()) {
+                continue;
+            }
+            if (normalizedConfigName.equals(normalizedCompanyName)
+                    || normalizedConfigName.contains(normalizedCompanyName)
+                    || normalizedCompanyName.contains(normalizedConfigName)) {
+                return contextById.getOrDefault(sanitizeCompanyId(company.id()), "");
+            }
+        }
+        return "";
+    }
+
+    private String sanitizeCompanyId(String value) {
+        if (value == null || value.isBlank()) {
+            return "unknown";
+        }
+        return value.trim().toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
     }
 
     private boolean isChangedStatus(String status) {

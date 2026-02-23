@@ -356,6 +356,15 @@ public final class DecisionEngineV1 {
     );
 
     public EvaluationResult evaluate(JobInput job, PersonaConfig persona, EngineConfig config) {
+        return evaluate(job, persona, config, "");
+    }
+
+    public EvaluationResult evaluate(
+            JobInput job,
+            PersonaConfig persona,
+            EngineConfig config,
+            String externalContext
+    ) {
         LinkedHashSet<String> positiveSignals = new LinkedHashSet<>();
         LinkedHashSet<String> riskSignals = new LinkedHashSet<>();
         List<String> hardRejectReasons = new ArrayList<>();
@@ -363,7 +372,7 @@ public final class DecisionEngineV1 {
         String jobText = normalize(job.companyName() + " " + job.title() + " " + job.description());
         Optional<CompanyConfig> trackedCompany = findTrackedCompany(job.companyName(), config.companies());
         String companyContextText = buildCompanyContextText(trackedCompany);
-        String combinedText = normalize(jobText + " " + companyContextText);
+        String combinedText = normalize(jobText + " " + companyContextText + " " + normalize(externalContext));
         String remotePolicy = normalize(job.remotePolicy());
         String salaryRange = normalize(job.salaryRange());
         Set<String> personaHardNo = normalizeSet(persona.hardNo());
