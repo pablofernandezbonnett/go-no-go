@@ -76,3 +76,32 @@ Deliverable status:
 - [x] settings screen (runtime UI options)
 - [ ] richer report browsing UX inside the same UI module
 - [ ] auth/access control (currently public/local)
+
+---
+
+## Phase 7 — Discovery Engine (planned, no AI)
+
+Goal:
+Discover candidate companies/job sources without crawling the full internet.
+
+Principles:
+- curated source-first strategy (quality over volume)
+- domain allowlist + request budgets + polite fetch
+- deterministic pre-filter and explainable ranking
+- human approval before promotion to tracked companies
+
+Tasks:
+
+- [ ] define discovery source registry (`config/discovery-sources.yaml`)
+- [ ] add CLI discovery workflow (`discovery ingest`, `discovery rank`, `discovery promote`)
+- [ ] implement metadata-first normalization for candidates (`title`, `location`, `salary`, `remote`, `language`, `domain`)
+- [ ] implement deterministic discovery scoring + reasons (persona-fit and risk-first)
+- [ ] add candidate dedup/canonicalization by company/domain/url
+- [ ] add discovery inbox UI (`approve`, `reject`, `promote`)
+- [ ] add promotion audit trail (`who/when/why`, local file-based first)
+- [ ] add operational KPIs (promotion rate, reject reasons, no-vacancy ratio)
+
+Deliverable status target:
+- weekly discovery run over curated sources
+- ranked candidate list with explainable reasons
+- one-click promotion path from discovery candidate to `config/companies.yaml`
