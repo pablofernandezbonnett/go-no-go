@@ -127,3 +127,15 @@ companies:
       - product_leader
       - engineering_brand
     risk_tags: []
+
+  - id: migaku
+    name: Migaku
+    career_url: https://jobs.ashbyhq.com/migaku
+    corporate_url: https://migaku.com/
+    type_hint: edtech_product_startup
+    region: japan
+    notes: "Language-learning startup; remote-first with English communication; explicit fast-shipping and technical-debt-first culture pre-PMF."
+    profile_tags:
+      - expat_friendly
+    risk_tags:
+      - overtime_risk

@@ -21,3 +21,48 @@ personas:
       - hybrid_partial
       - japanese_not_blocking
       - stable_scaleup
+
+  - id: product_expat_engineer_strict_stability
+    description: "Product-oriented expat engineer with strict family/stability constraints in Japan"
+    priorities:
+      - english_environment
+      - product_company
+      - engineering_culture
+      - hybrid_work
+      - work_life_balance
+      - salary
+      - stability
+
+    hard_no:
+      - consulting_company
+      - onsite_only
+      - salary_missing
+      - early_stage_startup
+      - japanese_only_environment
+      - workload_overload
+      - forced_relocation
+
+    acceptable_if:
+      - hybrid_partial
+      - japanese_not_blocking
+      - stable_scaleup
+
+  - id: product_expat_engineer_growth_tolerant
+    description: "Product-oriented expat engineer open to growth-stage volatility if role fit is strong"
+    priorities:
+      - english_environment
+      - product_company
+      - engineering_culture
+      - hybrid_work
+      - salary
+      - stability
+
+    hard_no:
+      - consulting_company
+      - onsite_only
+      - salary_missing
+
+    acceptable_if:
+      - hybrid_partial
+      - japanese_not_blocking
+      - stable_scaleup
