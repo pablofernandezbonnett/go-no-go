@@ -2,153 +2,139 @@
 
 ## Philosophy
 
-Backend intelligence > scraping > UI
-
-The system prioritizes signal extraction and decision logic over volume or interface.
+Decision intelligence first.
+Fetch only selected targets.
+UI supports operations, but decision quality remains the core.
 
 ---
 
-# 🧱 MVP Architecture
+## Runtime Topology
 
-## Pipeline
+1. CLI engine (`src/main/java/...`)
+2. YAML config/state (`config/`, output state files)
+3. Ops UI server/client (`ops-ui`, Jaspr SSR)
 
-1. Company registry
-2. Career page fetch
-3. Job detection
-4. Signal extraction
-5. Decision engine
-6. Report generation
+The Ops UI is a companion layer for operating the CLI pipeline. It is not a replacement for the CLI.
+
+---
+
+## Core Pipeline
+
+1. Company registry loading (`config/companies.yaml`)
+2. Career page fetch (polite, constrained, selected companies)
+3. Job posting extraction + normalization
+4. Signal extraction (language, salary, remote, consulting risk, culture/environment signals)
+5. Persona-aware decision engine (hard filters + weighted scoring)
+6. Reporting outputs (batch JSON/Markdown, weekly digest, trend history, alerts)
 
 ---
 
 ## Modules
 
-### 1. Company Registry
+### 1. Configuration Layer
 
-Input:
-- config/companies.yaml
+Sources:
+- `config/companies.yaml`
+- `config/personas.yaml`
+- `config/blacklist.yaml`
 
-Contains:
-- career URLs
-- company type hints
-- region
-- notes
+Properties:
+- deterministic loading
+- validation before execution
+- configuration-driven behavior
 
----
-
-### 2. Job Fetcher
+### 2. Fetch + Extraction Layer
 
 Responsibilities:
-- download career pages
-- detect job listings
-- normalize structure
+- fetch selected company pages
+- extract likely vacancies
+- separate non-job context (culture/benefits/workplace) for company context
+- output normalized job artifacts
+
+### 3. Decision Layer
+
+Responsibilities:
+- apply hard filters first
+- compute explainable scoring
+- produce explicit positive/risk reasons
+
+Output model:
+- normalized score (`0-100`)
+- raw score and range
+- language friction index (`0-100`)
+- company reputation index (`0-100`)
+- verdict and reasoning
+
+### 4. Reporting Layer
+
+Responsibilities:
+- batch evaluation reports
+- weekly digest generation
+- run-to-run trend deltas and anomaly alerts
+
+### 5. Operations UI Layer (`ops-ui`)
+
+Backend endpoints:
+- `GET /api/health`
+- `GET /api/config`
+- `POST /api/config/companies`
+- `POST /api/config/personas`
+- `GET /api/runs`
+- `GET /api/runs/:runId`
+- `POST /api/runs`
+
+Screens:
+- `Create Run`
+- `Runs` (list + details)
+- `Company` (company onboarding form)
+- `Persona` (persona onboarding form)
+- `Settings` (UI runtime options)
+
+Default port:
+- `8791` (override with `PORT` or `OPS_UI_PORT`)
 
 ---
 
-### 3. Job Parser
+## Data Contract (current)
 
-Extracts:
-- title
-- location
-- salary
-- remote/hybrid
-- language signals
-- stack keywords
+### Company
 
----
+- `id`
+- `name`
+- `career_url`
+- `corporate_url`
+- `type_hint`
+- `region`
+- `notes`
+- `profile_tags`
+- `risk_tags`
 
-### 4. Signal Engine
+### Job
 
-Converts text into structured signals:
+- `id`
+- `company_id`
+- `title`
+- `location`
+- `salary_range`
+- `remote_policy`
+- `description`
+- extracted signal fields
 
-- salary_transparency
-- language_friction
-- consulting_risk
-- product_ownership
-- overtime_risk
-- engineering_environment
+### Evaluation
 
----
-
-### 5. Go/No-Go Engine
-
-Applies rules:
-
-- Hard filters
-- Weighted signals
-- Persona alignment
-
-Outputs:
-- GO
-- NO-GO
-- GO with caution
-
-+ explanation
+- `job_id`
+- `score`
+- `raw_score` (+ range)
+- `verdict`
+- `reasoning`
+- `positive_signals`
+- `risk_signals`
 
 ---
 
-### 6. Reporter
+## Deferred by Design
 
-Generates:
-
-- weekly.md
-- jobs.json
-
----
-
-# 📐 Data Model (initial)
-
-## Company
-
-- id
-- name
-- career_url
-- corporate_url
-- type_hint
-- region
-- notes
-
-## Job
-
-- id
-- company_id
-- title
-- location
-- salary_range
-- language_signals
-- remote_policy
-- stack_keywords
-- raw_text
-
-## Evaluation
-
-- job_id
-- score
-- verdict
-- explanation
-- risks
-- positive_signals
-
----
-
-# 🚀 Future Architecture
-
-## Phase 2
-
-- Spring Boot API
-- Database persistence
-- Daily incremental crawler
-- Personalization layer
-
-## Phase 3
-
-- Company intelligence graph
-- Layoff detection
-- Reputation aggregation
-- Community feedback loop
-
-## Phase 4
-
-- SaaS platform
-- User personas
-- Opportunity alerts
+- database persistence
+- multi-user auth model
+- Spring Boot API as main runtime
+- external notification integrations (Slack/Email) beyond agnostic sink contracts

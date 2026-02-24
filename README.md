@@ -74,6 +74,9 @@ Implemented now:
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas
 - `gonogo schedule` command to generate non-active scheduled-run artifacts (script + cron file)
+- embedded Ops UI (`ops-ui`, Jaspr) with left navigation and dedicated screens (`Create Run`, `Runs`, `Company`, `Persona`, `Settings`)
+- Ops UI API endpoint to add companies into YAML config (`POST /api/config/companies`)
+- Ops UI API endpoint to add personas into YAML config (`POST /api/config/personas`)
 - deterministic `DecisionEngineV1` with explainable output
 - baseline tests for decision rules, raw parsing, and report writing
 - regression fixtures for decision outcomes (`src/test/resources/fixtures/decision-regression/cases.yaml`)
@@ -159,6 +162,24 @@ Batch evaluate a directory of job YAML files:
 ```bash
 ./gradlew run --args="evaluate-batch --persona product_expat_engineer --input-dir examples --pattern job-input*.yaml --output-dir output"
 ```
+
+Operations UI (MVP, in this repo):
+
+```bash
+cd ops-ui
+dart pub get
+jaspr serve
+```
+
+Default URL: `http://localhost:8791`
+
+Current Ops UI capabilities:
+
+- Create runs with explicit pipeline parameters
+- View run history and run details (logs, command, status)
+- Add company entries to `config/companies.yaml` from UI form
+- Add persona entries to `config/personas.yaml` from UI form
+- Local UI settings (poll interval and auto-refresh)
 
 Generate weekly digest from batch JSON:
 
