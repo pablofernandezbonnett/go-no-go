@@ -57,8 +57,7 @@ class _BatchPageState extends State<BatchPage> {
 
   @override
   Component build(BuildContext context) {
-    final routeState = RouteState.maybeOf(context);
-    final queryParams = routeState?.queryParams ?? const <String, String>{};
+    final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
 
     if (!kIsWeb) {
@@ -190,12 +189,12 @@ class _BatchPageState extends State<BatchPage> {
                     td([.text(item.score == null ? 'n/a' : '${item.score}/100')]),
                     td([.text(item.changeStatus.isEmpty ? '-' : item.changeStatus)]),
                     td([
-                      a(
-                        href: buildRouteWithQuery('/job', {
+                      Link(
+                        to: buildRouteWithQuery('/job', {
                           'run': run.runId,
                           'job': item.jobId,
                         }),
-                        [.text('Open')],
+                        child: .text('Open'),
                       ),
                     ]),
                   ]),

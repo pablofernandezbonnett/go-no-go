@@ -54,8 +54,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   @override
   Component build(BuildContext context) {
-    final routeState = RouteState.maybeOf(context);
-    final queryParams = routeState?.queryParams ?? const <String, String>{};
+    final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedJobId = queryParams['job'];
 
@@ -145,9 +144,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
           extraQueryValue: selected.jobId,
         ),
         p([
-          a(
-            href: buildRouteWithQuery('/batch', {'run': run.runId}),
-            [.text('Back to Batch')],
+          Link(
+            to: buildRouteWithQuery('/batch', {'run': run.runId}),
+            child: .text('Back to Batch'),
           ),
         ]),
       ]),
@@ -193,12 +192,12 @@ class _JobDetailPageState extends State<JobDetailPage> {
           ul([
             for (final item in items)
               li([
-                a(
-                  href: buildRouteWithQuery('/job', {
+                Link(
+                  to: buildRouteWithQuery('/job', {
                     'run': run.runId,
                     'job': item.jobId,
                   }),
-                  [.text('${item.company} - ${item.title}')],
+                  child: .text('${item.company} - ${item.title}'),
                 ),
               ]),
           ]),

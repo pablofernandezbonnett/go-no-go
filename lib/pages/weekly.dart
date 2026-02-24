@@ -53,8 +53,7 @@ class _WeeklyPageState extends State<WeeklyPage> {
 
   @override
   Component build(BuildContext context) {
-    final routeState = RouteState.maybeOf(context);
-    final queryParams = routeState?.queryParams ?? const <String, String>{};
+    final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedWeeklyId = queryParams['weekly'];
 
@@ -139,13 +138,13 @@ class _WeeklyPageState extends State<WeeklyPage> {
         if (reports.length > 1)
           div(classes: 'digest-tabs', [
             for (final report in reports)
-              a(
-                href: buildRouteWithQuery('/weekly', {
+              Link(
+                to: buildRouteWithQuery('/weekly', {
                   'run': run.runId,
                   'weekly': report.weeklyId,
                 }),
                 classes: report.weeklyId == selected.weeklyId ? 'digest-tab active' : 'digest-tab',
-                [.text(report.weeklyId)],
+                child: .text(report.weeklyId),
               ),
           ]),
         p([.text('File: ${selected.relativePath}')]),

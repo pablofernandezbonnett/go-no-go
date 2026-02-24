@@ -22,7 +22,7 @@ The UI consumes artifacts produced by the engine, mainly:
 - Weekly digest Markdown
 - Trend history YAML/JSON-derived outputs
 - Trend alerts JSON
-- Company context text files (`company-context/*.txt`)
+- Company context files (`company-context/*.yaml`, `.yml`, `.txt`)
 
 ## Core Views (MVP)
 
@@ -50,7 +50,7 @@ jaspr serve
 
 Default local URL:
 
-- `http://localhost:8081`
+- `http://localhost:8787`
 
 Recommended when using engine artifacts from sibling project:
 
