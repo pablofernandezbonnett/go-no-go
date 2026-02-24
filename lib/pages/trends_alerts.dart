@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
-import 'package:jaspr_router/jaspr_router.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
@@ -56,8 +55,7 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
 
   @override
   Component build(BuildContext context) {
-    final routeState = RouteState.maybeOf(context);
-    final queryParams = routeState?.queryParams ?? const <String, String>{};
+    final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
 
     if (!kIsWeb) {

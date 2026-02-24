@@ -117,7 +117,7 @@ HttpServer? activeServer;
 Object? activeReloadLock;
 
 int _resolvePort(Map<String, String> environment) {
-  const fallbackPort = 8081;
+  const fallbackPort = 8787;
   final raw = environment['PORT'];
   final parsed = raw == null ? null : int.tryParse(raw.trim());
   if (parsed == null || parsed <= 0 || parsed > 65535) {

@@ -53,8 +53,7 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
 
   @override
   Component build(BuildContext context) {
-    final routeState = RouteState.maybeOf(context);
-    final queryParams = routeState?.queryParams ?? const <String, String>{};
+    final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedCompanyId = queryParams['company'];
 
@@ -138,13 +137,13 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
         ),
         div(classes: 'context-tabs', [
           for (final report in reports)
-            a(
-              href: buildRouteWithQuery('/context', {
+            Link(
+              to: buildRouteWithQuery('/context', {
                 'run': run.runId,
                 'company': report.companyId,
               }),
               classes: report.companyId == selected.companyId ? 'context-tab active' : 'context-tab',
-              [.text(report.companyId)],
+              child: .text(report.companyId),
             ),
         ]),
         p([.text('File: ${selected.relativePath}')]),
