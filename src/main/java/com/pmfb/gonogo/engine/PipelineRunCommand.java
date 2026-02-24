@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
+import org.yaml.snakeyaml.Yaml;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -651,11 +652,24 @@ public final class PipelineRunCommand implements Callable<Integer> {
         for (CompanyConfig company : companies) {
             String contextText = "";
             if (!disableCompanyContext) {
-                Path contextFile = companyContextDir.resolve(sanitizeCompanyId(company.id()) + ".txt");
-                if (Files.exists(contextFile) && Files.isRegularFile(contextFile)) {
+                Path yamlFile = companyContextDir.resolve(sanitizeCompanyId(company.id()) + ".yaml");
+                Path ymlFile = companyContextDir.resolve(sanitizeCompanyId(company.id()) + ".yml");
+                Path textFile = companyContextDir.resolve(sanitizeCompanyId(company.id()) + ".txt");
+                Path contextFile = null;
+                if (Files.exists(yamlFile) && Files.isRegularFile(yamlFile)) {
+                    contextFile = yamlFile;
+                } else if (Files.exists(ymlFile) && Files.isRegularFile(ymlFile)) {
+                    contextFile = ymlFile;
+                } else if (Files.exists(textFile) && Files.isRegularFile(textFile)) {
+                    contextFile = textFile;
+                }
+                if (contextFile != null) {
                     try {
-                        contextText = Files.readString(contextFile, StandardCharsets.UTF_8);
-                    } catch (IOException e) {
+                        String fileContent = Files.readString(contextFile, StandardCharsets.UTF_8);
+                        contextText = isYamlFile(contextFile)
+                                ? flattenCompanyContextYaml(fileContent)
+                                : fileContent;
+                    } catch (IOException | RuntimeException e) {
                         System.err.println("company_context_warning: failed to read " + contextFile + " (" + e.getMessage() + ")");
                     }
                 }
@@ -666,6 +680,68 @@ public final class PipelineRunCommand implements Callable<Integer> {
             contextById.put(sanitizeCompanyId(company.id()), contextText);
         }
         return Map.copyOf(contextById);
+    }
+
+    private boolean isYamlFile(Path file) {
+        if (file == null || file.getFileName() == null) {
+            return false;
+        }
+        String lower = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        return lower.endsWith(".yaml") || lower.endsWith(".yml");
+    }
+
+    private String flattenCompanyContextYaml(String yamlContent) {
+        if (yamlContent == null || yamlContent.isBlank()) {
+            return "";
+        }
+        Object loaded = new Yaml().load(yamlContent);
+        if (!(loaded instanceof Map<?, ?> root)) {
+            return yamlContent;
+        }
+
+        LinkedHashMap<String, String> dedup = new LinkedHashMap<>();
+        putDedupText(dedup, root.get("company_name"));
+
+        Object summariesObj = root.get("summaries");
+        if (summariesObj instanceof List<?> summaries) {
+            for (Object item : summaries) {
+                putDedupText(dedup, item);
+            }
+        }
+
+        Object sourcesObj = root.get("sources");
+        if (sourcesObj instanceof List<?> sources) {
+            for (Object sourceObj : sources) {
+                if (!(sourceObj instanceof Map<?, ?> source)) {
+                    continue;
+                }
+                putDedupText(dedup, source.get("page_title"));
+                putDedupText(dedup, source.get("page_description"));
+            }
+        }
+
+        Object linksObj = root.get("links");
+        if (linksObj instanceof List<?> links) {
+            for (Object linkObj : links) {
+                if (!(linkObj instanceof Map<?, ?> link)) {
+                    continue;
+                }
+                putDedupText(dedup, link.get("title"));
+            }
+        }
+
+        return String.join(" ", dedup.values());
+    }
+
+    private void putDedupText(Map<String, String> dedup, Object value) {
+        if (!(value instanceof String text)) {
+            return;
+        }
+        String normalized = text.trim();
+        if (normalized.isBlank()) {
+            return;
+        }
+        dedup.putIfAbsent(normalize(normalized), normalized);
     }
 
     private String resolveCompanyContext(

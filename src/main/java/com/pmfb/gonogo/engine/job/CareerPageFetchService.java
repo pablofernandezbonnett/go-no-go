@@ -17,6 +17,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.Yaml;
 
 public final class CareerPageFetchService {
     private static final int JOB_BOARD_DISCOVERY_MAX_URLS = 3;
@@ -32,6 +34,21 @@ public final class CareerPageFetchService {
     private static final String ROBOTS_MODE_STRICT = "strict";
     private static final String ROBOTS_MODE_WARN = "warn";
     private static final String ROBOTS_MODE_OFF = "off";
+    private static final int COMPANY_CONTEXT_SCHEMA_VERSION = 1;
+    private static final Set<String> CONTEXT_NAVIGATION_KEYWORDS = Set.of(
+            "about us",
+            "vision",
+            "ceo message",
+            "company overview",
+            "our business",
+            "history",
+            "press releases",
+            "photo library",
+            "governance",
+            "what's new",
+            "links",
+            "home"
+    );
 
     private final CareerPageFetcher fetcher;
     private final JobPostingExtractor extractor;
@@ -89,7 +106,7 @@ public final class CareerPageFetchService {
                 }
 
                 if (options.contextEnabled()) {
-                    String contextText = buildCompanyContextText(
+                    CompanyContextDocument contextDocument = buildCompanyContextDocument(
                             company,
                             response,
                             options,
@@ -99,8 +116,8 @@ public final class CareerPageFetchService {
                             info,
                             errors
                     );
-                    if (!contextText.isBlank()) {
-                        writeCompanyContextFile(options.contextOutputDir(), company, contextText);
+                    if (contextDocument.hasContent()) {
+                        writeCompanyContextFile(options.contextOutputDir(), company, contextDocument);
                         contextFiles++;
                     }
                 }
@@ -296,7 +313,7 @@ public final class CareerPageFetchService {
         return title + "||" + url;
     }
 
-    private String buildCompanyContextText(
+    private CompanyContextDocument buildCompanyContextDocument(
             CompanyConfig company,
             CareerPageHttpFetcher.FetchResult careerResponse,
             FetchOptions options,
@@ -306,24 +323,10 @@ public final class CareerPageFetchService {
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
-        LinkedHashSet<String> lines = new LinkedHashSet<>();
-        lines.add("company_id: " + company.id());
-        lines.add("company_name: " + company.name());
-        lines.add("career_url: " + company.careerUrl());
-        lines.add("corporate_url: " + company.corporateUrl());
-
-        String careerSummary = extractor.extractContextSummary(careerResponse.body(), careerResponse.finalUrl());
-        if (!careerSummary.isBlank()) {
-            lines.add(careerSummary);
-        }
-        List<JobPostingExtractor.ContextLink> contextLinks = extractor.discoverCompanyContextLinks(
-                careerResponse.body(),
-                careerResponse.finalUrl(),
-                CONTEXT_DISCOVERY_MAX_URLS
-        );
-        for (JobPostingExtractor.ContextLink link : contextLinks) {
-            lines.add("context_link: " + link.title() + " -> " + link.url());
-        }
+        ContextAccumulator context = new ContextAccumulator();
+        LinkedHashSet<String> fetchedPageUrls = new LinkedHashSet<>();
+        collectContextFromPage(careerResponse, context);
+        fetchedPageUrls.add(canonicalizeUrl(careerResponse.finalUrl()));
 
         CareerPageHttpFetcher.FetchResult corporateResponse = fetchCorporateContextPage(
                 company,
@@ -335,10 +338,8 @@ public final class CareerPageFetchService {
                 errors
         );
         if (corporateResponse != null) {
-            String corporateSummary = extractor.extractContextSummary(corporateResponse.body(), corporateResponse.finalUrl());
-            if (!corporateSummary.isBlank()) {
-                lines.add(corporateSummary);
-            }
+            collectContextFromPage(corporateResponse, context);
+            fetchedPageUrls.add(canonicalizeUrl(corporateResponse.finalUrl()));
             List<JobPostingExtractor.ContextLink> corporateLinks = extractor.discoverCompanyContextLinks(
                     corporateResponse.body(),
                     corporateResponse.finalUrl(),
@@ -346,11 +347,15 @@ public final class CareerPageFetchService {
             );
             int linkedPages = 0;
             for (JobPostingExtractor.ContextLink link : corporateLinks) {
-                lines.add("context_link: " + link.title() + " -> " + link.url());
+                context.addLink(link.title(), link.url());
                 if (!isInternalCompanyUrl(company, link.url())) {
                     continue;
                 }
                 if (linkedPages >= CONTEXT_SUMMARY_MAX_PAGES) {
+                    continue;
+                }
+                String canonicalLinkUrl = canonicalizeUrl(link.url());
+                if (!fetchedPageUrls.add(canonicalLinkUrl)) {
                     continue;
                 }
                 CareerPageHttpFetcher.FetchResult linkedContextPage = chooseResponseForUrl(
@@ -367,25 +372,107 @@ public final class CareerPageFetchService {
                 if (linkedContextPage == null || linkedContextPage.statusCode() >= 400) {
                     continue;
                 }
-                String linkedSummary = extractor.extractContextSummary(
-                        linkedContextPage.body(),
-                        linkedContextPage.finalUrl()
-                );
-                if (!linkedSummary.isBlank()) {
-                    lines.add(linkedSummary);
-                    linkedPages++;
-                }
+                collectContextFromPage(linkedContextPage, context);
+                linkedPages++;
             }
         }
 
-        StringBuilder sb = new StringBuilder();
-        for (String line : lines) {
-            if (line == null || line.isBlank()) {
-                continue;
-            }
-            sb.append(line).append("\n");
+        return context.toDocument(company);
+    }
+
+    private void collectContextFromPage(
+            CareerPageHttpFetcher.FetchResult page,
+            ContextAccumulator context
+    ) {
+        if (page == null || page.body() == null || page.body().isBlank()) {
+            return;
         }
-        return sb.toString().trim();
+
+        JobPostingExtractor.ContextSummary summary = extractor.extractContextSummaryData(page.body(), page.finalUrl());
+        context.addSource(page.finalUrl(), summary.pageTitle(), summary.pageDescription());
+        for (String item : summary.contexts()) {
+            context.addSummary(item);
+        }
+
+        List<JobPostingExtractor.ContextLink> links = extractor.discoverCompanyContextLinks(
+                page.body(),
+                page.finalUrl(),
+                CONTEXT_DISCOVERY_MAX_URLS
+        );
+        for (JobPostingExtractor.ContextLink link : links) {
+            context.addLink(link.title(), link.url());
+        }
+    }
+
+    private boolean isLikelyBoilerplateContext(String text) {
+        String normalized = normalizeForDedup(text);
+        if (normalized.isBlank() || normalized.length() < 16) {
+            return true;
+        }
+        int matches = 0;
+        for (String keyword : CONTEXT_NAVIGATION_KEYWORDS) {
+            if (normalized.contains(keyword)) {
+                matches++;
+            }
+        }
+        if (matches >= 4) {
+            return true;
+        }
+        return normalized.startsWith("home >") || normalized.startsWith("home>");
+    }
+
+    private String normalizeForDedup(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ")
+                .replaceAll("[^\\p{L}\\p{N}\\s]+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private String canonicalizeUrl(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isBlank()) {
+            return "";
+        }
+        try {
+            URI uri = URI.create(normalized);
+            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+            int port = uri.getPort();
+            String path = uri.getPath();
+            if (path == null || path.isBlank()) {
+                path = "/";
+            }
+            if (path.length() > 1 && path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+            StringBuilder sb = new StringBuilder();
+            if (!scheme.isBlank()) {
+                sb.append(scheme).append("://");
+            }
+            sb.append(host);
+            if (port > 0) {
+                sb.append(":").append(port);
+            }
+            sb.append(path);
+            return sb.toString();
+        } catch (IllegalArgumentException e) {
+            return normalized;
+        }
+    }
+
+    private String dumpYaml(Map<String, Object> root) {
+        DumperOptions options = new DumperOptions();
+        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        options.setPrettyFlow(true);
+        options.setIndent(2);
+        options.setIndicatorIndent(1);
+        options.setWidth(120);
+        return new Yaml(options).dump(root);
     }
 
     private boolean isInternalCompanyUrl(CompanyConfig company, String targetUrl) {
@@ -438,13 +525,22 @@ public final class CareerPageFetchService {
         return null;
     }
 
-    private void writeCompanyContextFile(Path contextOutputDir, CompanyConfig company, String contextText) throws IOException {
-        if (contextOutputDir == null || contextText == null || contextText.isBlank()) {
+    private void writeCompanyContextFile(
+            Path contextOutputDir,
+            CompanyConfig company,
+            CompanyContextDocument contextDocument
+    ) throws IOException {
+        if (contextOutputDir == null || contextDocument == null || !contextDocument.hasContent()) {
             return;
         }
         Files.createDirectories(contextOutputDir);
-        Path contextFile = contextOutputDir.resolve(sanitizeSlug(company.id()) + ".txt");
-        Files.writeString(contextFile, contextText + "\n", StandardCharsets.UTF_8);
+        String slug = sanitizeSlug(company.id());
+        Path contextFile = contextOutputDir.resolve(slug + ".yaml");
+        Files.writeString(contextFile, dumpYaml(contextDocument.toYamlMap()), StandardCharsets.UTF_8);
+        Path legacyTextFile = contextOutputDir.resolve(slug + ".txt");
+        if (Files.exists(legacyTextFile)) {
+            Files.deleteIfExists(legacyTextFile);
+        }
     }
 
     private boolean isAllowedByRobots(
@@ -729,6 +825,138 @@ public final class CareerPageFetchService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private final class ContextAccumulator {
+        private final LinkedHashMap<String, ContextSource> sourcesByUrl = new LinkedHashMap<>();
+        private final LinkedHashMap<String, JobPostingExtractor.ContextLink> linksByUrl = new LinkedHashMap<>();
+        private final LinkedHashMap<String, String> summariesByKey = new LinkedHashMap<>();
+
+        private void addSource(String url, String pageTitle, String pageDescription) {
+            String canonicalUrl = canonicalizeUrl(url);
+            if (canonicalUrl.isBlank()) {
+                return;
+            }
+            String normalizedTitle = pageTitle == null ? "" : pageTitle.trim();
+            String normalizedDescription = pageDescription == null ? "" : pageDescription.trim();
+            if (normalizedTitle.isBlank() && normalizedDescription.isBlank()) {
+                return;
+            }
+            sourcesByUrl.putIfAbsent(canonicalUrl, new ContextSource(
+                    canonicalUrl,
+                    normalizedTitle,
+                    normalizedDescription
+            ));
+        }
+
+        private void addLink(String title, String url) {
+            String canonicalUrl = canonicalizeUrl(url);
+            if (canonicalUrl.isBlank()) {
+                return;
+            }
+            String normalizedTitle = title == null ? "" : title.trim();
+            if (normalizedTitle.isBlank()) {
+                return;
+            }
+            String dedupeKey = canonicalUrl.toLowerCase(Locale.ROOT);
+            linksByUrl.putIfAbsent(dedupeKey, new JobPostingExtractor.ContextLink(normalizedTitle, canonicalUrl));
+        }
+
+        private void addSummary(String value) {
+            String summary = value == null ? "" : value.trim();
+            if (summary.isBlank() || isLikelyBoilerplateContext(summary)) {
+                return;
+            }
+            String dedupeKey = normalizeForDedup(summary);
+            if (dedupeKey.isBlank()) {
+                return;
+            }
+            summariesByKey.putIfAbsent(dedupeKey, summary);
+        }
+
+        private CompanyContextDocument toDocument(CompanyConfig company) {
+            return new CompanyContextDocument(
+                    company.id(),
+                    company.name(),
+                    company.careerUrl(),
+                    company.corporateUrl(),
+                    List.copyOf(sourcesByUrl.values()),
+                    List.copyOf(linksByUrl.values()),
+                    List.copyOf(summariesByKey.values()),
+                    Instant.now().toString(),
+                    COMPANY_CONTEXT_SCHEMA_VERSION
+            );
+        }
+    }
+
+    private record ContextSource(
+            String url,
+            String pageTitle,
+            String pageDescription
+    ) {
+        Map<String, Object> toYamlMap() {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("url", url == null ? "" : url);
+            if (pageTitle != null && !pageTitle.isBlank()) {
+                out.put("page_title", pageTitle);
+            }
+            if (pageDescription != null && !pageDescription.isBlank()) {
+                out.put("page_description", pageDescription);
+            }
+            return out;
+        }
+    }
+
+    private record CompanyContextDocument(
+            String companyId,
+            String companyName,
+            String careerUrl,
+            String corporateUrl,
+            List<ContextSource> sources,
+            List<JobPostingExtractor.ContextLink> links,
+            List<String> summaries,
+            String fetchedAt,
+            int schemaVersion
+    ) {
+        boolean hasContent() {
+            return !(sources == null || sources.isEmpty())
+                    || !(links == null || links.isEmpty())
+                    || !(summaries == null || summaries.isEmpty());
+        }
+
+        Map<String, Object> toYamlMap() {
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("company_id", companyId == null ? "" : companyId);
+            root.put("company_name", companyName == null ? "" : companyName);
+            root.put("career_url", careerUrl == null ? "" : careerUrl);
+            root.put("corporate_url", corporateUrl == null ? "" : corporateUrl);
+
+            List<Map<String, Object>> sourceMaps = new ArrayList<>();
+            if (sources != null) {
+                for (ContextSource source : sources) {
+                    sourceMaps.add(source.toYamlMap());
+                }
+            }
+            root.put("sources", sourceMaps);
+
+            List<Map<String, Object>> linkMaps = new ArrayList<>();
+            if (links != null) {
+                for (JobPostingExtractor.ContextLink link : links) {
+                    Map<String, Object> linkMap = new LinkedHashMap<>();
+                    linkMap.put("title", link.title() == null ? "" : link.title());
+                    linkMap.put("url", link.url() == null ? "" : link.url());
+                    linkMaps.add(linkMap);
+                }
+            }
+            root.put("links", linkMaps);
+
+            root.put("summaries", summaries == null ? List.of() : summaries);
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("fetched_at", fetchedAt == null ? "" : fetchedAt);
+            metadata.put("schema_version", schemaVersion);
+            root.put("metadata", metadata);
+            return root;
+        }
     }
 
     public record FetchOptions(
