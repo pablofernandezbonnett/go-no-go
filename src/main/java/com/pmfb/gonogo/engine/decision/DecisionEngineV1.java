@@ -54,11 +54,27 @@ public final class DecisionEngineV1 {
     private static final int REPUTATION_INDEX_RISK_THRESHOLD = 40;
     private static final int REPUTATION_INDEX_HIGH_RISK_THRESHOLD = 20;
     private static final int MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN = 9_000_000;
+    private static final int WORKLOAD_OVERLOAD_SIGNAL_THRESHOLD = 2;
 
     private static final List<String> SALARY_MISSING_KEYWORDS = List.of(
             "tbd",
             "to be discussed",
             "not disclosed",
+            "not specified",
+            "not provided",
+            "no salary range given",
+            "salary range not given",
+            "salary not disclosed",
+            "n/a",
+            "na",
+            "negotiable",
+            "competitive"
+    );
+    private static final List<String> SALARY_HARD_REJECT_OPAQUE_KEYWORDS = List.of(
+            "tbd",
+            "to be discussed",
+            "not disclosed",
+            "salary not disclosed",
             "n/a",
             "na",
             "negotiable",
@@ -105,12 +121,73 @@ public final class DecisionEngineV1 {
             "996"
     );
     private static final List<String> OVERTIME_RISK_KEYWORDS = List.of(
+            "with overtime",
+            "overtime",
             "fixed overtime",
             "fast-paced",
             "high-pressure",
             "tight deadlines",
             "deadlines are tight",
             "occasional weekend work"
+    );
+    private static final List<String> WORKLOAD_NO_FIXED_HOURS_KEYWORDS = List.of(
+            "no set working hours",
+            "no fixed working hours",
+            "no fixed hours",
+            "results over time clocks",
+            "flexible working hours"
+    );
+    private static final List<String> WORKLOAD_MIN_WEEKLY_COMMITMENT_KEYWORDS = List.of(
+            "minimum commitment of 40 hours per week",
+            "minimum 40-hour workweek",
+            "minimum 40 hour workweek",
+            "minimum 40 hours per week",
+            "40-hour workweek",
+            "40 hour workweek"
+    );
+    private static final List<String> WORKLOAD_PRESSURE_KEYWORDS = List.of(
+            "work hard and play hard",
+            "work hard, play hard",
+            "work hard play hard",
+            "with overtime",
+            "overtime"
+    );
+    private static final List<String> HOLIDAY_POLICY_RISK_KEYWORDS = List.of(
+            "national holidays correspond to working days",
+            "national holidays are working days",
+            "public holidays are working days",
+            "holidays correspond to working days"
+    );
+    private static final List<String> LOCATION_MOBILITY_RISK_KEYWORDS = List.of(
+            "location may be changed",
+            "including overseas",
+            "transfer may be required",
+            "relocation may be required",
+            "as determined by the company"
+    );
+    private static final List<String> LOCATION_CHANGE_BY_COMPANY_KEYWORDS = List.of(
+            "location may be changed",
+            "transfer may be required",
+            "relocation may be required",
+            "as determined by the company"
+    );
+    private static final List<String> LOCATION_OVERSEAS_TRANSFER_KEYWORDS = List.of(
+            "including overseas",
+            "overseas transfer",
+            "overseas assignment"
+    );
+    private static final List<String> DEBT_FIRST_CULTURE_RISK_KEYWORDS = List.of(
+            "strategically accumulate technical debt",
+            "technical debt if it means faster growth",
+            "only after reaching product market fit will we seek to optimize",
+            "fail proof our codebase",
+            "moving fast should be a startup's primary focus"
+    );
+    private static final List<String> HYPERGROWTH_EXECUTION_RISK_KEYWORDS = List.of(
+            "increased revenue 10x over the past year",
+            "plan to do the same again over the coming 12 months",
+            "10x over the past year",
+            "10x growth"
     );
     private static final List<String> LANGUAGE_REQUIRED_KEYWORDS = List.of(
             "japanese required",
@@ -217,6 +294,33 @@ public final class DecisionEngineV1 {
             "english communication",
             "global team"
     );
+    private static final List<String> INHOUSE_PRODUCT_ENGINEERING_KEYWORDS = List.of(
+            "in-house development",
+            "in house development",
+            "end-to-end in-house development",
+            "end to end in-house development",
+            "client-server-3rd party system design"
+    );
+    private static final List<String> GLOBAL_TEAM_COLLABORATION_KEYWORDS = List.of(
+            "multinational members",
+            "diverse backgrounds",
+            "full-remote team",
+            "full remote team",
+            "global team",
+            "international team"
+    );
+    private static final List<String> ENGLISH_SUPPORT_ENVIRONMENT_KEYWORDS = List.of(
+            "english is used on a daily basis",
+            "english used on a daily basis",
+            "fluency in english is not required",
+            "support is provided"
+    );
+    private static final List<String> VISA_SPONSORSHIP_SUPPORT_KEYWORDS = List.of(
+            "visa sponsorship",
+            "japan visa sponsorship available",
+            "sponsorship available",
+            "work visa support"
+    );
     private static final List<Pattern> LANGUAGE_REQUIRED_PATTERNS = List.of(
             Pattern.compile("(?i)\\bjapanese\\b.{0,24}\\b(must|required for this role|mandatory)\\b"),
             Pattern.compile("(?i)\\b(must|mandatory)\\b.{0,24}\\bjapanese\\b"),
@@ -275,6 +379,8 @@ public final class DecisionEngineV1 {
     );
     private static final Pattern SALARY_MILLION_PATTERN = Pattern.compile("(?i)(\\d+(?:\\.\\d+)?)\\s*(m|million)\\b");
     private static final Pattern SALARY_NUMBER_PATTERN = Pattern.compile("(\\d{1,3}(?:[,.]\\d{3})+|\\d{6,9})");
+    private static final Pattern SALARY_ORDERED_TOKEN_PATTERN =
+            Pattern.compile("(?i)(\\d{1,3}(?:,\\d{3})+|\\d+(?:\\.\\d+)?)\\s*(m|million|k)?");
     private static final List<String> PRODUCT_COMPANY_KEYWORDS = List.of(
             "product ownership",
             "own the product",
@@ -368,6 +474,9 @@ public final class DecisionEngineV1 {
     private static final String PRIORITY_ENGINEERING_CULTURE = "engineering_culture";
     private static final String PRIORITY_WORK_LIFE_BALANCE = "work_life_balance";
     private static final String PRIORITY_STABILITY = "stability";
+    private static final String HARD_NO_JAPANESE_ONLY_ENVIRONMENT = "japanese_only_environment";
+    private static final String HARD_NO_WORKLOAD_OVERLOAD = "workload_overload";
+    private static final String HARD_NO_FORCED_RELOCATION = "forced_relocation";
 
     private static final String SIGNAL_SALARY_TRANSPARENCY = "salary_transparency";
     private static final String SIGNAL_HYBRID_WORK = "hybrid_work";
@@ -376,6 +485,10 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_PRODUCT_COMPANY = "product_company";
     private static final String SIGNAL_ENGINEERING_CULTURE = "engineering_culture";
     private static final String SIGNAL_ENGINEERING_ENVIRONMENT = "engineering_environment";
+    private static final String SIGNAL_INHOUSE_PRODUCT_ENGINEERING = "inhouse_product_engineering";
+    private static final String SIGNAL_GLOBAL_TEAM_COLLABORATION = "global_team_collaboration";
+    private static final String SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT = "english_support_environment";
+    private static final String SIGNAL_VISA_SPONSORSHIP_SUPPORT = "visa_sponsorship_support";
     private static final String SIGNAL_WORK_LIFE_BALANCE = "work_life_balance";
     private static final String SIGNAL_STABILITY = "stability";
     private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE = "company_reputation_positive";
@@ -393,6 +506,12 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_INCLUSION_CONTRADICTION = "inclusion_contradiction";
     private static final String SIGNAL_PRE_IPO_RISK = "pre_ipo_risk";
     private static final String SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED = "manager_scope_salary_misaligned";
+    private static final String SIGNAL_WORKLOAD_POLICY_RISK = "workload_policy_risk";
+    private static final String SIGNAL_HOLIDAY_POLICY_RISK = "holiday_policy_risk";
+    private static final String SIGNAL_LOCATION_MOBILITY_RISK = "location_mobility_risk";
+    private static final String SIGNAL_SALARY_RANGE_ANOMALY = "salary_range_anomaly";
+    private static final String SIGNAL_DEBT_FIRST_CULTURE_RISK = "debt_first_culture_risk";
+    private static final String SIGNAL_HYPERGROWTH_EXECUTION_RISK = "hypergrowth_execution_risk";
     private static final String SIGNAL_COMPANY_REPUTATION_RISK = "company_reputation_risk";
     private static final String SIGNAL_COMPANY_REPUTATION_RISK_HIGH = "company_reputation_risk_high";
     private static final int EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE = 4;
@@ -400,6 +519,12 @@ public final class DecisionEngineV1 {
     private static final int EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION = 2;
     private static final int EXTRA_RISK_PENALTY_PRE_IPO = 1;
     private static final int EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY = 2;
+    private static final int EXTRA_RISK_PENALTY_WORKLOAD_POLICY = 3;
+    private static final int EXTRA_RISK_PENALTY_HOLIDAY_POLICY = 2;
+    private static final int EXTRA_RISK_PENALTY_LOCATION_MOBILITY = 1;
+    private static final int EXTRA_RISK_PENALTY_SALARY_RANGE_ANOMALY = 3;
+    private static final int EXTRA_RISK_PENALTY_DEBT_FIRST_CULTURE = 3;
+    private static final int EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION = 2;
 
     private static final String TAG_PROFILE_EXPAT_FRIENDLY = "expat_friendly";
     private static final String TAG_PROFILE_ENGINEERING_BRAND = "engineering_brand";
@@ -421,6 +546,10 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_PRODUCT_COMPANY, PRIORITY_PRODUCT_COMPANY),
             Map.entry(SIGNAL_ENGINEERING_CULTURE, PRIORITY_ENGINEERING_CULTURE),
             Map.entry(SIGNAL_ENGINEERING_ENVIRONMENT, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_INHOUSE_PRODUCT_ENGINEERING, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_GLOBAL_TEAM_COLLABORATION, PRIORITY_ENGLISH_ENVIRONMENT),
+            Map.entry(SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT, PRIORITY_ENGLISH_ENVIRONMENT),
+            Map.entry(SIGNAL_VISA_SPONSORSHIP_SUPPORT, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_WORK_LIFE_BALANCE, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_STABILITY, PRIORITY_STABILITY),
             Map.entry(SIGNAL_COMPANY_REPUTATION_POSITIVE, PRIORITY_STABILITY),
@@ -438,6 +567,12 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_PRE_IPO_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, PRIORITY_SALARY),
+            Map.entry(SIGNAL_WORKLOAD_POLICY_RISK, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_HOLIDAY_POLICY_RISK, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_LOCATION_MOBILITY_RISK, PRIORITY_HYBRID_WORK),
+            Map.entry(SIGNAL_SALARY_RANGE_ANOMALY, PRIORITY_SALARY),
+            Map.entry(SIGNAL_DEBT_FIRST_CULTURE_RISK, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_STARTUP_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_COMPANY_REPUTATION_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_COMPANY_REPUTATION_RISK_HIGH, PRIORITY_STABILITY)
@@ -447,7 +582,13 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE, EXTRA_RISK_PENALTY_ROLE_MISMATCH),
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION),
             Map.entry(SIGNAL_PRE_IPO_RISK, EXTRA_RISK_PENALTY_PRE_IPO),
-            Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY)
+            Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY),
+            Map.entry(SIGNAL_WORKLOAD_POLICY_RISK, EXTRA_RISK_PENALTY_WORKLOAD_POLICY),
+            Map.entry(SIGNAL_HOLIDAY_POLICY_RISK, EXTRA_RISK_PENALTY_HOLIDAY_POLICY),
+            Map.entry(SIGNAL_LOCATION_MOBILITY_RISK, EXTRA_RISK_PENALTY_LOCATION_MOBILITY),
+            Map.entry(SIGNAL_SALARY_RANGE_ANOMALY, EXTRA_RISK_PENALTY_SALARY_RANGE_ANOMALY),
+            Map.entry(SIGNAL_DEBT_FIRST_CULTURE_RISK, EXTRA_RISK_PENALTY_DEBT_FIRST_CULTURE),
+            Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION)
     );
 
     public EvaluationResult evaluate(JobInput job, PersonaConfig persona, EngineConfig config) {
@@ -554,6 +695,18 @@ public final class DecisionEngineV1 {
         if (hasEngineeringEnvironmentPositiveSignal(combinedText)) {
             positiveSignals.add(SIGNAL_ENGINEERING_ENVIRONMENT);
         }
+        if (containsAny(combinedText, INHOUSE_PRODUCT_ENGINEERING_KEYWORDS)) {
+            positiveSignals.add(SIGNAL_INHOUSE_PRODUCT_ENGINEERING);
+        }
+        if (containsAny(combinedText, GLOBAL_TEAM_COLLABORATION_KEYWORDS)) {
+            positiveSignals.add(SIGNAL_GLOBAL_TEAM_COLLABORATION);
+        }
+        if (containsAny(combinedText, ENGLISH_SUPPORT_ENVIRONMENT_KEYWORDS)) {
+            positiveSignals.add(SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT);
+        }
+        if (containsAny(combinedText, VISA_SPONSORSHIP_SUPPORT_KEYWORDS)) {
+            positiveSignals.add(SIGNAL_VISA_SPONSORSHIP_SUPPORT);
+        }
         if (containsAny(combinedText, WORK_LIFE_BALANCE_KEYWORDS)) {
             positiveSignals.add(SIGNAL_WORK_LIFE_BALANCE);
         }
@@ -601,6 +754,24 @@ public final class DecisionEngineV1 {
         if (hasManagerScopeSalaryMisaligned(job.title(), combinedText, salaryRange)) {
             riskSignals.add(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED);
         }
+        if (hasWorkloadPolicyRisk(combinedText)) {
+            riskSignals.add(SIGNAL_WORKLOAD_POLICY_RISK);
+        }
+        if (containsAny(combinedText, HOLIDAY_POLICY_RISK_KEYWORDS)) {
+            riskSignals.add(SIGNAL_HOLIDAY_POLICY_RISK);
+        }
+        if (containsAny(combinedText, LOCATION_MOBILITY_RISK_KEYWORDS)) {
+            riskSignals.add(SIGNAL_LOCATION_MOBILITY_RISK);
+        }
+        if (hasSalaryRangeAnomaly(salaryRange)) {
+            riskSignals.add(SIGNAL_SALARY_RANGE_ANOMALY);
+        }
+        if (containsAny(combinedText, DEBT_FIRST_CULTURE_RISK_KEYWORDS)) {
+            riskSignals.add(SIGNAL_DEBT_FIRST_CULTURE_RISK);
+        }
+        if (containsAny(combinedText, HYPERGROWTH_EXECUTION_RISK_KEYWORDS)) {
+            riskSignals.add(SIGNAL_HYPERGROWTH_EXECUTION_RISK);
+        }
         if (containsAny(combinedText, STARTUP_RISK_KEYWORDS)) {
             riskSignals.add(SIGNAL_STARTUP_RISK);
         }
@@ -631,7 +802,9 @@ public final class DecisionEngineV1 {
         }
 
         if (personaHardNo.contains("salary_missing") && isSalaryMissing(salaryRange)) {
-            hardRejectReasons.add("salary information is missing or non-transparent");
+            if (isSalaryExplicitlyOpaque(salaryRange)) {
+                hardRejectReasons.add("salary policy is explicitly opaque or non-transparent");
+            }
         }
 
         if (personaHardNo.contains("early_stage_startup") && containsAny(combinedText, STARTUP_RISK_KEYWORDS)) {
@@ -642,9 +815,19 @@ public final class DecisionEngineV1 {
             hardRejectReasons.add("abusive overtime indicators detected");
         }
 
-        if (personaPriorities.contains(PRIORITY_ENGLISH_ENVIRONMENT)
+        if (personaHardNo.contains(HARD_NO_JAPANESE_ONLY_ENVIRONMENT)
                 && hasCriticalLanguageFrictionSignal(combinedText)) {
             hardRejectReasons.add("critical Japanese-only communication environment detected");
+        }
+
+        if (personaHardNo.contains(HARD_NO_WORKLOAD_OVERLOAD)
+                && hasWorkloadOverloadHardCondition(combinedText)) {
+            hardRejectReasons.add("overload workload policy detected (no fixed hours + minimum weekly commitment + overtime pressure)");
+        }
+
+        if (personaHardNo.contains(HARD_NO_FORCED_RELOCATION)
+                && hasCompanyControlledOverseasRelocationRisk(combinedText)) {
+            hardRejectReasons.add("company-controlled overseas relocation risk detected");
         }
     }
 
@@ -806,6 +989,11 @@ public final class DecisionEngineV1 {
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
         boolean hasOptionalLanguage = containsAny(combinedText, LANGUAGE_OPTIONAL_OR_EXEMPT_KEYWORDS)
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
+        hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
+                combinedText,
+                hasStrongRequiredLanguage,
+                hasOptionalLanguage
+        );
         if (hasStrongRequiredLanguage) {
             return true;
         }
@@ -834,6 +1022,11 @@ public final class DecisionEngineV1 {
         boolean hasOptionalLanguage = containsAny(combinedText, LANGUAGE_OPTIONAL_OR_EXEMPT_KEYWORDS)
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         boolean hasSoftLanguage = containsAny(combinedText, LANGUAGE_FRICTION_SOFT_KEYWORDS);
+        hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
+                combinedText,
+                hasStrongRequiredLanguage,
+                hasOptionalLanguage
+        );
 
         int index = 0;
         if (hasStrongRequiredLanguage) {
@@ -887,6 +1080,25 @@ public final class DecisionEngineV1 {
         return index;
     }
 
+    private boolean resolveRequiredLanguageConflict(
+            String combinedText,
+            boolean hasStrongRequiredLanguage,
+            boolean hasOptionalLanguage
+    ) {
+        if (!hasStrongRequiredLanguage || !hasOptionalLanguage) {
+            return hasStrongRequiredLanguage;
+        }
+
+        boolean hasClearRequiredIndicator = containsAny(combinedText, LANGUAGE_HIGH_FRICTION_KEYWORDS)
+                || containsAny(combinedText, LANGUAGE_MEDIUM_HIGH_FRICTION_KEYWORDS)
+                || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
+
+        if (hasClearRequiredIndicator) {
+            return true;
+        }
+        return false;
+    }
+
     private boolean hasEngineeringEnvironmentPositiveSignal(String combinedText) {
         return containsAny(combinedText, ENGINEERING_ENVIRONMENT_POSITIVE_KEYWORDS);
     }
@@ -924,6 +1136,70 @@ public final class DecisionEngineV1 {
         }
         int upperBoundYen = parseUpperBoundYen(salaryRange);
         return upperBoundYen > NORMALIZED_SCORE_MIN && upperBoundYen <= MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN;
+    }
+
+    private boolean hasWorkloadPolicyRisk(String combinedText) {
+        int matched = 0;
+        if (containsAny(combinedText, WORKLOAD_NO_FIXED_HOURS_KEYWORDS)) {
+            matched++;
+        }
+        if (containsAny(combinedText, WORKLOAD_MIN_WEEKLY_COMMITMENT_KEYWORDS)) {
+            matched++;
+        }
+        if (containsAny(combinedText, WORKLOAD_PRESSURE_KEYWORDS)
+                || containsAny(combinedText, OVERTIME_RISK_KEYWORDS)) {
+            matched++;
+        }
+        return matched >= WORKLOAD_OVERLOAD_SIGNAL_THRESHOLD;
+    }
+
+    private boolean hasWorkloadOverloadHardCondition(String combinedText) {
+        boolean noFixedHours = containsAny(combinedText, WORKLOAD_NO_FIXED_HOURS_KEYWORDS);
+        boolean minWeeklyCommitment = containsAny(combinedText, WORKLOAD_MIN_WEEKLY_COMMITMENT_KEYWORDS);
+        boolean overtimePressure = containsAny(combinedText, WORKLOAD_PRESSURE_KEYWORDS)
+                || containsAny(combinedText, OVERTIME_RISK_KEYWORDS);
+        return noFixedHours && minWeeklyCommitment && overtimePressure;
+    }
+
+    private boolean hasSalaryRangeAnomaly(String salaryRange) {
+        if (salaryRange.isBlank()) {
+            return false;
+        }
+        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
+        if (orderedValues.size() < 2) {
+            return false;
+        }
+        return orderedValues.get(0) > orderedValues.get(orderedValues.size() - 1);
+    }
+
+    private List<Integer> extractOrderedSalaryValues(String salaryRange) {
+        List<Integer> values = new ArrayList<>();
+        Matcher matcher = SALARY_ORDERED_TOKEN_PATTERN.matcher(salaryRange);
+        while (matcher.find()) {
+            String numberRaw = matcher.group(1);
+            String suffixRaw = matcher.group(2);
+            if (numberRaw == null || numberRaw.isBlank()) {
+                continue;
+            }
+
+            String normalized = numberRaw.replace(",", "");
+            double baseValue;
+            try {
+                baseValue = Double.parseDouble(normalized);
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+
+            int value = (int) Math.round(baseValue);
+            String suffix = normalize(suffixRaw);
+            if ("m".equals(suffix) || "million".equals(suffix)) {
+                value = (int) Math.round(baseValue * 1_000_000d);
+            } else if ("k".equals(suffix)) {
+                value = (int) Math.round(baseValue * 1_000d);
+            }
+            values.add(value);
+        }
+        return values;
     }
 
     private int parseUpperBoundYen(String salaryRange) {
@@ -1082,11 +1358,24 @@ public final class DecisionEngineV1 {
         return salaryRange.isBlank() || containsAny(salaryRange, SALARY_MISSING_KEYWORDS);
     }
 
+    private boolean isSalaryExplicitlyOpaque(String salaryRange) {
+        if (salaryRange.isBlank()) {
+            return false;
+        }
+        return containsAny(salaryRange, SALARY_HARD_REJECT_OPAQUE_KEYWORDS);
+    }
+
     private boolean isSalaryTransparent(String salaryRange) {
         if (isSalaryMissing(salaryRange)) {
             return false;
         }
         return salaryRange.chars().anyMatch(Character::isDigit);
+    }
+
+    private boolean hasCompanyControlledOverseasRelocationRisk(String combinedText) {
+        boolean hasLocationControl = containsAny(combinedText, LOCATION_CHANGE_BY_COMPANY_KEYWORDS);
+        boolean hasOverseasTransfer = containsAny(combinedText, LOCATION_OVERSEAS_TRANSFER_KEYWORDS);
+        return hasLocationControl && hasOverseasTransfer;
     }
 
     private boolean containsAny(String text, List<String> keywords) {
