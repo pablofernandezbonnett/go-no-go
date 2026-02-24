@@ -108,6 +108,12 @@ src/main/java/com/pmfb/gonogo/engine
 └── report/
 ```
 
+Configuration templates and field definitions:
+
+- `config/README.md`
+- `config/companies.example.yaml`
+- `config/personas.example.yaml`
+
 ## Getting Started
 
 Prerequisites:
