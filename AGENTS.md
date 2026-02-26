@@ -59,6 +59,16 @@ Avoid early introduction of:
 - Avoid exposing sensitive local paths/internal diagnostics.
 - Keep language clear and professional in English.
 
+## Component Contracts (Jaspr/Dart)
+
+- Artifact parsers live in `services/` — never inside page components.
+- Stream subscriptions: subscribe once (in `initState` or equivalent), never inside `build()`.
+- Fail gracefully: render an error state in the component — never throw or crash due to
+  missing or malformed artifact data.
+- Before adding a dependency: verify `pubspec.yaml` for an existing equivalent.
+
+---
+
 ## Contribution Style
 
 Prefer:
