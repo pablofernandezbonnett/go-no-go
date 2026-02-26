@@ -135,6 +135,16 @@ Avoid:
 
 ---
 
+## Code Contracts (Java)
+
+- Do NOT throw `RuntimeException` or `Exception` generically. Use typed exception classes
+  in the `exception/` package.
+- No static singletons — pass dependencies via constructor.
+- Before adding a utility class, verify whether picocli / jsoup / snakeyaml already covers
+  the needed functionality.
+
+---
+
 ## Long-term role of AI
 
 - signal detection
