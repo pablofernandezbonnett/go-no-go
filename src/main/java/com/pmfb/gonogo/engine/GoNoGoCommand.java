@@ -18,7 +18,8 @@ import picocli.CommandLine.Model.CommandSpec;
                 BatchEvaluateCommand.class,
                 WeeklyDigestCommand.class,
                 PipelineCommand.class,
-                ScheduleCommand.class
+                ScheduleCommand.class,
+                RunCommand.class
         }
 )
 public final class GoNoGoCommand implements Callable<Integer> {

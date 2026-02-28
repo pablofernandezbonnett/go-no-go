@@ -9,7 +9,8 @@ import picocli.CommandLine.Spec;
         name = "pipeline",
         description = "Pipeline orchestration commands.",
         subcommands = {
-                PipelineRunCommand.class
+                PipelineRunCommand.class,
+                PipelineRunAllCommand.class
         }
 )
 public final class PipelineCommand implements Callable<Integer> {
