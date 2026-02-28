@@ -1,6 +1,6 @@
 package com.pmfb.gonogo.engine;
 
-import com.pmfb.gonogo.engine.config.ConfigLoadException;
+import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
@@ -8,7 +8,7 @@ import com.pmfb.gonogo.engine.config.YamlConfigLoader;
 import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
 import com.pmfb.gonogo.engine.job.JobInput;
-import com.pmfb.gonogo.engine.job.JobInputLoadException;
+import com.pmfb.gonogo.engine.exception.JobInputLoadException;
 import com.pmfb.gonogo.engine.job.YamlJobInputLoader;
 import java.nio.file.Path;
 import java.util.List;

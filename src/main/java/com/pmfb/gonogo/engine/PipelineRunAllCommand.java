@@ -1,10 +1,11 @@
 package com.pmfb.gonogo.engine;
 
-import com.pmfb.gonogo.engine.config.ConfigLoadException;
+import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
+import com.pmfb.gonogo.engine.report.TrendAlertSinkFactory;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,7 +26,7 @@ import picocli.CommandLine.Option;
 public final class PipelineRunAllCommand implements Callable<Integer> {
     private static final String WEEKLY_FILE_PREFIX = "weekly-";
     private static final String WEEKLY_FILE_EXTENSION = ".md";
-    private static final String DEFAULT_ALERT_SINK = "none";
+    private static final String DEFAULT_ALERT_SINK = TrendAlertSinkFactory.SINK_NONE;
 
     @Option(
             names = {"--config-dir"},

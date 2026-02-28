@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.config;
 
+import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
