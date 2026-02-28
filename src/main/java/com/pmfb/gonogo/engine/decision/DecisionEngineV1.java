@@ -631,8 +631,9 @@ public final class DecisionEngineV1 {
                 hardRejectReasons
         );
 
-        int rawScore = computeScore(positiveSignals, riskSignals, personaPriorities);
-        ScoreRange scoreRange = computeScoreRange(personaPriorities);
+        Map<String, Integer> signalWeights = persona.signalWeights();
+        int rawScore = computeScore(positiveSignals, riskSignals, personaPriorities, signalWeights);
+        ScoreRange scoreRange = computeScoreRange(personaPriorities, signalWeights);
         int normalizedScore = normalizeScore(rawScore, scoreRange);
         Verdict verdict = decideVerdict(rawScore, hardRejectReasons);
         if (!hardRejectReasons.isEmpty()) {
@@ -831,21 +832,35 @@ public final class DecisionEngineV1 {
         }
     }
 
+    private int resolvePositiveWeight(String signal, Set<String> priorities, Map<String, Integer> weights) {
+        if (weights.containsKey(signal)) {
+            return weights.get(signal);
+        }
+        String priority = POSITIVE_SIGNAL_TO_PRIORITY.get(signal);
+        return priorities.contains(priority) ? POSITIVE_PRIORITY_WEIGHT : POSITIVE_DEFAULT_WEIGHT;
+    }
+
+    private int resolveRiskWeight(String signal, Set<String> priorities, Map<String, Integer> weights) {
+        if (weights.containsKey(signal)) {
+            return weights.get(signal);
+        }
+        String priority = RISK_SIGNAL_TO_PRIORITY.get(signal);
+        int base = priorities.contains(priority) ? RISK_PRIORITY_WEIGHT : RISK_DEFAULT_WEIGHT;
+        return base + RISK_SIGNAL_EXTRA_PENALTY.getOrDefault(signal, 0);
+    }
+
     private int computeScore(
             Set<String> positiveSignals,
             Set<String> riskSignals,
-            Set<String> personaPriorities
+            Set<String> personaPriorities,
+            Map<String, Integer> signalWeights
     ) {
         int score = 0;
         for (String signal : positiveSignals) {
-            String priority = POSITIVE_SIGNAL_TO_PRIORITY.get(signal);
-            score += personaPriorities.contains(priority) ? POSITIVE_PRIORITY_WEIGHT : POSITIVE_DEFAULT_WEIGHT;
+            score += resolvePositiveWeight(signal, personaPriorities, signalWeights);
         }
         for (String signal : riskSignals) {
-            String priority = RISK_SIGNAL_TO_PRIORITY.get(signal);
-            int penalty = personaPriorities.contains(priority) ? RISK_PRIORITY_WEIGHT : RISK_DEFAULT_WEIGHT;
-            penalty += RISK_SIGNAL_EXTRA_PENALTY.getOrDefault(signal, 0);
-            score -= penalty;
+            score -= resolveRiskWeight(signal, personaPriorities, signalWeights);
         }
         return score;
     }
@@ -903,17 +918,14 @@ public final class DecisionEngineV1 {
         return reasoning;
     }
 
-    private ScoreRange computeScoreRange(Set<String> personaPriorities) {
+    private ScoreRange computeScoreRange(Set<String> personaPriorities, Map<String, Integer> signalWeights) {
         int min = 0;
         int max = 0;
-        for (String priority : POSITIVE_SIGNAL_TO_PRIORITY.values()) {
-            max += personaPriorities.contains(priority) ? POSITIVE_PRIORITY_WEIGHT : POSITIVE_DEFAULT_WEIGHT;
+        for (String signal : POSITIVE_SIGNAL_TO_PRIORITY.keySet()) {
+            max += resolvePositiveWeight(signal, personaPriorities, signalWeights);
         }
         for (String signal : RISK_SIGNAL_TO_PRIORITY.keySet()) {
-            String priority = RISK_SIGNAL_TO_PRIORITY.get(signal);
-            int penalty = personaPriorities.contains(priority) ? RISK_PRIORITY_WEIGHT : RISK_DEFAULT_WEIGHT;
-            penalty += RISK_SIGNAL_EXTRA_PENALTY.getOrDefault(signal, 0);
-            min -= penalty;
+            min -= resolveRiskWeight(signal, personaPriorities, signalWeights);
         }
         return new ScoreRange(min, max);
     }
