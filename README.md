@@ -64,6 +64,7 @@ Implemented now:
 - `gonogo evaluate-batch` command with markdown/json report generation
 - `gonogo weekly-digest` command from batch JSON reports
 - `gonogo pipeline run` end-to-end orchestration
+- `gonogo pipeline run-all` one-shot orchestration for all personas + all companies
 - job change detection (`NEW`/`UPDATED`/`UNCHANGED`/`REMOVED`) with persisted state in pipeline
 - incremental pipeline mode (`--incremental-only`) to evaluate only changed jobs
 - enhanced language-friction detection (EN/JP required vs optional patterns)
@@ -120,53 +121,57 @@ Prerequisites:
 
 - Java 25 installed
 
-Run:
+Show CLI help:
 
 ```bash
 ./gradlew run --args="--help"
 ```
 
-Validate config:
+## Quick Start Commands
+
+Validate configuration:
 
 ```bash
 ./gradlew run --args="config validate"
 ```
 
-Evaluate one job file:
+Run everything in one command (recommended default):
 
 ```bash
-./gradlew run --args="evaluate --persona product_expat_engineer --job-file examples/job-input.example.yaml"
+./gradlew run --args="run"
 ```
 
-Normalize raw job text to job YAML:
+Equivalent explicit command:
 
 ```bash
-./gradlew run --args="fetch --input-file examples/raw-job-text.example.txt --output-file examples/job-input.generated.yaml"
+./gradlew run --args="pipeline run-all"
 ```
 
-Fetch real career pages and generate raw files:
+What `pipeline run-all` does by default:
+
+- fetches all companies from `config/companies.yaml`
+- evaluates all personas from `config/personas.yaml`
+- writes per-persona batch reports into `output/`
+- writes per-persona weekly reports into `output/weekly-<persona>.md`
+
+Run all with customization examples:
 
 ```bash
-./gradlew run --args="fetch-web --company-ids mercari,moneyforward --output-dir output/raw"
+./gradlew run --args="pipeline run-all --company-ids mercari,moneyforward --personas product_expat_engineer"
 ```
 
-Fetch with custom reliability policy:
-
 ```bash
-./gradlew run --args="fetch-web --company-ids mercari,moneyforward --output-dir output/raw --retries 3 --backoff-millis 500 --cache-dir .cache/fetch-web --cache-ttl-minutes 720"
+./gradlew run --args="pipeline run-all --fetch-web-max-jobs-per-company 20 --fetch-web-request-delay-millis 1500"
 ```
 
-End-to-end (normalize then evaluate):
-
 ```bash
-./gradlew run --args="fetch --input-file examples/raw-job-text.example.txt --output-file examples/job-input.generated.yaml" \
-  && ./gradlew run --args="evaluate --persona product_expat_engineer --job-file examples/job-input.generated.yaml"
+./gradlew run --args="pipeline run-all --skip-fetch-web"
 ```
 
-Batch evaluate a directory of job YAML files:
+Run one persona pipeline (still defaults to all companies when fetch stage runs):
 
 ```bash
-./gradlew run --args="evaluate-batch --persona product_expat_engineer --input-dir examples --pattern job-input*.yaml --output-dir output"
+./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first"
 ```
 
 Operations UI (MVP, in this repo):
@@ -187,52 +192,47 @@ Current Ops UI capabilities:
 - Add persona entries to `config/personas.yaml` from UI form
 - Local UI settings (poll interval and auto-refresh)
 
+## Command Reference
+
+`config validate`
+- Validates `config/companies.yaml`, `config/personas.yaml`, `config/blacklist.yaml`.
+
+`fetch`
+- Converts one raw text file into one normalized job YAML.
+
+`fetch-web`
+- Fetches career pages and generates raw text files.
+- Default behavior: all companies if `--company-ids` is omitted.
+
+`evaluate`
+- Evaluates one job YAML for one persona.
+
+`evaluate-batch`
+- Evaluates all YAML files from an input directory for one persona.
+
+`weekly-digest`
+- Builds one markdown digest from one batch JSON file.
+
+`pipeline run`
+- Full flow for one persona: optional fetch, normalize, evaluate, batch report, weekly digest.
+- Default persona: `product_expat_engineer`.
+
+`pipeline run-all` (aliases: `pipeline all`, `pipeline full`)
+- Full flow for all personas and all companies by default.
+- Best command for regular end-to-end runs.
+
+`run`
+- Root-level shortcut for `pipeline run-all`.
+- Best ultra-short command for daily execution.
+
+`schedule`
+- Generates script + cron example files (not activated automatically).
+- Default generated run command is `pipeline run-all`.
+
 Generate weekly digest from batch JSON:
 
 ```bash
 ./gradlew run --args="weekly-digest --input-json output/batch-evaluation-product_expat_engineer.json --output-file output/weekly.md"
-```
-
-Run full pipeline in one command:
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md"
-```
-
-Short command for real fetch + full evaluation (recommended):
-
-```bash
-./gradlew run --args="pipeline run --company-ids mercari,moneyforward"
-```
-
-Run pipeline with explicit change-state file (advanced/custom):
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids mercari,moneyforward --raw-input-dir output/raw --raw-pattern *.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --change-state-file output/job-change-state-product_expat_engineer.yaml"
-```
-
-Run incremental-only pipeline (evaluate only `NEW` and `UPDATED`):
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids mercari,moneyforward --raw-input-dir output/raw --raw-pattern *.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --change-state-file output/job-change-state-product_expat_engineer.yaml --incremental-only"
-```
-
-Run pipeline with explicit trend-history file:
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --trend-history-file output/trend-history-product_expat_engineer.yaml --trend-history-max-runs 26"
-```
-
-Disable trend alerts while keeping trend history:
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --disable-trend-alerts"
-```
-
-Configure agnostic alert sinks (no external integration required):
-
-```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --alert-sinks stdout,json-file --alert-json-file output/trend-alerts.json"
 ```
 
 Generate scheduled-run artifacts (script + cron entry, not activated automatically):
@@ -241,10 +241,10 @@ Generate scheduled-run artifacts (script + cron entry, not activated automatical
 ./gradlew run --args="schedule"
 ```
 
-Strict mode (fail if normalization produced warnings like `TBD` salary):
+Strict mode for one persona (fail if normalization produced warnings like `TBD` salary):
 
 ```bash
-./gradlew run --args="pipeline run --persona product_expat_engineer --raw-input-dir examples --raw-pattern raw-job-text*.txt --jobs-output-dir output/jobs --batch-output-dir output --weekly-output-file output/weekly.md --fail-on-warnings"
+./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fail-on-warnings"
 ```
 
 Build:
@@ -331,6 +331,10 @@ Pipeline integration:
   - `--persona=product_expat_engineer`
   - `--raw-input-dir=output/raw`
   - `--fetch-web-max-jobs-per-company=5`
+- Convenience defaults in `pipeline run-all`:
+  - all personas from `config/personas.yaml`
+  - all companies from `config/companies.yaml`
+  - `--fetch-web-max-jobs-per-company=12`
 - Reliability flags are available in both commands:
   `--retries`, `--backoff-millis`, `--request-delay-millis`, `--cache-dir`, `--cache-ttl-minutes`, `--disable-cache`
   and pipeline-prefixed variants like `--fetch-web-retries`.

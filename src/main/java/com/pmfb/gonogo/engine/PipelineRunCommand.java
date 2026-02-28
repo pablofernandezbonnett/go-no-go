@@ -209,7 +209,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
     @Option(
             names = {"--fetch-web-company-ids", "--company-ids"},
             split = ",",
-            description = "Optional comma-separated company ids to fetch. If provided, fetch-web stage is enabled automatically."
+            description = "Optional comma-separated company ids to fetch. Defaults to all companies when fetch-web runs. If provided, fetch-web stage is enabled automatically."
     )
     private List<String> fetchWebCompanyIds;
 

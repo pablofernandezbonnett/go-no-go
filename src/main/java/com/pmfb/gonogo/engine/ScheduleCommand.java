@@ -20,8 +20,7 @@ public final class ScheduleCommand implements Callable<Integer> {
     private static final String DEFAULT_LOG_FILE = "output/scheduled-pipeline.log";
     private static final String DEFAULT_GRADLE_COMMAND = "./gradlew";
     private static final String DEFAULT_WORKING_DIR = ".";
-    private static final String DEFAULT_RUN_COMMAND =
-            "pipeline run --company-ids mercari,moneyforward";
+    private static final String DEFAULT_RUN_COMMAND = "pipeline run-all";
     private static final int EXPECTED_CRON_PARTS = 5;
     private static final String CRON_MACRO_PREFIX = "@";
     private static final String CRON_INSTALL_HINT = "Install manually when ready: crontab ";

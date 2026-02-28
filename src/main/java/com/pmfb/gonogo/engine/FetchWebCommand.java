@@ -33,7 +33,7 @@ public final class FetchWebCommand implements Callable<Integer> {
     @Option(
             names = {"--company-ids"},
             split = ",",
-            description = "Optional comma-separated company ids from config/companies.yaml."
+            description = "Optional comma-separated company ids from config/companies.yaml. Defaults to all companies."
     )
     private List<String> companyIds;
 
