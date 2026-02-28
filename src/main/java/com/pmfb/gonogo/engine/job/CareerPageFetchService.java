@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.error.YAMLException;
 
 public final class CareerPageFetchService {
     private static final int JOB_BOARD_DISCOVERY_MAX_URLS = 3;
@@ -35,6 +37,48 @@ public final class CareerPageFetchService {
     private static final String ROBOTS_MODE_WARN = "warn";
     private static final String ROBOTS_MODE_OFF = "off";
     private static final int COMPANY_CONTEXT_SCHEMA_VERSION = 1;
+    private static final int CAREER_URL_RESOLUTION_MAX_CANDIDATES = 24;
+    private static final int CAREER_URL_RESOLUTION_MAX_DISCOVERED_URLS = 4;
+    private static final Path DEFAULT_RESOLUTION_STATE_FILE = Path.of("output/fetch-web-resolution.yaml");
+    private static final int RESOLUTION_STATE_SCHEMA_VERSION = 1;
+    private static final List<String> CAREER_PATH_CANDIDATES = List.of(
+            "/careers",
+            "/careers/en",
+            "/careers/jobs",
+            "/careers/en/mid-career",
+            "/careers/en/mid-career/dx",
+            "/careers/en/job-description",
+            "/jobs",
+            "/jobs/openings",
+            "/recruit",
+            "/recruitment",
+            "/employment",
+            "/join-us",
+            "/open-positions",
+            "/positions"
+    );
+    private static final Set<String> ATS_PROVIDER_HINTS = Set.of(
+            "ashbyhq.com",
+            "greenhouse.io",
+            "lever.co",
+            "myworkdayjobs.com",
+            "smartrecruiters.com",
+            "workable.com",
+            "bamboohr.com"
+    );
+    private static final Set<String> NON_JOB_PATH_HINTS = Set.of(
+            "/about",
+            "/company",
+            "/mission",
+            "/vision",
+            "/values",
+            "/sustainability",
+            "/news",
+            "/press",
+            "/ir",
+            "/investor",
+            "/blog"
+    );
     private static final Set<String> CONTEXT_NAVIGATION_KEYWORDS = Set.of(
             "about us",
             "vision",
@@ -78,11 +122,13 @@ public final class CareerPageFetchService {
         CareerPageResponseCache cache = options.cacheEnabled()
                 ? new CareerPageResponseCache(options.cacheDir())
                 : null;
+        CareerUrlResolutionStore resolutionStore = CareerUrlResolutionStore.load(DEFAULT_RESOLUTION_STATE_FILE, info);
 
         for (CompanyConfig company : selectedCompanies) {
             try {
+                Optional<CareerUrlResolutionEntry> previousResolution = resolutionStore.find(company.id());
                 Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse = readFromCache(cache, company.careerUrl());
-                CareerPageHttpFetcher.FetchResult response = chooseResponse(
+                CareerPageHttpFetcher.FetchResult configuredResponse = chooseResponse(
                         company,
                         options,
                         cachedResponse,
@@ -92,23 +138,43 @@ public final class CareerPageFetchService {
                         info,
                         errors
                 );
-                if (response == null) {
-                    companyFailures++;
-                    continue;
-                }
+                CareerResolutionResult resolution = resolveCareerPageForJobs(
+                        company,
+                        configuredResponse,
+                        previousResolution,
+                        options,
+                        cache,
+                        lastRequestByHost,
+                        robotsRulesByHost,
+                        info,
+                        errors
+                );
 
-                if (response.statusCode() >= 400) {
+                if (!resolution.reachable()) {
                     companyFailures++;
                     errors.add(
-                            "Failed fetch for " + company.id() + " (" + company.careerUrl() + "): HTTP " + response.statusCode()
+                            "Failed fetch for " + company.id()
+                                    + " (" + company.careerUrl()
+                                    + "): no reachable career page candidate."
                     );
                     continue;
                 }
 
-                if (options.contextEnabled()) {
+                if (resolution.hasResolvedUrl() && !resolution.jobs().isEmpty()) {
+                    resolutionStore.remember(new CareerUrlResolutionEntry(
+                            company.id(),
+                            company.careerUrl(),
+                            resolution.resolvedCareerUrl(),
+                            resolution.confidence(),
+                            resolution.jobs().size(),
+                            Instant.now().toString()
+                    ));
+                }
+
+                if (options.contextEnabled() && resolution.contextResponse() != null) {
                     CompanyContextDocument contextDocument = buildCompanyContextDocument(
                             company,
-                            response,
+                            resolution.contextResponse(),
                             options,
                             cache,
                             lastRequestByHost,
@@ -122,26 +188,10 @@ public final class CareerPageFetchService {
                     }
                 }
 
-                List<JobPostingCandidate> jobs = extractor.extract(
-                        response.body(),
-                        response.finalUrl(),
-                        Math.max(1, options.maxJobsPerCompany())
-                );
+                List<JobPostingCandidate> jobs = resolution.jobs();
                 if (jobs.isEmpty()) {
-                    jobs = extractFromDiscoveredJobBoardLinks(
-                            company,
-                            response,
-                            options,
-                            cache,
-                            lastRequestByHost,
-                            robotsRulesByHost,
-                            info,
-                            errors
-                    );
-                    if (jobs.isEmpty()) {
-                        info.add("No job candidates detected for " + company.id() + ".");
-                        continue;
-                    }
+                    info.add("No job candidates detected for " + company.id() + ".");
+                    continue;
                 }
 
                 int written = writeCompanyRawFiles(options.outputDir(), company, jobs);
@@ -155,11 +205,10 @@ public final class CareerPageFetchService {
             } catch (IOException e) {
                 companyFailures++;
                 errors.add("I/O failure for " + company.id() + ": " + e.getMessage());
-            } catch (RuntimeException e) {
-                companyFailures++;
-                errors.add("Unexpected failure for " + company.id() + ": " + e.getMessage());
             }
         }
+
+        resolutionStore.save(DEFAULT_RESOLUTION_STATE_FILE, info);
 
         return new FetchOutcome(
                 selectedCompanies.size(),
@@ -239,6 +288,304 @@ public final class CareerPageFetchService {
                 : attempt.errorMessage();
         errors.add("I/O failure for " + companyId + ": " + failureMessage);
         return null;
+    }
+
+    private CareerResolutionResult resolveCareerPageForJobs(
+            CompanyConfig company,
+            CareerPageHttpFetcher.FetchResult configuredResponse,
+            Optional<CareerUrlResolutionEntry> previousResolution,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            Map<String, Long> lastRequestByHost,
+            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            List<String> info,
+            List<String> errors
+    ) throws InterruptedException {
+        int maxItems = Math.max(1, options.maxJobsPerCompany());
+        List<String> queue = new ArrayList<>();
+        Set<String> queuedKeys = new LinkedHashSet<>();
+        Map<String, CareerPageHttpFetcher.FetchResult> responsesByKey = new HashMap<>();
+        Set<String> expandedFinalUrls = new HashSet<>();
+
+        previousResolution.ifPresent(entry -> {
+            if (!entry.resolvedCareerUrl().isBlank() && entry.jobsFound() > 0) {
+                enqueueCandidateUrl(queue, queuedKeys, entry.resolvedCareerUrl());
+            }
+        });
+        enqueueCandidateUrl(queue, queuedKeys, company.careerUrl());
+        addPathCandidatesFromUrl(queue, queuedKeys, company.careerUrl());
+        addPathCandidatesFromUrl(queue, queuedKeys, company.corporateUrl());
+
+        if (configuredResponse != null) {
+            responsesByKey.put(urlKey(company.careerUrl()), configuredResponse);
+            responsesByKey.put(urlKey(configuredResponse.finalUrl()), configuredResponse);
+            if (configuredResponse.statusCode() < 400) {
+                addDiscoveredCandidates(
+                        queue,
+                        queuedKeys,
+                        extractor.discoverJobBoardUrls(
+                                configuredResponse.body(),
+                                configuredResponse.finalUrl(),
+                                CAREER_URL_RESOLUTION_MAX_DISCOVERED_URLS
+                        )
+                );
+            }
+        }
+
+        CandidateEvaluation best = null;
+        CareerPageHttpFetcher.FetchResult contextResponse = null;
+        boolean reachable = false;
+
+        int index = 0;
+        while (index < queue.size() && index < CAREER_URL_RESOLUTION_MAX_CANDIDATES) {
+            String candidateUrl = queue.get(index++);
+            if (candidateUrl == null || candidateUrl.isBlank()) {
+                continue;
+            }
+
+            CareerPageHttpFetcher.FetchResult response = responsesByKey.get(urlKey(candidateUrl));
+            if (response == null) {
+                response = chooseResponseForUrl(
+                        company.id(),
+                        candidateUrl,
+                        options,
+                        readFromCache(cache, candidateUrl),
+                        cache,
+                        lastRequestByHost,
+                        robotsRulesByHost,
+                        info,
+                        errors
+                );
+                if (response != null) {
+                    responsesByKey.put(urlKey(candidateUrl), response);
+                    responsesByKey.put(urlKey(response.finalUrl()), response);
+                }
+            }
+            if (response == null || response.statusCode() >= 400) {
+                continue;
+            }
+
+            reachable = true;
+            if (contextResponse == null) {
+                contextResponse = response;
+            }
+
+            String finalUrlKey = urlKey(response.finalUrl());
+            if (expandedFinalUrls.add(finalUrlKey)) {
+                addDiscoveredCandidates(
+                        queue,
+                        queuedKeys,
+                        extractor.discoverJobBoardUrls(
+                                response.body(),
+                                response.finalUrl(),
+                                CAREER_URL_RESOLUTION_MAX_DISCOVERED_URLS
+                        )
+                );
+                addPathCandidatesFromUrl(queue, queuedKeys, response.finalUrl());
+            }
+
+            List<JobPostingCandidate> jobs = extractor.extract(response.body(), response.finalUrl(), maxItems);
+            int score = scoreCareerPageCandidate(company, response.finalUrl(), jobs);
+            CandidateEvaluation evaluation = new CandidateEvaluation(response, jobs, score);
+            if (best == null || isBetterCandidate(evaluation, best)) {
+                best = evaluation;
+            }
+        }
+
+        if (best == null) {
+            return new CareerResolutionResult(false, contextResponse, List.of(), "", 0);
+        }
+
+        int confidence = computeResolutionConfidence(best.score(), best.jobs().size());
+        String configuredUrlKey = urlKey(company.careerUrl());
+        String resolvedUrl = best.response().finalUrl();
+        if (best.jobs().isEmpty()) {
+            info.add(
+                    "career_url_resolution_no_jobs: "
+                            + company.id()
+                            + " best_url="
+                            + resolvedUrl
+                            + " score="
+                            + best.score()
+                            + " candidates_checked="
+                            + Math.min(index, CAREER_URL_RESOLUTION_MAX_CANDIDATES)
+            );
+        }
+        if (!best.jobs().isEmpty() && !urlKey(resolvedUrl).equals(configuredUrlKey)) {
+            info.add(
+                    "career_url_resolved: "
+                            + company.id()
+                            + " -> "
+                            + resolvedUrl
+                            + " (confidence="
+                            + confidence
+                            + ", jobs="
+                            + best.jobs().size()
+                            + ")"
+            );
+        }
+        return new CareerResolutionResult(
+                reachable,
+                contextResponse == null ? best.response() : contextResponse,
+                best.jobs(),
+                resolvedUrl,
+                confidence
+        );
+    }
+
+    private boolean isBetterCandidate(CandidateEvaluation left, CandidateEvaluation right) {
+        if (left.score() != right.score()) {
+            return left.score() > right.score();
+        }
+        if (left.jobs().size() != right.jobs().size()) {
+            return left.jobs().size() > right.jobs().size();
+        }
+        return left.response().finalUrl().length() < right.response().finalUrl().length();
+    }
+
+    private int scoreCareerPageCandidate(
+            CompanyConfig company,
+            String url,
+            List<JobPostingCandidate> jobs
+    ) {
+        int score = jobs.size() * 20;
+        String normalizedUrl = normalize(url);
+        String normalizedConfigured = normalize(company.careerUrl());
+        if (normalizedUrl.equals(normalizedConfigured)) {
+            score += 6;
+        }
+        for (String providerHint : ATS_PROVIDER_HINTS) {
+            if (normalizedUrl.contains(providerHint)) {
+                score += 18;
+                break;
+            }
+        }
+        if (normalizedUrl.contains("/job") || normalizedUrl.contains("/career") || normalizedUrl.contains("/recruit")) {
+            score += 8;
+        }
+        for (String hint : NON_JOB_PATH_HINTS) {
+            if (normalizedUrl.contains(hint)) {
+                score -= 10;
+            }
+        }
+        int jobDescriptionHits = 0;
+        int eventLikeHits = 0;
+        for (JobPostingCandidate job : jobs) {
+            String candidateUrl = normalize(job.url());
+            String title = normalize(job.title());
+            if (candidateUrl.contains("job-description") || candidateUrl.contains("/jobs/")) {
+                jobDescriptionHits++;
+            }
+            if (title.contains("event") || title.contains("session") || title.contains("registration")) {
+                eventLikeHits++;
+            }
+        }
+        score += Math.min(18, jobDescriptionHits * 6);
+        score -= eventLikeHits * 8;
+        if (!jobs.isEmpty()) {
+            score += 12;
+        }
+        return score;
+    }
+
+    private int computeResolutionConfidence(int score, int jobCount) {
+        if (jobCount < 1) {
+            return 0;
+        }
+        int raw = 20 + score + (jobCount * 4);
+        if (raw < 0) {
+            return 0;
+        }
+        return Math.min(100, raw);
+    }
+
+    private void addDiscoveredCandidates(
+            List<String> queue,
+            Set<String> queuedKeys,
+            List<String> discoveredUrls
+    ) {
+        for (String discoveredUrl : discoveredUrls) {
+            if (queue.size() >= CAREER_URL_RESOLUTION_MAX_CANDIDATES) {
+                return;
+            }
+            enqueueCandidateUrl(queue, queuedKeys, discoveredUrl);
+        }
+    }
+
+    private void addPathCandidatesFromUrl(
+            List<String> queue,
+            Set<String> queuedKeys,
+            String sourceUrl
+    ) {
+        if (sourceUrl == null || sourceUrl.isBlank()) {
+            return;
+        }
+        URI uri;
+        try {
+            uri = URI.create(sourceUrl);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        if (scheme == null || host == null || host.isBlank()) {
+            return;
+        }
+        StringBuilder base = new StringBuilder();
+        base.append(scheme).append("://").append(host);
+        if (uri.getPort() > 0) {
+            base.append(":").append(uri.getPort());
+        }
+        String baseUrl = base.toString();
+        for (String path : CAREER_PATH_CANDIDATES) {
+            if (queue.size() >= CAREER_URL_RESOLUTION_MAX_CANDIDATES) {
+                return;
+            }
+            enqueueCandidateUrl(queue, queuedKeys, baseUrl + path);
+        }
+
+        String sourcePath = uri.getPath();
+        if (sourcePath == null || sourcePath.isBlank() || "/".equals(sourcePath)) {
+            return;
+        }
+        String normalizedPath = sourcePath.endsWith("/")
+                ? sourcePath.substring(0, sourcePath.length() - 1)
+                : sourcePath;
+        if (normalizedPath.isBlank()) {
+            return;
+        }
+        List<String> derivedPaths = List.of(
+                normalizedPath + "/jobs",
+                normalizedPath + "/positions",
+                normalizedPath + "/open-positions",
+                normalizedPath + "/mid-career",
+                normalizedPath + "/mid-career/dx"
+        );
+        for (String path : derivedPaths) {
+            if (queue.size() >= CAREER_URL_RESOLUTION_MAX_CANDIDATES) {
+                return;
+            }
+            enqueueCandidateUrl(queue, queuedKeys, baseUrl + path);
+        }
+    }
+
+    private void enqueueCandidateUrl(
+            List<String> queue,
+            Set<String> queuedKeys,
+            String candidateUrl
+    ) {
+        if (candidateUrl == null || candidateUrl.isBlank()) {
+            return;
+        }
+        String key = urlKey(candidateUrl);
+        if (key.isBlank() || !queuedKeys.add(key)) {
+            return;
+        }
+        queue.add(candidateUrl.trim());
+    }
+
+    private String urlKey(String value) {
+        return normalize(canonicalizeUrl(value));
     }
 
     private List<JobPostingCandidate> extractFromDiscoveredJobBoardLinks(
@@ -780,6 +1127,19 @@ public final class CareerPageFetchService {
     private int writeCompanyRawFiles(Path outputDir, CompanyConfig company, List<JobPostingCandidate> jobs) throws IOException {
         Path companyDir = outputDir.resolve(sanitizeSlug(company.id()));
         Files.createDirectories(companyDir);
+        try (var stream = Files.list(companyDir)) {
+            stream.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".txt"))
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+        } catch (java.io.UncheckedIOException e) {
+            throw e.getCause();
+        }
         int count = 0;
         for (int i = 0; i < jobs.size(); i++) {
             JobPostingCandidate job = jobs.get(i);
@@ -956,6 +1316,171 @@ public final class CareerPageFetchService {
             metadata.put("schema_version", schemaVersion);
             root.put("metadata", metadata);
             return root;
+        }
+    }
+
+    private record CandidateEvaluation(
+            CareerPageHttpFetcher.FetchResult response,
+            List<JobPostingCandidate> jobs,
+            int score
+    ) {
+    }
+
+    private record CareerResolutionResult(
+            boolean reachable,
+            CareerPageHttpFetcher.FetchResult contextResponse,
+            List<JobPostingCandidate> jobs,
+            String resolvedCareerUrl,
+            int confidence
+    ) {
+        boolean hasResolvedUrl() {
+            return resolvedCareerUrl != null && !resolvedCareerUrl.isBlank();
+        }
+    }
+
+    private record CareerUrlResolutionEntry(
+            String companyId,
+            String configuredCareerUrl,
+            String resolvedCareerUrl,
+            int confidence,
+            int jobsFound,
+            String updatedAt
+    ) {
+    }
+
+    private static final class CareerUrlResolutionStore {
+        private final Map<String, CareerUrlResolutionEntry> entriesByCompanyId;
+
+        private CareerUrlResolutionStore(Map<String, CareerUrlResolutionEntry> entriesByCompanyId) {
+            this.entriesByCompanyId = entriesByCompanyId;
+        }
+
+        static CareerUrlResolutionStore load(Path stateFile, List<String> info) {
+            Map<String, CareerUrlResolutionEntry> entries = new LinkedHashMap<>();
+            if (stateFile == null || !Files.exists(stateFile)) {
+                return new CareerUrlResolutionStore(entries);
+            }
+
+            try {
+                String yamlText = Files.readString(stateFile, StandardCharsets.UTF_8);
+                Object loaded = new Yaml().load(yamlText);
+                if (!(loaded instanceof Map<?, ?> root)) {
+                    return new CareerUrlResolutionStore(entries);
+                }
+                Object resolutionItems = root.get("resolutions");
+                if (!(resolutionItems instanceof List<?> list)) {
+                    return new CareerUrlResolutionStore(entries);
+                }
+                for (Object item : list) {
+                    if (!(item instanceof Map<?, ?> mapItem)) {
+                        continue;
+                    }
+                    String companyId = toSafeString(mapItem.get("company_id"));
+                    String configuredCareerUrl = toSafeString(mapItem.get("configured_career_url"));
+                    String resolvedCareerUrl = toSafeString(mapItem.get("resolved_career_url"));
+                    int confidence = toSafeInt(mapItem.get("confidence"));
+                    int jobsFound = toSafeInt(mapItem.get("jobs_found"));
+                    String updatedAt = toSafeString(mapItem.get("updated_at"));
+                    if (companyId.isBlank()) {
+                        continue;
+                    }
+                    entries.put(normalizeCompanyId(companyId), new CareerUrlResolutionEntry(
+                            companyId,
+                            configuredCareerUrl,
+                            resolvedCareerUrl,
+                            confidence,
+                            jobsFound,
+                            updatedAt
+                    ));
+                }
+            } catch (IOException | YAMLException | ClassCastException e) {
+                info.add("career_url_resolution_warning: failed to load resolution state (" + e.getMessage() + ")");
+            }
+            return new CareerUrlResolutionStore(entries);
+        }
+
+        Optional<CareerUrlResolutionEntry> find(String companyId) {
+            return Optional.ofNullable(entriesByCompanyId.get(normalizeCompanyId(companyId)));
+        }
+
+        void remember(CareerUrlResolutionEntry entry) {
+            if (entry == null || entry.companyId() == null || entry.companyId().isBlank()) {
+                return;
+            }
+            entriesByCompanyId.put(normalizeCompanyId(entry.companyId()), entry);
+        }
+
+        void save(Path stateFile, List<String> info) {
+            if (stateFile == null) {
+                return;
+            }
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("schema_version", RESOLUTION_STATE_SCHEMA_VERSION);
+            root.put("updated_at", Instant.now().toString());
+
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (CareerUrlResolutionEntry entry : entriesByCompanyId.values()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("company_id", toSafeString(entry.companyId()));
+                item.put("configured_career_url", toSafeString(entry.configuredCareerUrl()));
+                item.put("resolved_career_url", toSafeString(entry.resolvedCareerUrl()));
+                item.put("confidence", Math.max(0, Math.min(100, entry.confidence())));
+                item.put("jobs_found", Math.max(0, entry.jobsFound()));
+                item.put("updated_at", toSafeString(entry.updatedAt()));
+                items.add(item);
+            }
+            root.put("resolutions", items);
+
+            try {
+                Path parent = stateFile.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(stateFile, dumpResolutionYaml(root), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                info.add("career_url_resolution_warning: failed to persist resolution state (" + e.getMessage() + ")");
+            }
+        }
+
+        private static String normalizeCompanyId(String value) {
+            if (value == null) {
+                return "";
+            }
+            return value.trim().toLowerCase(Locale.ROOT);
+        }
+
+        private static String toSafeString(Object value) {
+            if (value == null) {
+                return "";
+            }
+            if (value instanceof String text) {
+                return text.trim();
+            }
+            return String.valueOf(value).trim();
+        }
+
+        private static int toSafeInt(Object value) {
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            if (value instanceof String text) {
+                try {
+                    return Integer.parseInt(text.trim());
+                } catch (NumberFormatException e) {
+                    return 0;
+                }
+            }
+            return 0;
+        }
+
+        private static String dumpResolutionYaml(Map<String, Object> root) {
+            DumperOptions options = new DumperOptions();
+            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            options.setPrettyFlow(true);
+            options.setIndent(2);
+            options.setIndicatorIndent(1);
+            options.setWidth(120);
+            return new Yaml(options).dump(root);
         }
     }
 
