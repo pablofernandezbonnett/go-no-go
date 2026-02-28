@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.report;
 
+import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;

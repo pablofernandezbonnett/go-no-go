@@ -15,8 +15,14 @@ final class JobPostingExtractorTest {
         String html = """
                 <html>
                   <body>
-                    <a href="https://example.com/jobs/backend-engineer">Backend Engineer</a>
-                    <a href="https://example.com/jobs/mobile-engineer">Mobile Engineer</a>
+                    <div>
+                      <a href="https://example.com/jobs/backend-engineer">Backend Engineer</a>
+                      <p>Senior backend engineer role with Go and distributed systems.</p>
+                    </div>
+                    <div>
+                      <a href="https://example.com/jobs/mobile-engineer">Mobile Engineer</a>
+                      <p>Mobile engineer building iOS and Android applications.</p>
+                    </div>
                     <a href="https://example.com/privacy">Privacy Policy</a>
                   </body>
                 </html>

@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.job;
 
+import com.pmfb.gonogo.engine.exception.JobInputLoadException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
