@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine;
 
 import java.util.concurrent.Callable;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 @Command(
@@ -11,6 +12,6 @@ import picocli.CommandLine.Command;
 public final class RunCommand implements Callable<Integer> {
     @Override
     public Integer call() {
-        return new PipelineRunAllCommand().call();
+        return new CommandLine(new PipelineRunAllCommand()).execute();
     }
 }

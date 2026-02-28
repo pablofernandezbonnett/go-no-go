@@ -303,6 +303,7 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         args.add("--config-dir=" + configDir);
         args.add("--raw-input-dir=" + rawInputDir);
         args.add("--raw-pattern=" + rawPattern);
+        args.add("--recursive");
         args.add("--jobs-output-dir=" + jobsOutputDir);
         args.add("--batch-output-dir=" + batchOutputDir);
         args.add("--weekly-output-file=" + resolveWeeklyOutputFile(personaId));
