@@ -37,6 +37,7 @@ public final class JobPostingExtractor {
             "qa",
             "quality",
             "security",
+            "specialist",
             "data scientist",
             "machine learning",
             "ml",
@@ -71,6 +72,11 @@ public final class JobPostingExtractor {
             "company profile",
             "investor relations",
             "newsroom",
+            "event",
+            "events",
+            "information session",
+            "career registration",
+            "see more",
             "in the spotlight",
             "workplace",
             "benefits",
@@ -83,9 +89,11 @@ public final class JobPostingExtractor {
     private static final Set<String> JOB_URL_HINTS = Set.of(
             "/job",
             "/jobs",
+            "/job-description",
             "/career",
             "/careers",
             "/recruit",
+            "/mid-career",
             "/positions",
             "/vacanc",
             "/openings",
@@ -114,7 +122,9 @@ public final class JobPostingExtractor {
             "/terms",
             "/contact",
             "/our-latest",
-            "/stories"
+            "/stories",
+            "/event",
+            "/landingpage"
     );
     private static final Set<String> JOB_BOARD_LINK_TEXT_HINTS = Set.of(
             "jobs",
@@ -124,6 +134,9 @@ public final class JobPostingExtractor {
             "vacancies",
             "recruit",
             "hiring",
+            "mid-career",
+            "job description",
+            "engineers and architects",
             "採用",
             "求人",
             "募集"
@@ -446,7 +459,10 @@ public final class JobPostingExtractor {
         if (hasDirectUrl && hasJobUrlHint(url)) {
             return true;
         }
-        return containsAny(joinedText, JOB_CONTEXT_KEYWORDS) && !url.isBlank();
+        if (containsAny(joinedText, JOB_CONTEXT_KEYWORDS) && !url.isBlank()) {
+            return true;
+        }
+        return !hasDirectUrl && !url.isBlank();
     }
 
     private boolean looksLikeJobTitle(String text) {

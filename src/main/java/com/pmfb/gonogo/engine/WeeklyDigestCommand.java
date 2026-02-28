@@ -1,7 +1,7 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.report.WeeklyDigestData;
-import com.pmfb.gonogo.engine.report.WeeklyDigestException;
+import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
 import com.pmfb.gonogo.engine.report.WeeklyDigestGenerator;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

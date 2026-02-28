@@ -1,4 +1,4 @@
-package com.pmfb.gonogo.engine.job;
+package com.pmfb.gonogo.engine.exception;
 
 import java.util.List;
 

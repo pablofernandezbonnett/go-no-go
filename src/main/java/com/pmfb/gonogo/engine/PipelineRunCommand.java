@@ -1,6 +1,6 @@
 package com.pmfb.gonogo.engine;
 
-import com.pmfb.gonogo.engine.config.ConfigLoadException;
+import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.EngineConfig;
