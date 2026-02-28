@@ -1,12 +1,15 @@
 package com.pmfb.gonogo.engine.config;
 
+import com.pmfb.gonogo.engine.decision.RankingStrategy;
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
@@ -93,7 +96,9 @@ public final class YamlConfigLoader {
             List<String> priorities = readStringList(item, "priorities", context, errors);
             List<String> hardNo = readStringList(item, "hard_no", context, errors);
             List<String> acceptableIf = readStringList(item, "acceptable_if", context, errors);
-            personas.add(new PersonaConfig(id, description, priorities, hardNo, acceptableIf));
+            Map<String, Integer> signalWeights = readOptionalStringIntMap(item, "signal_weights", context, errors);
+            RankingStrategy rankingStrategy = readOptionalRankingStrategy(item, "ranking_strategy", context, errors);
+            personas.add(new PersonaConfig(id, description, priorities, hardNo, acceptableIf, signalWeights, rankingStrategy));
         }
         return personas;
     }
@@ -264,5 +269,62 @@ public final class YamlConfigLoader {
             result.add(trimmed);
         }
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Integer> readOptionalStringIntMap(
+            Map<String, Object> map,
+            String key,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return Map.of();
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            errors.add(context + " field '" + key + "' must be a map");
+            return Map.of();
+        }
+        Map<String, Object> typedMap = (Map<String, Object>) rawMap;
+        Map<String, Integer> result = new HashMap<>();
+        for (Map.Entry<String, Object> entry : typedMap.entrySet()) {
+            String signal = entry.getKey();
+            Object rawVal = entry.getValue();
+            if (!(rawVal instanceof Number number)) {
+                errors.add(context + " field '" + key + "." + signal + "' must be an integer");
+                continue;
+            }
+            int intVal = number.intValue();
+            if (intVal < 0) {
+                errors.add(context + " field '" + key + "." + signal + "' must be non-negative");
+                continue;
+            }
+            result.put(signal, intVal);
+        }
+        return Map.copyOf(result);
+    }
+
+    private RankingStrategy readOptionalRankingStrategy(
+            Map<String, Object> map,
+            String key,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return RankingStrategy.BY_SCORE;
+        }
+        if (!(value instanceof String text)) {
+            errors.add(context + " field '" + key + "' must be a string");
+            return RankingStrategy.BY_SCORE;
+        }
+        String normalized = text.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        try {
+            return RankingStrategy.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            errors.add(context + " field '" + key + "' has unknown value '" + text.trim() + "' — defaulting to BY_SCORE");
+            return RankingStrategy.BY_SCORE;
+        }
     }
 }

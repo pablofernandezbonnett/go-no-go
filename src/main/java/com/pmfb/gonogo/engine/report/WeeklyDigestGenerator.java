@@ -1,9 +1,9 @@
 package com.pmfb.gonogo.engine.report;
 
+import com.pmfb.gonogo.engine.decision.RankingStrategy;
 import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -12,6 +12,7 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
 
 public final class WeeklyDigestGenerator {
+    private final OpportunityRanker ranker = new OpportunityRanker();
     private static final String FIELD_PERSONA = "persona";
     private static final String FIELD_GENERATED_AT = "generated_at";
     private static final String FIELD_ITEMS = "items";
@@ -101,9 +102,13 @@ public final class WeeklyDigestGenerator {
     }
 
     public String toMarkdown(WeeklyDigestData data, int topPerSection) {
-        List<WeeklyDigestItem> goItems = filterByVerdict(data.items(), VERDICT_GO);
-        List<WeeklyDigestItem> cautionItems = filterByVerdict(data.items(), VERDICT_GO_WITH_CAUTION);
-        List<WeeklyDigestItem> noGoItems = filterByVerdict(data.items(), VERDICT_NO_GO);
+        return toMarkdown(data, topPerSection, RankingStrategy.BY_SCORE);
+    }
+
+    public String toMarkdown(WeeklyDigestData data, int topPerSection, RankingStrategy strategy) {
+        List<WeeklyDigestItem> goItems = filterByVerdict(data.items(), VERDICT_GO, strategy);
+        List<WeeklyDigestItem> cautionItems = filterByVerdict(data.items(), VERDICT_GO_WITH_CAUTION, strategy);
+        List<WeeklyDigestItem> noGoItems = filterByVerdict(data.items(), VERDICT_NO_GO, strategy);
 
         StringBuilder sb = new StringBuilder();
         sb.append("# Weekly Digest\n\n");
@@ -200,10 +205,14 @@ public final class WeeklyDigestGenerator {
         sb.append("\n");
     }
 
-    private List<WeeklyDigestItem> filterByVerdict(List<WeeklyDigestItem> items, String verdict) {
+    private List<WeeklyDigestItem> filterByVerdict(
+            List<WeeklyDigestItem> items,
+            String verdict,
+            RankingStrategy strategy
+    ) {
         return items.stream()
                 .filter(item -> verdict.equals(item.verdict()))
-                .sorted(Comparator.comparingInt(WeeklyDigestItem::score).reversed())
+                .sorted(ranker.comparatorFor(strategy))
                 .toList();
     }
 
