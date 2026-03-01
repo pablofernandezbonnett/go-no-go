@@ -70,16 +70,6 @@ public final class DecisionEngineV1 {
             "negotiable",
             "competitive"
     );
-    private static final List<String> SALARY_HARD_REJECT_OPAQUE_KEYWORDS = List.of(
-            "tbd",
-            "to be discussed",
-            "not disclosed",
-            "salary not disclosed",
-            "n/a",
-            "na",
-            "negotiable",
-            "competitive"
-    );
     private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
             "onsite-only",
             "on-site only",
@@ -525,6 +515,8 @@ public final class DecisionEngineV1 {
     private static final int EXTRA_RISK_PENALTY_SALARY_RANGE_ANOMALY = 3;
     private static final int EXTRA_RISK_PENALTY_DEBT_FIRST_CULTURE = 3;
     private static final int EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION = 2;
+    private static final int EXTRA_RISK_PENALTY_ONSITE_BIAS = 2;
+    private static final int EXTRA_RISK_PENALTY_OVERTIME_RISK = 2;
 
     private static final String TAG_PROFILE_EXPAT_FRIENDLY = "expat_friendly";
     private static final String TAG_PROFILE_ENGINEERING_BRAND = "engineering_brand";
@@ -588,7 +580,9 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_LOCATION_MOBILITY_RISK, EXTRA_RISK_PENALTY_LOCATION_MOBILITY),
             Map.entry(SIGNAL_SALARY_RANGE_ANOMALY, EXTRA_RISK_PENALTY_SALARY_RANGE_ANOMALY),
             Map.entry(SIGNAL_DEBT_FIRST_CULTURE_RISK, EXTRA_RISK_PENALTY_DEBT_FIRST_CULTURE),
-            Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION)
+            Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION),
+            Map.entry(SIGNAL_ONSITE_BIAS, EXTRA_RISK_PENALTY_ONSITE_BIAS),
+            Map.entry(SIGNAL_OVERTIME_RISK, EXTRA_RISK_PENALTY_OVERTIME_RISK)
     );
 
     public EvaluationResult evaluate(JobInput job, PersonaConfig persona, EngineConfig config) {
@@ -803,9 +797,7 @@ public final class DecisionEngineV1 {
         }
 
         if (personaHardNo.contains("salary_missing") && isSalaryMissing(salaryRange)) {
-            if (isSalaryExplicitlyOpaque(salaryRange)) {
-                hardRejectReasons.add("salary policy is explicitly opaque or non-transparent");
-            }
+            hardRejectReasons.add("salary information is missing or non-transparent");
         }
 
         if (personaHardNo.contains("early_stage_startup") && containsAny(combinedText, STARTUP_RISK_KEYWORDS)) {
@@ -1368,13 +1360,6 @@ public final class DecisionEngineV1 {
 
     private boolean isSalaryMissing(String salaryRange) {
         return salaryRange.isBlank() || containsAny(salaryRange, SALARY_MISSING_KEYWORDS);
-    }
-
-    private boolean isSalaryExplicitlyOpaque(String salaryRange) {
-        if (salaryRange.isBlank()) {
-            return false;
-        }
-        return containsAny(salaryRange, SALARY_HARD_REJECT_OPAQUE_KEYWORDS);
     }
 
     private boolean isSalaryTransparent(String salaryRange) {

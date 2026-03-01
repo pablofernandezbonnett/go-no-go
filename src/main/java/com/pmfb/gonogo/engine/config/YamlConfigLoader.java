@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine.config;
 
 import com.pmfb.gonogo.engine.decision.RankingStrategy;
+import com.pmfb.gonogo.engine.decision.SignalRegistry;
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -302,7 +303,9 @@ public final class YamlConfigLoader {
             }
             result.put(signal, intVal);
         }
-        return Map.copyOf(result);
+        Map<String, Integer> immutable = Map.copyOf(result);
+        SignalRegistry.validateWeightKeys(immutable, context + " signal_weights", errors);
+        return immutable;
     }
 
     private RankingStrategy readOptionalRankingStrategy(

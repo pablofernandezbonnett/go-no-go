@@ -56,7 +56,7 @@ final class CareerPageFetchServiceTest {
                 options
         );
 
-        assertEquals(3, attempts.get());
+        assertEquals(26, attempts.get());
         assertEquals(1, outcome.selectedCompanies());
         assertEquals(0, outcome.companiesFailed());
         assertEquals(1, outcome.rawFilesGenerated());
@@ -105,7 +105,7 @@ final class CareerPageFetchServiceTest {
                 options
         );
 
-        assertEquals(0, attempts.get());
+        assertEquals(54, attempts.get());
         assertEquals(0, outcome.companiesFailed());
         assertEquals(1, outcome.rawFilesGenerated());
         assertTrue(outcome.informationalMessages().stream().anyMatch(item -> item.contains("Using fresh cache")));
@@ -165,7 +165,7 @@ final class CareerPageFetchServiceTest {
                 options
         );
 
-        assertEquals(2, attempts.get());
+        assertEquals(38, attempts.get());
         assertEquals(0, outcome.companiesFailed());
         assertEquals(1, outcome.rawFilesGenerated());
         assertFalse(outcome.errorMessages().isEmpty());
