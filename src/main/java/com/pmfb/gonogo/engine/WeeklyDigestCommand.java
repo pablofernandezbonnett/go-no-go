@@ -1,12 +1,14 @@
 package com.pmfb.gonogo.engine;
 
-import com.pmfb.gonogo.engine.report.WeeklyDigestData;
+import com.pmfb.gonogo.engine.decision.RankingStrategy;
 import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
+import com.pmfb.gonogo.engine.report.WeeklyDigestData;
 import com.pmfb.gonogo.engine.report.WeeklyDigestGenerator;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -37,6 +39,13 @@ public final class WeeklyDigestCommand implements Callable<Integer> {
     )
     private int topPerSection;
 
+    @Option(
+            names = {"--ranking-strategy"},
+            description = "Ranking strategy for digest sections: by_score, by_language_ease, by_reputation, by_composite.",
+            defaultValue = "by_score"
+    )
+    private String rankingStrategyValue;
+
     @Override
     public Integer call() {
         String content;
@@ -59,7 +68,8 @@ public final class WeeklyDigestCommand implements Callable<Integer> {
             return 1;
         }
 
-        String markdown = generator.toMarkdown(data, topPerSection);
+        RankingStrategy strategy = parseRankingStrategy(rankingStrategyValue);
+        String markdown = generator.toMarkdown(data, topPerSection, strategy);
         try {
             Path parent = outputFile.getParent();
             if (parent != null) {
@@ -75,6 +85,20 @@ public final class WeeklyDigestCommand implements Callable<Integer> {
         System.out.println("source_report: " + inputJson);
         System.out.println("evaluated: " + data.items().size());
         System.out.println("parsing_errors: " + data.errors().size());
+        System.out.println("ranking_strategy: " + strategy.name().toLowerCase(Locale.ROOT));
         return 0;
+    }
+
+    private RankingStrategy parseRankingStrategy(String value) {
+        if (value == null || value.isBlank()) {
+            return RankingStrategy.BY_SCORE;
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        try {
+            return RankingStrategy.valueOf(normalized);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Unknown ranking strategy '" + value.trim() + "' — using by_score.");
+            return RankingStrategy.BY_SCORE;
+        }
     }
 }

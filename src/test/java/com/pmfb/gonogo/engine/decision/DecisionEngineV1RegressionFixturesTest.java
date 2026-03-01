@@ -57,7 +57,6 @@ final class DecisionEngineV1RegressionFixturesTest {
         return loadFixtures().stream().map(item -> Arguments.of(item.id(), item));
     }
 
-    @SuppressWarnings("unchecked")
     private static List<RegressionCase> loadFixtures() {
         InputStream input = DecisionEngineV1RegressionFixturesTest.class.getClassLoader()
                 .getResourceAsStream(FIXTURE_RESOURCE);

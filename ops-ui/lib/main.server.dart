@@ -28,6 +28,78 @@ void main() async {
 
   final router = Router();
 
+  router.get('/api/signals', (request) {
+    return _jsonResponse({'signals': _kSignalCatalog});
+  });
+
+  router.get('/api/config/personas/<id>', (request, String id) async {
+    try {
+      final detail = await configRepository.loadPersonaDetail(id);
+      if (detail == null) {
+        return _jsonResponse(
+          {'error': 'persona_not_found', 'id': id},
+          statusCode: HttpStatus.notFound,
+        );
+      }
+      return _jsonResponse(detail.toJson());
+    } catch (error) {
+      return _jsonResponse(
+        {'error': 'persona_load_failed', 'message': error.toString()},
+        statusCode: HttpStatus.internalServerError,
+      );
+    }
+  });
+
+  router.put('/api/config/personas/<id>/tuning', (request, String id) async {
+    try {
+      final body = await request.readAsString();
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) {
+        return _jsonResponse(
+          {'error': 'invalid_payload', 'message': 'Request body must be a JSON object.'},
+          statusCode: HttpStatus.badRequest,
+        );
+      }
+
+      Map<String, int> parseWeights(dynamic raw) {
+        if (raw is! Map) return const {};
+        return Map.fromEntries(
+          raw.entries
+              .where((e) => e.value is num)
+              .map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
+        );
+      }
+
+      final weights = parseWeights(decoded['signalWeights']);
+      final strategy = decoded['rankingStrategy']?.toString() ?? '';
+
+      final updated = await configRepository.updatePersonaTuning(id, weights, strategy);
+      return _jsonResponse(updated.toJson());
+    } on StateError catch (error) {
+      final msg = error.message;
+      if (msg.contains('not found')) {
+        return _jsonResponse(
+          {'error': 'persona_not_found', 'message': msg},
+          statusCode: HttpStatus.notFound,
+        );
+      }
+      return _jsonResponse(
+        {'error': 'tuning_failed', 'message': msg},
+        statusCode: HttpStatus.internalServerError,
+      );
+    } on FormatException catch (error) {
+      return _jsonResponse(
+        {'error': 'invalid_request', 'message': error.message},
+        statusCode: HttpStatus.badRequest,
+      );
+    } catch (error) {
+      return _jsonResponse(
+        {'error': 'tuning_failed', 'message': error.toString()},
+        statusCode: HttpStatus.internalServerError,
+      );
+    }
+  });
+
   router.get('/api/health', (request) {
     return _jsonResponse(
       {
@@ -133,6 +205,15 @@ void main() async {
         return raw.map((item) => item.toString()).toList();
       }
 
+      Map<String, int> parseWeights(dynamic raw) {
+        if (raw is! Map) return const {};
+        return Map.fromEntries(
+          raw.entries
+              .where((e) => e.value is num)
+              .map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
+        );
+      }
+
       final createdId = await configRepository.addPersona(
         PersonaCreateInput(
           id: decoded['id']?.toString() ?? '',
@@ -140,6 +221,8 @@ void main() async {
           priorities: parseList('priorities'),
           hardNo: parseList('hardNo'),
           acceptableIf: parseList('acceptableIf'),
+          signalWeights: parseWeights(decoded['signalWeights']),
+          rankingStrategy: decoded['rankingStrategy']?.toString() ?? '',
         ),
       );
       return _jsonResponse(
@@ -243,9 +326,9 @@ void main() async {
             minHeight: 100.vh,
             padding: .zero,
             margin: .zero,
+            color: const Color('#1f2a2e'),
             fontFamily: const .list([FontFamily('Space Grotesk'), FontFamilies.sansSerif]),
             backgroundColor: const Color('#f5f3ef'),
-            color: const Color('#1f2a2e'),
           ),
           css('*').styles(boxSizing: .borderBox),
         ],
@@ -254,7 +337,7 @@ void main() async {
     );
   }));
 
-  final handler = const Pipeline().addMiddleware(logRequests()).addHandler(router);
+  final handler = const Pipeline().addMiddleware(logRequests()).addHandler(router.call);
 
   final reloadLock = activeReloadLock = Object();
   final port = _resolvePort(Platform.environment);
@@ -303,6 +386,47 @@ int _resolvePort(Map<String, String> environment) {
   }
   return fallbackPort;
 }
+
+// Static signal catalog mirroring SignalRegistry.java (35 signals).
+const List<Map<String, Object>> _kSignalCatalog = [
+  // Positive signals
+  {'name': 'salary_transparency',                'type': 'positive', 'priority_group': 'salary',               'default_weight': 2},
+  {'name': 'hybrid_work',                        'type': 'positive', 'priority_group': 'hybrid_work',          'default_weight': 2},
+  {'name': 'remote_friendly',                    'type': 'positive', 'priority_group': 'hybrid_work',          'default_weight': 2},
+  {'name': 'english_environment',                'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
+  {'name': 'product_company',                    'type': 'positive', 'priority_group': 'product_company',      'default_weight': 2},
+  {'name': 'engineering_culture',                'type': 'positive', 'priority_group': 'engineering_culture',  'default_weight': 2},
+  {'name': 'engineering_environment',            'type': 'positive', 'priority_group': 'engineering_culture',  'default_weight': 2},
+  {'name': 'inhouse_product_engineering',        'type': 'positive', 'priority_group': 'product_company',      'default_weight': 2},
+  {'name': 'global_team_collaboration',          'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
+  {'name': 'english_support_environment',        'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
+  {'name': 'visa_sponsorship_support',           'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
+  {'name': 'work_life_balance',                  'type': 'positive', 'priority_group': 'work_life_balance',    'default_weight': 2},
+  {'name': 'stability',                          'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
+  {'name': 'company_reputation_positive',        'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
+  {'name': 'company_reputation_positive_strong', 'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
+  // Risk signals
+  {'name': 'salary_low_confidence',              'type': 'risk',     'priority_group': 'salary',               'default_weight': 2},
+  {'name': 'onsite_bias',                        'type': 'risk',     'priority_group': 'hybrid_work',          'default_weight': 2},
+  {'name': 'language_friction',                  'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 3},
+  {'name': 'language_friction_critical',         'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 7},
+  {'name': 'consulting_risk',                    'type': 'risk',     'priority_group': 'product_company',      'default_weight': 3},
+  {'name': 'overtime_risk',                      'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 3},
+  {'name': 'engineering_environment_risk',       'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 2},
+  {'name': 'startup_risk',                       'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
+  {'name': 'role_mismatch_manager_vs_ic_title',  'type': 'risk',     'priority_group': 'engineering_culture',  'default_weight': 5},
+  {'name': 'inclusion_contradiction',            'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 5},
+  {'name': 'pre_ipo_risk',                       'type': 'risk',     'priority_group': 'stability',            'default_weight': 4},
+  {'name': 'manager_scope_salary_misaligned',    'type': 'risk',     'priority_group': 'salary',               'default_weight': 5},
+  {'name': 'workload_policy_risk',               'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 6},
+  {'name': 'holiday_policy_risk',                'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 5},
+  {'name': 'location_mobility_risk',             'type': 'risk',     'priority_group': 'hybrid_work',          'default_weight': 4},
+  {'name': 'salary_range_anomaly',               'type': 'risk',     'priority_group': 'salary',               'default_weight': 6},
+  {'name': 'debt_first_culture_risk',            'type': 'risk',     'priority_group': 'engineering_culture',  'default_weight': 6},
+  {'name': 'hypergrowth_execution_risk',         'type': 'risk',     'priority_group': 'stability',            'default_weight': 5},
+  {'name': 'company_reputation_risk',            'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
+  {'name': 'company_reputation_risk_high',       'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
+];
 
 Response _jsonResponse(Object payload, {int statusCode = HttpStatus.ok}) {
   return Response(
