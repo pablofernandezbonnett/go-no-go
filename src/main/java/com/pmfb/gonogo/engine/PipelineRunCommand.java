@@ -490,7 +490,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         WeeklyDigestGenerator digestGenerator = new WeeklyDigestGenerator();
         WeeklyDigestData digestData = digestGenerator.fromBatchReport(batchJsonPath.toString(), batchReport);
-        String digestMarkdown = digestGenerator.toMarkdown(digestData, topPerSection);
+        String digestMarkdown = digestGenerator.toMarkdown(digestData, topPerSection, persona.get().rankingStrategy());
         Path resolvedTrendHistoryFile = null;
         if (!disableTrendHistory) {
             resolvedTrendHistoryFile = resolveTrendHistoryFile(persona.get().id());

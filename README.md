@@ -195,37 +195,47 @@ Current Ops UI capabilities:
 ## Command Reference
 
 `config validate`
+
 - Validates `config/companies.yaml`, `config/personas.yaml`, `config/blacklist.yaml`.
 
 `fetch`
+
 - Converts one raw text file into one normalized job YAML.
 
 `fetch-web`
+
 - Fetches career pages and generates raw text files.
 - Default behavior: all companies if `--company-ids` is omitted.
 
 `evaluate`
+
 - Evaluates one job YAML for one persona.
 
 `evaluate-batch`
+
 - Evaluates all YAML files from an input directory for one persona.
 
 `weekly-digest`
+
 - Builds one markdown digest from one batch JSON file.
 
 `pipeline run`
+
 - Full flow for one persona: optional fetch, normalize, evaluate, batch report, weekly digest.
 - Default persona: `product_expat_engineer`.
 
 `pipeline run-all` (aliases: `pipeline all`, `pipeline full`)
+
 - Full flow for all personas and all companies by default.
 - Best command for regular end-to-end runs.
 
 `run`
+
 - Root-level shortcut for `pipeline run-all`.
 - Best ultra-short command for daily execution.
 
 `schedule`
+
 - Generates script + cron example files (not activated automatically).
 - Default generated run command is `pipeline run-all`.
 

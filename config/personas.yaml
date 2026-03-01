@@ -1,3 +1,21 @@
+# Optional per-persona tuning fields (both default to engine-level values if omitted):
+#
+# signal_weights:
+#   Map of signal name → integer weight. Overrides the priority-based defaults for
+#   the specified signals only. Positive signals use the weight as a score bonus;
+#   risk signals use the weight as the full penalty (extra_penalty constants still
+#   apply for unweighted risk signals). Examples:
+#     signal_weights:
+#       english_environment: 4     # prioritize English env more than default
+#       onsite_bias: 5             # heavier penalty for onsite bias
+#
+# ranking_strategy:
+#   Controls sort order within each digest section. Allowed values:
+#     by_score          — normalized score DESC (default)
+#     by_language_ease  — language_friction_index ASC, score DESC tiebreaker
+#     by_reputation     — company_reputation_index DESC, score DESC tiebreaker
+#     by_composite      — 2*score + (100-friction) + reputation DESC
+
 personas:
 
   - id: product_expat_engineer
@@ -14,7 +32,6 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
-      - salary_missing
       - early_stage_startup
 
     acceptable_if:
@@ -36,7 +53,6 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
-      - salary_missing
       - early_stage_startup
       - japanese_only_environment
       - workload_overload
@@ -60,7 +76,6 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
-      - salary_missing
 
     acceptable_if:
       - hybrid_partial
