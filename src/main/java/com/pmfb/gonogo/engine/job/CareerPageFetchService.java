@@ -23,7 +23,6 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
 
 public final class CareerPageFetchService {
-    private static final int JOB_BOARD_DISCOVERY_MAX_URLS = 3;
     private static final int CONTEXT_DISCOVERY_MAX_URLS = 6;
     private static final int CONTEXT_SUMMARY_MAX_PAGES = 3;
     private static final Path DEFAULT_CONTEXT_OUTPUT_DIR = Path.of("output/company-context");
@@ -586,78 +585,6 @@ public final class CareerPageFetchService {
 
     private String urlKey(String value) {
         return normalize(canonicalizeUrl(value));
-    }
-
-    private List<JobPostingCandidate> extractFromDiscoveredJobBoardLinks(
-            CompanyConfig company,
-            CareerPageHttpFetcher.FetchResult careerPageResponse,
-            FetchOptions options,
-            CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
-            List<String> info,
-            List<String> errors
-    ) throws InterruptedException {
-        int maxItems = Math.max(1, options.maxJobsPerCompany());
-        List<String> discoveredUrls = extractor.discoverJobBoardUrls(
-                careerPageResponse.body(),
-                careerPageResponse.finalUrl(),
-                JOB_BOARD_DISCOVERY_MAX_URLS
-        );
-        if (discoveredUrls.isEmpty()) {
-            return List.of();
-        }
-
-        LinkedHashMap<String, JobPostingCandidate> collected = new LinkedHashMap<>();
-        for (String discoveredUrl : discoveredUrls) {
-            if (collected.size() >= maxItems) {
-                break;
-            }
-            CareerPageHttpFetcher.FetchResult page = chooseResponseForUrl(
-                    company.id(),
-                    discoveredUrl,
-                    options,
-                    readFromCache(cache, discoveredUrl),
-                    cache,
-                    lastRequestByHost,
-                    robotsRulesByHost,
-                    info,
-                    errors
-            );
-            if (page == null || page.statusCode() >= 400) {
-                continue;
-            }
-
-            List<JobPostingCandidate> extracted = extractor.extract(
-                    page.body(),
-                    page.finalUrl(),
-                    maxItems - collected.size()
-            );
-            for (JobPostingCandidate candidate : extracted) {
-                if (collected.size() >= maxItems) {
-                    break;
-                }
-                String key = normalizeKey(candidate);
-                collected.putIfAbsent(key, candidate);
-            }
-        }
-
-        if (!collected.isEmpty()) {
-            info.add(
-                    "Discovered additional career links for "
-                            + company.id()
-                            + " and extracted "
-                            + collected.size()
-                            + " job candidate(s)."
-            );
-        }
-        return List.copyOf(collected.values());
-    }
-
-    private String normalizeKey(JobPostingCandidate candidate) {
-        String title = candidate.title() == null ? "" : candidate.title().trim().toLowerCase(Locale.ROOT);
-        String url = candidate.url() == null ? "" : candidate.url().trim().toLowerCase(Locale.ROOT);
-        return title + "||" + url;
     }
 
     private CompanyContextDocument buildCompanyContextDocument(

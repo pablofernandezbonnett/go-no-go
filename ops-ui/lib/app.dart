@@ -35,6 +35,12 @@ class AppState extends State<App> {
   static const String _robotsStrict = 'strict';
   static const String _robotsWarn = 'warn';
   static const String _robotsOff = 'off';
+  static const List<String> _rankingStrategyOptions = [
+    'by_score',
+    'by_language_ease',
+    'by_reputation',
+    'by_composite',
+  ];
 
   OpsScreen _activeScreen = OpsScreen.createRun;
 
@@ -75,6 +81,19 @@ class AppState extends State<App> {
   String _newPersonaPriorities = 'english_environment,product_company,hybrid_work';
   String _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
   String _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
+  String _newPersonaRankingStrategy = 'by_score';
+  // Each entry: (signalName, weightString)
+  final List<(String, String)> _newPersonaSignalWeights = [];
+
+  // Signal catalog
+  List<Map<String, Object>> _signalCatalog = const [];
+
+  // Tuning panel state
+  String? _tuningPersonaId;
+  bool _isLoadingTuning = false;
+  bool _isSavingTuning = false;
+  String _tuningRankingStrategy = 'by_score';
+  final List<(String, String)> _tuningSignalWeights = [];
 
   bool _autoRefreshRuns = true;
   int _pollIntervalSeconds = 3;
@@ -108,16 +127,19 @@ class AppState extends State<App> {
         _api.fetchConfig(),
         _api.fetchRuns(),
         _api.fetchHealth(),
+        _api.fetchSignalCatalog(),
       ]);
 
       final config = values[0] as OpsConfigPayload;
       final runs = values[1] as List<RunPayload>;
       final health = values[2] as HealthPayload;
+      final catalog = values[3] as List<Map<String, Object>>;
 
       setState(() {
         _config = config;
         _runs = runs;
         _health = health;
+        _signalCatalog = catalog;
         if (_selectedPersonaId.isEmpty) {
           _selectedPersonaId = config.personaIds.isEmpty ? '' : config.personaIds.first;
         }
@@ -326,12 +348,20 @@ class AppState extends State<App> {
     });
 
     try {
+      final weights = Map.fromEntries(
+        _newPersonaSignalWeights
+            .where((e) => e.$1.isNotEmpty && int.tryParse(e.$2) != null)
+            .map((e) => MapEntry(e.$1, int.parse(e.$2))),
+      );
+
       final createdId = await _api.createPersona({
         'id': _newPersonaId,
         'description': _newPersonaDescription,
         'priorities': _csvToList(_newPersonaPriorities),
         'hardNo': _csvToList(_newPersonaHardNo),
         'acceptableIf': _csvToList(_newPersonaAcceptableIf),
+        'rankingStrategy': _newPersonaRankingStrategy,
+        'signalWeights': weights,
       });
 
       await _refreshConfig();
@@ -341,6 +371,8 @@ class AppState extends State<App> {
         _newPersonaPriorities = 'english_environment,product_company,hybrid_work';
         _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
         _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
+        _newPersonaRankingStrategy = 'by_score';
+        _newPersonaSignalWeights.clear();
         _successMessage = 'Persona added: $createdId';
       });
     } catch (error) {
@@ -350,6 +382,73 @@ class AppState extends State<App> {
     } finally {
       setState(() {
         _isSubmittingPersona = false;
+      });
+    }
+  }
+
+  Future<void> _openTuning(String personaId) async {
+    setState(() {
+      _tuningPersonaId = personaId;
+      _isLoadingTuning = true;
+      _tuningSignalWeights.clear();
+      _errorMessage = null;
+    });
+
+    try {
+      final detail = await _api.fetchPersonaDetail(personaId);
+      final rawWeights = detail['signal_weights'];
+      final loadedWeights = <(String, String)>[];
+      if (rawWeights is Map) {
+        for (final e in rawWeights.entries) {
+          loadedWeights.add((e.key.toString(), e.value.toString()));
+        }
+      }
+      setState(() {
+        _tuningRankingStrategy = detail['ranking_strategy']?.toString() ?? 'by_score';
+        _tuningSignalWeights
+          ..clear()
+          ..addAll(loadedWeights);
+        _isLoadingTuning = false;
+      });
+    } catch (error) {
+      setState(() {
+        _isLoadingTuning = false;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  void _closeTuning() {
+    setState(() {
+      _tuningPersonaId = null;
+      _tuningSignalWeights.clear();
+    });
+  }
+
+  Future<void> _saveTuning() async {
+    final id = _tuningPersonaId;
+    if (id == null || _isSavingTuning) return;
+
+    setState(() {
+      _isSavingTuning = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final weights = Map.fromEntries(
+        _tuningSignalWeights
+            .where((e) => e.$1.isNotEmpty && int.tryParse(e.$2) != null)
+            .map((e) => MapEntry(e.$1, int.parse(e.$2))),
+      );
+      await _api.updatePersonaTuning(id, weights, _tuningRankingStrategy);
+      setState(() {
+        _successMessage = 'Tuning saved for persona: $id';
+        _isSavingTuning = false;
+      });
+    } catch (error) {
+      setState(() {
+        _errorMessage = error.toString();
+        _isSavingTuning = false;
       });
     }
   }
@@ -707,6 +806,8 @@ class AppState extends State<App> {
   }
 
   Component _buildPersonaScreen(OpsConfigPayload config) {
+    final signalNames = _signalCatalog.map((entry) => entry['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+
     return div(classes: 'screen-stack', [
       section(classes: 'panel', [
         h2([.text('Persona')]),
@@ -742,7 +843,25 @@ class AppState extends State<App> {
             placeholder: 'hybrid_partial,japanese_not_blocking',
             onChanged: (value) => setState(() => _newPersonaAcceptableIf = value),
           ),
+          _dropdownField(
+            labelText: 'Ranking strategy',
+            value: _newPersonaRankingStrategy,
+            options: _rankingStrategyOptions,
+            onChanged: (v) => setState(() => _newPersonaRankingStrategy = v),
+          ),
         ]),
+        _buildSignalWeightsEditor(
+          weights: _newPersonaSignalWeights,
+          signalNames: signalNames,
+          onAdd: () => setState(() => _newPersonaSignalWeights.add(('', ''))),
+          onRemove: (idx) => setState(() => _newPersonaSignalWeights.removeAt(idx)),
+          onSignalChanged: (idx, v) => setState(() {
+            _newPersonaSignalWeights[idx] = (v, _newPersonaSignalWeights[idx].$2);
+          }),
+          onWeightChanged: (idx, v) => setState(() {
+            _newPersonaSignalWeights[idx] = (_newPersonaSignalWeights[idx].$1, v);
+          }),
+        ),
         div(classes: 'actions', [
           button(
             classes: 'primary',
@@ -755,13 +874,92 @@ class AppState extends State<App> {
       section(classes: 'panel', [
         h3([.text('Registered personas (${config.personaIds.length})')]),
         div(classes: 'company-list', [
-          for (final personaId in config.personaIds)
+          for (final personaId in config.personaIds) ...[
             div(classes: 'company-item', [
               span(classes: 'company-name', [.text(personaId)]),
-              code([.text(personaId)]),
+              button(
+                onClick: _tuningPersonaId == personaId ? _closeTuning : () => _openTuning(personaId),
+                [.text(_tuningPersonaId == personaId ? 'Close' : 'Tune')],
+              ),
             ]),
+            if (_tuningPersonaId == personaId)
+              _buildTuningPanel(personaId, signalNames),
+          ],
         ]),
       ]),
+    ]);
+  }
+
+  Component _buildTuningPanel(String personaId, List<String> signalNames) {
+    if (_isLoadingTuning) {
+      return div(classes: 'tuning-panel', [p([.text('Loading persona detail...')])]);
+    }
+
+    return div(classes: 'tuning-panel', [
+      h4([.text('Tuning: $personaId')]),
+      div(classes: 'form-grid', [
+        _dropdownField(
+          labelText: 'Ranking strategy',
+          value: _tuningRankingStrategy,
+          options: _rankingStrategyOptions,
+          onChanged: (v) => setState(() => _tuningRankingStrategy = v),
+        ),
+      ]),
+      _buildSignalWeightsEditor(
+        weights: _tuningSignalWeights,
+        signalNames: signalNames,
+        onAdd: () => setState(() => _tuningSignalWeights.add(('', ''))),
+        onRemove: (idx) => setState(() => _tuningSignalWeights.removeAt(idx)),
+        onSignalChanged: (idx, v) => setState(() {
+          _tuningSignalWeights[idx] = (v, _tuningSignalWeights[idx].$2);
+        }),
+        onWeightChanged: (idx, v) => setState(() {
+          _tuningSignalWeights[idx] = (_tuningSignalWeights[idx].$1, v);
+        }),
+      ),
+      div(classes: 'actions', [
+        button(
+          classes: 'primary',
+          onClick: _isSavingTuning ? null : _saveTuning,
+          [if (_isSavingTuning) .text('Saving...') else .text('Save tuning')],
+        ),
+        button(onClick: _closeTuning, [.text('Cancel')]),
+      ]),
+    ]);
+  }
+
+  Component _buildSignalWeightsEditor({
+    required List<(String, String)> weights,
+    required List<String> signalNames,
+    required void Function() onAdd,
+    required void Function(int) onRemove,
+    required void Function(int, String) onSignalChanged,
+    required void Function(int, String) onWeightChanged,
+  }) {
+    return div(classes: 'signal-weights-editor', [
+      div(classes: 'panel-header-inline', [
+        p(classes: 'signal-weights-label', [.text('Signal weights (optional overrides)')]),
+        button(onClick: onAdd, [.text('+ Add signal weight')]),
+      ]),
+      for (int idx = 0; idx < weights.length; idx++)
+        div(classes: 'signal-weight-row', [
+          select(
+            value: weights[idx].$1,
+            onChange: (values) => onSignalChanged(idx, values.isEmpty ? '' : values.first),
+            [
+              option(value: '', selected: weights[idx].$1.isEmpty, [.text('— select signal —')]),
+              for (final name in signalNames)
+                option(value: name, selected: weights[idx].$1 == name, [.text(name)]),
+            ],
+          ),
+          input<String>(
+            type: InputType.text,
+            value: weights[idx].$2,
+            attributes: const {'placeholder': 'weight', 'style': 'width:70px'},
+            onInput: (v) => onWeightChanged(idx, v),
+          ),
+          button(onClick: () => onRemove(idx), [.text('×')]),
+        ]),
     ]);
   }
 
@@ -814,6 +1012,7 @@ class AppState extends State<App> {
         ]),
         p([.text('Known personas: ${config.personaIds.length}')]),
         p([.text('Known companies: ${config.companies.length}')]),
+        p([.text('Signal catalog: ${_signalCatalog.length} signals loaded')]),
       ]),
     ]);
   }
@@ -831,6 +1030,25 @@ class AppState extends State<App> {
         value: value,
         attributes: {'placeholder': placeholder},
         onInput: onChanged,
+      ),
+    ]);
+  }
+
+  Component _dropdownField({
+    required String labelText,
+    required String value,
+    required List<String> options,
+    required void Function(String) onChanged,
+  }) {
+    return label([
+      .text(labelText),
+      select(
+        value: value,
+        onChange: (values) => onChanged(values.isEmpty ? options.first : values.first),
+        [
+          for (final opt in options)
+            option(value: opt, selected: opt == value, [.text(opt)]),
+        ],
       ),
     ]);
   }
@@ -1082,6 +1300,33 @@ class AppState extends State<App> {
           },
         ),
         css('.company-name').styles(raw: const {'font-weight': '600'}),
+        css('.tuning-panel').styles(
+          raw: const {
+            'padding': '.8rem 1rem',
+            'background': '#f3f9f5',
+            'border': '1px solid #c3d9ca',
+            'border-radius': '10px',
+            'display': 'grid',
+            'gap': '.6rem',
+          },
+        ),
+        css('.signal-weights-editor').styles(
+          raw: const {
+            'display': 'grid',
+            'gap': '.45rem',
+            'margin-top': '.5rem',
+          },
+        ),
+        css('.signal-weights-label').styles(raw: const {'margin': '0', 'font-weight': '600'}),
+        css('.signal-weight-row').styles(
+          raw: const {
+            'display': 'flex',
+            'align-items': 'center',
+            'gap': '.4rem',
+            'flex-wrap': 'wrap',
+          },
+        ),
+        css('.signal-weight-row select').styles(raw: const {'flex': '1', 'min-width': '180px'}),
         css.media(const MediaQuery.raw('(max-width: 1040px)'), [
           css('.shell').styles(raw: const {'grid-template-columns': '1fr'}),
           css('.sidebar').styles(

@@ -37,6 +37,38 @@ class CompanyOption {
   }
 }
 
+class PersonaDetail {
+  const PersonaDetail({
+    required this.id,
+    required this.description,
+    required this.priorities,
+    required this.hardNo,
+    required this.acceptableIf,
+    required this.signalWeights,
+    required this.rankingStrategy,
+  });
+
+  final String id;
+  final String description;
+  final String rankingStrategy;
+  final List<String> priorities;
+  final List<String> hardNo;
+  final List<String> acceptableIf;
+  final Map<String, int> signalWeights;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'description': description,
+      'priorities': priorities,
+      'hard_no': hardNo,
+      'acceptable_if': acceptableIf,
+      'signal_weights': signalWeights,
+      'ranking_strategy': rankingStrategy,
+    };
+  }
+}
+
 class EngineConfigRepository {
   const EngineConfigRepository({
     required this.engineRoot,
@@ -53,6 +85,8 @@ class EngineConfigRepository {
   static const String _prioritiesKey = 'priorities';
   static const String _hardNoKey = 'hard_no';
   static const String _acceptableIfKey = 'acceptable_if';
+  static const String _rankingStrategyKey = 'ranking_strategy';
+  static const String _signalWeightsKey = 'signal_weights';
 
   final Directory engineRoot;
 
@@ -107,6 +141,198 @@ class EngineConfigRepository {
     await personasFile.writeAsString(nextContent);
 
     return normalized.id;
+  }
+
+  Future<PersonaDetail?> loadPersonaDetail(String id) async {
+    final personasPath = p.join(engineRoot.path, _configFolder, _personasFile);
+    final personasFile = File(personasPath);
+    if (!await personasFile.exists()) {
+      return null;
+    }
+
+    final decoded = loadYaml(await personasFile.readAsString());
+    if (decoded is! YamlMap) {
+      return null;
+    }
+
+    final personas = decoded[_personasKey];
+    if (personas is! YamlList) {
+      return null;
+    }
+
+    for (final entry in personas) {
+      if (entry is! YamlMap) {
+        continue;
+      }
+      final entryId = entry[_idKey]?.toString().trim() ?? '';
+      if (entryId != id) {
+        continue;
+      }
+
+      final description = entry[_descriptionKey]?.toString().trim() ?? '';
+      final rankingStrategy = entry[_rankingStrategyKey]?.toString().trim() ?? 'by_score';
+
+      List<String> parseStringList(String key) {
+        final raw = entry[key];
+        if (raw is! YamlList) return const [];
+        return raw
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+
+      Map<String, int> parseWeights() {
+        final raw = entry[_signalWeightsKey];
+        if (raw is! YamlMap) return const {};
+        final result = <String, int>{};
+        for (final k in raw.keys) {
+          final v = raw[k];
+          if (v is num) {
+            result[k.toString()] = v.toInt();
+          }
+        }
+        return Map.unmodifiable(result);
+      }
+
+      return PersonaDetail(
+        id: entryId,
+        description: description,
+        priorities: parseStringList(_prioritiesKey),
+        hardNo: parseStringList(_hardNoKey),
+        acceptableIf: parseStringList(_acceptableIfKey),
+        signalWeights: parseWeights(),
+        rankingStrategy: rankingStrategy.isEmpty ? 'by_score' : rankingStrategy,
+      );
+    }
+
+    return null;
+  }
+
+  Future<PersonaDetail> updatePersonaTuning(
+    String id,
+    Map<String, int> weights,
+    String strategy,
+  ) async {
+    final existing = await loadPersonaDetail(id);
+    if (existing == null) {
+      throw StateError('Persona "$id" not found.');
+    }
+
+    final personasPath = p.join(engineRoot.path, _configFolder, _personasFile);
+    final personasFile = File(personasPath);
+    final rawContent = await personasFile.readAsString();
+
+    // Load all persona details, rebuild entire file.
+    final decoded = loadYaml(rawContent);
+    if (decoded is! YamlMap) {
+      throw StateError('personas.yaml has unexpected format.');
+    }
+
+    final personas = decoded[_personasKey];
+    if (personas is! YamlList) {
+      throw StateError('personas.yaml missing personas list.');
+    }
+
+    // Collect all PersonaDetail objects, replacing tuning for the target persona.
+    final normalizedStrategy = strategy.trim().isEmpty ? 'by_score' : strategy.trim().toLowerCase();
+    final allDetails = <PersonaDetail>[];
+
+    for (final entry in personas) {
+      if (entry is! YamlMap) continue;
+      final entryId = entry[_idKey]?.toString().trim() ?? '';
+
+      List<String> parseStringList(String key) {
+        final raw = entry[key];
+        if (raw is! YamlList) return const [];
+        return raw
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+
+      Map<String, int> parseWeights() {
+        final raw = entry[_signalWeightsKey];
+        if (raw is! YamlMap) return const {};
+        final result = <String, int>{};
+        for (final k in raw.keys) {
+          final v = raw[k];
+          if (v is num) {
+            result[k.toString()] = v.toInt();
+          }
+        }
+        return result;
+      }
+
+      final entryDescription = entry[_descriptionKey]?.toString().trim() ?? '';
+      final entryStrategy = entry[_rankingStrategyKey]?.toString().trim() ?? 'by_score';
+
+      if (entryId == id) {
+        allDetails.add(PersonaDetail(
+          id: entryId,
+          description: entryDescription,
+          priorities: parseStringList(_prioritiesKey),
+          hardNo: parseStringList(_hardNoKey),
+          acceptableIf: parseStringList(_acceptableIfKey),
+          signalWeights: weights,
+          rankingStrategy: normalizedStrategy,
+        ));
+      } else {
+        allDetails.add(PersonaDetail(
+          id: entryId,
+          description: entryDescription,
+          priorities: parseStringList(_prioritiesKey),
+          hardNo: parseStringList(_hardNoKey),
+          acceptableIf: parseStringList(_acceptableIfKey),
+          signalWeights: parseWeights(),
+          rankingStrategy: entryStrategy.isEmpty ? 'by_score' : entryStrategy,
+        ));
+      }
+    }
+
+    // Extract header comments from the original file (lines before 'personas:').
+    final headerLines = <String>[];
+    for (final line in rawContent.split('\n')) {
+      if (line.trimLeft().startsWith('personas:')) break;
+      headerLines.add(line);
+    }
+    final header = headerLines.join('\n');
+
+    // Rebuild the full file.
+    final buffer = StringBuffer();
+    if (header.trim().isNotEmpty) {
+      buffer.write(header);
+      if (!header.endsWith('\n')) buffer.write('\n');
+    }
+    buffer.writeln('$_personasKey:');
+
+    for (int i = 0; i < allDetails.length; i++) {
+      final detail = allDetails[i];
+      final input = PersonaCreateInput(
+        id: detail.id,
+        description: detail.description,
+        priorities: detail.priorities,
+        hardNo: detail.hardNo,
+        acceptableIf: detail.acceptableIf,
+        signalWeights: detail.signalWeights,
+        rankingStrategy: detail.rankingStrategy,
+      );
+      if (i > 0) buffer.writeln();
+      buffer.write(_buildPersonaEntry(input));
+    }
+
+    await personasFile.writeAsString(buffer.toString());
+
+    return PersonaDetail(
+      id: id,
+      description: existing.description,
+      priorities: existing.priorities,
+      hardNo: existing.hardNo,
+      acceptableIf: existing.acceptableIf,
+      signalWeights: weights,
+      rankingStrategy: normalizedStrategy,
+    );
   }
 
   Future<String> _readCurrentContent(File companiesFile) async {
@@ -166,6 +392,18 @@ class EngineConfigRepository {
     buffer.writeln('    $_acceptableIfKey:');
     for (final item in input.acceptableIf) {
       buffer.writeln('      - ${_yamlValue(item)}');
+    }
+    // ranking_strategy (only write if non-default)
+    if (input.rankingStrategy != 'by_score') {
+      buffer.writeln('    $_rankingStrategyKey: ${input.rankingStrategy}');
+    }
+    // signal_weights (only write if non-empty)
+    if (input.signalWeights.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('    $_signalWeightsKey:');
+      for (final e in input.signalWeights.entries) {
+        buffer.writeln('      ${e.key}: ${e.value}');
+      }
     }
     return buffer.toString();
   }
@@ -301,6 +539,8 @@ class PersonaCreateInput {
     required this.priorities,
     required this.hardNo,
     required this.acceptableIf,
+    this.signalWeights = const {},
+    this.rankingStrategy = '',
   });
 
   static const String _defaultDescription = 'Added from Operations UI.';
@@ -324,6 +564,8 @@ class PersonaCreateInput {
   final List<String> priorities;
   final List<String> hardNo;
   final List<String> acceptableIf;
+  final Map<String, int> signalWeights;
+  final String rankingStrategy;
 
   PersonaCreateInput normalized() {
     return PersonaCreateInput(
@@ -332,6 +574,10 @@ class PersonaCreateInput {
       priorities: _normalizeList(priorities, _defaultPriorities),
       hardNo: _normalizeList(hardNo, _defaultHardNo),
       acceptableIf: _normalizeList(acceptableIf, _defaultAcceptableIf),
+      signalWeights: signalWeights,
+      rankingStrategy: rankingStrategy.trim().isEmpty
+          ? 'by_score'
+          : rankingStrategy.trim().toLowerCase(),
     );
   }
 

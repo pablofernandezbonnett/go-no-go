@@ -145,4 +145,67 @@ class OpsApiClient {
     }
     return personaId;
   }
+
+  Future<List<Map<String, Object>>> fetchSignalCatalog() async {
+    final response = await http.get(Uri.parse('/api/signals'));
+    if (response.statusCode != 200) {
+      throw StateError('Failed to load signal catalog (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid signal catalog response format.');
+    }
+    final signals = decoded['signals'];
+    if (signals is! List) {
+      return const [];
+    }
+    return signals
+        .whereType<Map<String, dynamic>>()
+        .map((entry) => Map<String, Object>.from(entry))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> fetchPersonaDetail(String id) async {
+    final response = await http.get(Uri.parse('/api/config/personas/$id'));
+    if (response.statusCode == 404) {
+      throw StateError('Persona not found: $id');
+    }
+    if (response.statusCode != 200) {
+      throw StateError('Failed to load persona detail (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid persona detail response format.');
+    }
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> updatePersonaTuning(
+    String id,
+    Map<String, int> weights,
+    String strategy,
+  ) async {
+    final response = await http.put(
+      Uri.parse('/api/config/personas/$id/tuning'),
+      headers: const {'content-type': _jsonHeader},
+      body: jsonEncode({
+        'signalWeights': weights,
+        'rankingStrategy': strategy,
+      }),
+    );
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode == 404) {
+      throw StateError('Persona not found: $id');
+    }
+    if (response.statusCode != 200) {
+      if (decoded is Map<String, dynamic>) {
+        throw StateError(decoded['message']?.toString() ?? 'Tuning update failed (${response.statusCode}).');
+      }
+      throw StateError('Tuning update failed (${response.statusCode}).');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid tuning update response format.');
+    }
+    return decoded;
+  }
 }

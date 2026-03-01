@@ -53,7 +53,6 @@ public final class RunTrendStore {
         saveAll(file, snapshots);
     }
 
-    @SuppressWarnings("unchecked")
     private List<RunTrendSnapshot> loadAll(Path file) {
         if (file == null || !Files.exists(file)) {
             return List.of();
