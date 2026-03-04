@@ -8,6 +8,7 @@ import com.pmfb.gonogo.engine.config.YamlConfigLoader;
 import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
+import com.pmfb.gonogo.engine.exception.JobInputLoadException;
 import com.pmfb.gonogo.engine.job.CareerPageHttpFetcher;
 import com.pmfb.gonogo.engine.job.JobInput;
 import com.pmfb.gonogo.engine.job.JobPostingCandidate;
@@ -37,6 +38,12 @@ import picocli.CommandLine.Option;
 )
 public final class EvaluateInputCommand implements Callable<Integer> {
     private static final String DEFAULT_USER_AGENT = "go-no-go-engine/0.1 (+https://local)";
+    private static final String DEFAULT_LOCATION = "Unspecified";
+    private static final String DEFAULT_SALARY_RANGE = "TBD";
+    private static final String DEFAULT_REMOTE_POLICY = "Unknown";
+    private static final String DEFAULT_UNKNOWN = "Unknown";
+    private static final String SOURCE_URL_PREFIX = "Source URL: ";
+    private static final int MAX_FALLBACK_DESCRIPTION_LENGTH = 1200;
 
     private final DecisionEngineV1 engine;
     private final RawJobParser rawJobParser;
@@ -165,8 +172,8 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 Thread.currentThread().interrupt();
             }
             return 1;
-        } catch (IllegalArgumentException e) {
-            System.err.println("Input error: " + e.getMessage());
+        } catch (JobInputLoadException e) {
+            printErrors("Input validation failed", e.errors());
             return 1;
         }
 
@@ -212,7 +219,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             effectiveRawText = Files.readString(rawTextFile, StandardCharsets.UTF_8);
         }
         if (effectiveRawText == null || effectiveRawText.isBlank()) {
-            throw new IllegalArgumentException("Raw text is empty.");
+            throw new JobInputLoadException(List.of("Raw text is empty."));
         }
         return rawJobParser.parse(effectiveRawText, companyNameOverride, titleOverride);
     }
@@ -220,7 +227,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private JobInput fromUrl(String url, EngineConfig config) throws IOException, InterruptedException {
         String normalizedUrl = normalize(url);
         if (normalizedUrl.isBlank()) {
-            throw new IllegalArgumentException("URL cannot be blank.");
+            throw new JobInputLoadException(List.of("URL cannot be blank."));
         }
         CareerPageHttpFetcher.FetchResult response = httpFetcher.fetch(
                 normalizedUrl,
@@ -228,7 +235,9 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 normalize(userAgent).isBlank() ? DEFAULT_USER_AGENT : userAgent
         );
         if (response.statusCode() >= 400) {
-            throw new IllegalArgumentException("HTTP " + response.statusCode() + " while fetching URL.");
+            throw new JobInputLoadException(List.of(
+                    "HTTP " + response.statusCode() + " while fetching URL."
+            ));
         }
 
         List<JobPostingCandidate> candidates = extractor.extract(response.body(), response.finalUrl(), 1);
@@ -246,18 +255,14 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             title = titleOverride.trim();
         }
         String description = candidate.snippet();
-        if (description == null || description.isBlank()) {
-            description = "Source URL: " + candidate.url();
-        } else {
-            description = description + "\nSource URL: " + candidate.url();
-        }
+        description = appendSourceUrl(description, candidate.url());
 
         return new JobInput(
                 companyName,
                 title,
-                "Unspecified",
-                "TBD",
-                "Unknown",
+                DEFAULT_LOCATION,
+                DEFAULT_SALARY_RANGE,
+                DEFAULT_REMOTE_POLICY,
                 description
         );
     }
@@ -281,26 +286,24 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             title = normalizeText(doc.title());
         }
         if (title == null || title.isBlank()) {
-            throw new IllegalArgumentException("Could not infer a job title from URL page content.");
+            throw new JobInputLoadException(List.of(
+                    "Could not infer a job title from URL page content."
+            ));
         }
 
         Element descriptionRoot = doc.selectFirst("main,article,.job-description,.content,body");
         String description = descriptionRoot != null ? normalizeText(descriptionRoot.text()) : "";
-        if (description.length() > 1200) {
-            description = description.substring(0, 1200).trim() + "...";
+        if (description.length() > MAX_FALLBACK_DESCRIPTION_LENGTH) {
+            description = description.substring(0, MAX_FALLBACK_DESCRIPTION_LENGTH).trim() + "...";
         }
-        if (description.isBlank()) {
-            description = "Source URL: " + response.finalUrl();
-        } else {
-            description = description + "\nSource URL: " + response.finalUrl();
-        }
+        description = appendSourceUrl(description, response.finalUrl());
 
         return new JobInput(
                 companyName,
                 title,
-                "Unspecified",
-                "TBD",
-                "Unknown",
+                DEFAULT_LOCATION,
+                DEFAULT_SALARY_RANGE,
+                DEFAULT_REMOTE_POLICY,
                 description
         );
     }
@@ -313,7 +316,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 return company.name();
             }
         }
-        return host.isBlank() ? "Unknown" : host;
+        return host.isBlank() ? DEFAULT_UNKNOWN : host;
     }
 
     private String hostOf(String value) {
@@ -377,6 +380,13 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         for (String error : errors) {
             System.err.println(" - " + error);
         }
+    }
+
+    private String appendSourceUrl(String description, String sourceUrl) {
+        if (description == null || description.isBlank()) {
+            return SOURCE_URL_PREFIX + sourceUrl;
+        }
+        return description + "\n" + SOURCE_URL_PREFIX + sourceUrl;
     }
 
     private String normalize(String value) {
