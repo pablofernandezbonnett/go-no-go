@@ -4,6 +4,7 @@ import 'package:jaspr_router/jaspr_router.dart';
 
 import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
+import '../services/batch_report_parser.dart';
 import '../services/reports_api.dart';
 import 'reports_view_helpers.dart';
 

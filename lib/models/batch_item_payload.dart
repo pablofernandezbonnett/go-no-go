@@ -71,16 +71,6 @@ class BatchItemPayload {
   }
 }
 
-List<BatchItemPayload> batchItemsFromDecodedJson(Object? decodedJson) {
-  final root = _asMap(decodedJson);
-  final rawItems = root['items'];
-  if (rawItems is! List) {
-    return const <BatchItemPayload>[];
-  }
-
-  return rawItems.map((entry) => BatchItemPayload.fromJson(_asMap(entry))).toList();
-}
-
 Map<String, dynamic> _asMap(Object? value) {
   if (value is Map<String, dynamic>) {
     return value;
