@@ -54,6 +54,16 @@ import picocli.CommandLine.Option;
         description = "Run full pipeline: raw text normalization, batch evaluation, and weekly digest."
 )
 public final class PipelineRunCommand implements Callable<Integer> {
+    private final DecisionEngineV1 engine;
+
+    public PipelineRunCommand() {
+        this(new DecisionEngineV1());
+    }
+
+    public PipelineRunCommand(DecisionEngineV1 engine) {
+        this.engine = engine;
+    }
+
     private static final String DEFAULT_ALERT_SINKS = TrendAlertSinkFactory.SINK_NONE;
 
     @Option(
@@ -351,7 +361,6 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         RawJobParser parser = new RawJobParser();
         JobInputYamlWriter yamlWriter = new JobInputYamlWriter();
-        DecisionEngineV1 engine = new DecisionEngineV1();
         List<PreparedJob> preparedJobs = new ArrayList<>();
         List<BatchEvaluationItem> items = new ArrayList<>();
         List<BatchEvaluationError> errors = new ArrayList<>();

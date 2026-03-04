@@ -36,6 +36,16 @@ import picocli.CommandLine.Option;
         description = "Evaluate multiple job YAML files and generate JSON/Markdown reports."
 )
 public final class BatchEvaluateCommand implements Callable<Integer> {
+    private final DecisionEngineV1 engine;
+
+    public BatchEvaluateCommand() {
+        this(new DecisionEngineV1());
+    }
+
+    public BatchEvaluateCommand(DecisionEngineV1 engine) {
+        this.engine = engine;
+    }
+
     @Option(
             names = {"--persona"},
             description = "Persona id from config/personas.yaml",
@@ -124,7 +134,6 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        DecisionEngineV1 engine = new DecisionEngineV1();
         List<BatchEvaluationItem> items = new ArrayList<>();
         List<BatchEvaluationError> errors = new ArrayList<>();
 
