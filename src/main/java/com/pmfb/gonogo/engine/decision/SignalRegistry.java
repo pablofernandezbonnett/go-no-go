@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Public catalog of all 35 signals recognized by DecisionEngineV1.
+ * Public catalog of all 37 signals recognized by DecisionEngineV1.
  *
  * <p>Provides metadata (name, type, priority group, default weight) for each signal,
  * enabling YAML config validation and API exposure via GET /api/signals.
@@ -51,7 +51,7 @@ public final class SignalRegistry {
             new SignalDescriptor("company_reputation_positive",       SignalType.POSITIVE, "stability",            2),
             new SignalDescriptor("company_reputation_positive_strong",SignalType.POSITIVE, "stability",            2),
 
-            // ── Risk signals (20) ─────────────────────────────────────────────────
+            // ── Risk signals (22) ─────────────────────────────────────────────────
             new SignalDescriptor("salary_low_confidence",             SignalType.RISK,     "salary",               2),
             new SignalDescriptor("onsite_bias",                       SignalType.RISK,     "hybrid_work",          2),
             new SignalDescriptor("language_friction",                 SignalType.RISK,     "english_environment",  3),
@@ -61,6 +61,8 @@ public final class SignalRegistry {
             new SignalDescriptor("engineering_environment_risk",      SignalType.RISK,     "work_life_balance",    2),
             new SignalDescriptor("startup_risk",                      SignalType.RISK,     "stability",            3),
             new SignalDescriptor("role_mismatch_manager_vs_ic_title", SignalType.RISK,     "engineering_culture",  5),
+            new SignalDescriptor("role_identity_mismatch",            SignalType.RISK,     "engineering_culture",  6),
+            new SignalDescriptor("intermediary_contract_risk",        SignalType.RISK,     "product_company",      5),
             new SignalDescriptor("inclusion_contradiction",           SignalType.RISK,     "english_environment",  5),
             new SignalDescriptor("pre_ipo_risk",                      SignalType.RISK,     "stability",            4),
             new SignalDescriptor("manager_scope_salary_misaligned",   SignalType.RISK,     "salary",               5),
@@ -85,7 +87,7 @@ public final class SignalRegistry {
 
     private SignalRegistry() {}
 
-    /** Returns an unmodifiable list of all 35 signal descriptors. */
+    /** Returns an unmodifiable list of all 37 signal descriptors. */
     public static List<SignalDescriptor> all() {
         return ALL;
     }

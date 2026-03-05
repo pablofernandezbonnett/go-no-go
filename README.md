@@ -228,6 +228,7 @@ Current Ops UI capabilities:
 
 - Short smart wrapper with defaults for daily usage.
 - Default persona is `product_expat_engineer`.
+- Supports `--stdin` for multiline copy/paste input.
 - Auto mode detection:
   - `http/https` input -> `evaluate-input --job-url`
   - existing `.yaml/.yml` file -> `evaluate --job-file`
@@ -291,6 +292,23 @@ Same quick evaluation using the short smart command:
 
 ```bash
 ./gradlew run --args="check https://www.fastretailing.com/careers/en/job-description/?id=1588"
+```
+
+Multiline copy/paste from terminal (recommended for raw JD text):
+
+```bash
+cat <<'EOF' | ./gradlew run --args="check --stdin"
+About the job
+Role: Software Engineer (Java) - Remote
+Location: 100% Remote (Global)
+Compensation: USD 50-95 per hour
+EOF
+```
+
+On macOS, evaluate clipboard content directly:
+
+```bash
+pbpaste | ./gradlew run --args="check --stdin"
 ```
 
 Quick evaluate from raw text file:

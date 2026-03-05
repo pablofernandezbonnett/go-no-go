@@ -1,6 +1,8 @@
 package com.pmfb.gonogo.engine;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,6 +53,12 @@ public final class CheckCommand implements Callable<Integer> {
     private String mode;
 
     @Option(
+            names = {"--stdin"},
+            description = "Read raw text from STDIN (for multiline copy/paste input)."
+    )
+    private boolean readFromStdin;
+
+    @Option(
             names = {"--timeout-seconds"},
             defaultValue = "20",
             description = "HTTP timeout used for URL mode (default: ${DEFAULT-VALUE})."
@@ -64,7 +72,7 @@ public final class CheckCommand implements Callable<Integer> {
     private String userAgent;
 
     @Parameters(
-            arity = "1..*",
+            arity = "0..*",
             paramLabel = "INPUT",
             description = "URL, file path, or raw text."
     )
@@ -72,13 +80,40 @@ public final class CheckCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        String rawInput = String.join(" ", inputTokens).trim();
-        if (rawInput.isBlank()) {
-            System.err.println("Input cannot be blank.");
-            return 1;
+        String normalizedMode = normalize(mode);
+        ResolvedInput resolved;
+
+        if (readFromStdin) {
+            if (hasInputTokens()) {
+                System.err.println("Use either --stdin or INPUT arguments, not both.");
+                return 1;
+            }
+            if (!isStdinCompatibleMode(normalizedMode)) {
+                System.err.println("When using --stdin, mode must be auto or raw-text.");
+                return 1;
+            }
+            String stdinText = readStdinText();
+            if (stdinText == null) {
+                return 1;
+            }
+            if (stdinText.isBlank()) {
+                System.err.println("STDIN input is empty.");
+                return 1;
+            }
+            resolved = new ResolvedInput(InputKind.RAW_TEXT, stdinText);
+        } else {
+            if (!hasInputTokens()) {
+                System.err.println("Provide INPUT or use --stdin.");
+                return 1;
+            }
+            String rawInput = String.join(" ", inputTokens).trim();
+            if (rawInput.isBlank()) {
+                System.err.println("Input cannot be blank.");
+                return 1;
+            }
+            resolved = resolveInput(rawInput, inputTokens, normalizedMode);
         }
 
-        ResolvedInput resolved = resolveInput(rawInput, inputTokens, normalize(mode));
         if (resolved.kind() == InputKind.INVALID) {
             return 1;
         }
@@ -133,6 +168,16 @@ public final class CheckCommand implements Callable<Integer> {
         }
 
         return new CommandLine(new EvaluateInputCommand()).execute(args.toArray(new String[0]));
+    }
+
+    private String readStdinText() {
+        try {
+            byte[] bytes = System.in.readAllBytes();
+            return new String(bytes, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.err.println("Failed to read from STDIN: " + e.getMessage());
+            return null;
+        }
     }
 
     private ResolvedInput resolveInput(String rawInput, List<String> tokens, String normalizedMode) {
@@ -237,6 +282,14 @@ public final class CheckCommand implements Callable<Integer> {
                 || MODE_RAW_TEXT.equals(value)
                 || MODE_RAW_FILE.equals(value)
                 || MODE_JOB_YAML.equals(value);
+    }
+
+    private boolean isStdinCompatibleMode(String value) {
+        return MODE_AUTO.equals(value) || MODE_RAW_TEXT.equals(value);
+    }
+
+    private boolean hasInputTokens() {
+        return inputTokens != null && !inputTokens.isEmpty();
     }
 
     private String normalize(String value) {
