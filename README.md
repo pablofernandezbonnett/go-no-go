@@ -62,6 +62,7 @@ Implemented now:
 - `gonogo fetch-web` command to fetch selected career pages from `config/companies.yaml`
 - `gonogo evaluate` command (persona-aware)
 - `gonogo evaluate-input` command for direct URL/raw-text evaluation
+- `gonogo check` short command with input autodetection (URL / raw text / file path)
 - `gonogo evaluate-batch` command with markdown/json report generation
 - `gonogo weekly-digest` command from batch JSON reports
 - `gonogo pipeline run` end-to-end orchestration
@@ -134,6 +135,12 @@ Validate configuration:
 
 ```bash
 ./gradlew run --args="config validate"
+```
+
+Quick smart evaluation (auto-detects URL, raw text file, job YAML, or inline text):
+
+```bash
+./gradlew run --args="check https://www.fastretailing.com/careers/en/job-description/?id=1588"
 ```
 
 Run everything in one command (recommended default):
@@ -217,6 +224,17 @@ Current Ops UI capabilities:
 - Evaluates directly from `--job-url` or from raw text (`--raw-text-file` / `--raw-text`).
 - Useful for quick checks without generating intermediate YAML files.
 
+`check` (aliases: `quick-check`, `qc`)
+
+- Short smart wrapper with defaults for daily usage.
+- Default persona is `product_expat_engineer`.
+- Auto mode detection:
+  - `http/https` input -> `evaluate-input --job-url`
+  - existing `.yaml/.yml` file -> `evaluate --job-file`
+  - existing non-YAML file -> `evaluate-input --raw-text-file`
+  - otherwise -> `evaluate-input --raw-text`
+- Optional `--mode` override: `auto`, `url`, `raw-text`, `raw-file`, `job-yaml`.
+
 `evaluate-batch`
 
 - Evaluates all YAML files from an input directory for one persona.
@@ -267,6 +285,12 @@ Quick evaluate from a direct job URL:
 
 ```bash
 ./gradlew run --args="evaluate-input --persona product_expat_engineer --job-url https://www.fastretailing.com/careers/en/job-description/?id=1588"
+```
+
+Same quick evaluation using the short smart command:
+
+```bash
+./gradlew run --args="check https://www.fastretailing.com/careers/en/job-description/?id=1588"
 ```
 
 Quick evaluate from raw text file:
