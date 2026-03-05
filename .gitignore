@@ -3,6 +3,7 @@
 .gradle-home/
 .cache/
 build/
+bin/
 out/
 output/
 
