@@ -358,6 +358,56 @@ public final class DecisionEngineV1 {
             "developer",
             "programmer"
     );
+    private static final List<String> ROLE_SOFTWARE_KEYWORDS = List.of(
+            "software",
+            "backend",
+            "front",
+            "fullstack",
+            "engineer",
+            "developer",
+            "programmer",
+            "java",
+            "kotlin",
+            "python",
+            "typescript",
+            "go"
+    );
+    private static final List<String> ROLE_NON_SOFTWARE_MISMATCH_KEYWORDS = List.of(
+            "physicist",
+            "physics",
+            "chemist",
+            "biologist",
+            "attorney",
+            "lawyer",
+            "nurse",
+            "doctor",
+            "talent network",
+            "talent pool"
+    );
+    private static final Pattern POSITION_LABEL_PATTERN =
+            Pattern.compile("(?is)\\bposition\\s*:\\s*([^\\n\\r|.;]{2,120})");
+    private static final List<String> INTERMEDIARY_CONTRACT_KEYWORDS = List.of(
+            "one of our clients",
+            "project basis",
+            "independent contractor",
+            "services rendered",
+            "talent network",
+            "talent pool",
+            "contract and payment terms"
+    );
+    private static final List<String> APPLICATION_PROCESS_TEMPLATE_KEYWORDS = List.of(
+            "application process",
+            "upload resume",
+            "profile verification",
+            "screening process",
+            "skills questionnaire",
+            "time-boxed exercise",
+            "selected candidates will be contacted"
+    );
+    private static final int INTERMEDIARY_KEYWORD_HIT_MIN = 2;
+    private static final int APPLICATION_TEMPLATE_HIT_MIN = 3;
+    private static final Pattern GENERIC_DESIRED_SKILLS_ENGINEER_PATTERN =
+            Pattern.compile("(?is)desired\\s+skills\\s+and\\s+experience\\s*[:\\-\\n\\r]*\\s*engineer\\b");
     private static final List<String> PRE_IPO_RISK_KEYWORDS = List.of(
             "pre-ipo",
             "pre ipo",
@@ -493,6 +543,8 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_ENGINEERING_ENVIRONMENT_RISK = "engineering_environment_risk";
     private static final String SIGNAL_STARTUP_RISK = "startup_risk";
     private static final String SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE = "role_mismatch_manager_vs_ic_title";
+    private static final String SIGNAL_ROLE_IDENTITY_MISMATCH = "role_identity_mismatch";
+    private static final String SIGNAL_INTERMEDIARY_CONTRACT_RISK = "intermediary_contract_risk";
     private static final String SIGNAL_INCLUSION_CONTRADICTION = "inclusion_contradiction";
     private static final String SIGNAL_PRE_IPO_RISK = "pre_ipo_risk";
     private static final String SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED = "manager_scope_salary_misaligned";
@@ -506,6 +558,8 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_COMPANY_REPUTATION_RISK_HIGH = "company_reputation_risk_high";
     private static final int EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE = 4;
     private static final int EXTRA_RISK_PENALTY_ROLE_MISMATCH = 2;
+    private static final int EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH = 3;
+    private static final int EXTRA_RISK_PENALTY_INTERMEDIARY_CONTRACT = 2;
     private static final int EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION = 2;
     private static final int EXTRA_RISK_PENALTY_PRE_IPO = 1;
     private static final int EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY = 2;
@@ -556,6 +610,8 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_OVERTIME_RISK, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_ENGINEERING_ENVIRONMENT_RISK, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_ROLE_IDENTITY_MISMATCH, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_INTERMEDIARY_CONTRACT_RISK, PRIORITY_PRODUCT_COMPANY),
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_PRE_IPO_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, PRIORITY_SALARY),
@@ -572,6 +628,8 @@ public final class DecisionEngineV1 {
     private static final Map<String, Integer> RISK_SIGNAL_EXTRA_PENALTY = Map.ofEntries(
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE),
             Map.entry(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE, EXTRA_RISK_PENALTY_ROLE_MISMATCH),
+            Map.entry(SIGNAL_ROLE_IDENTITY_MISMATCH, EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH),
+            Map.entry(SIGNAL_INTERMEDIARY_CONTRACT_RISK, EXTRA_RISK_PENALTY_INTERMEDIARY_CONTRACT),
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION),
             Map.entry(SIGNAL_PRE_IPO_RISK, EXTRA_RISK_PENALTY_PRE_IPO),
             Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY),
@@ -739,6 +797,12 @@ public final class DecisionEngineV1 {
         }
         if (hasRoleMismatchManagerVsIcTitle(job.title(), combinedText)) {
             riskSignals.add(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE);
+        }
+        if (hasRoleIdentityMismatch(job.title(), job.description())) {
+            riskSignals.add(SIGNAL_ROLE_IDENTITY_MISMATCH);
+        }
+        if (hasIntermediaryContractRisk(combinedText)) {
+            riskSignals.add(SIGNAL_INTERMEDIARY_CONTRACT_RISK);
         }
         if (hasInclusionContradiction(combinedText)) {
             riskSignals.add(SIGNAL_INCLUSION_CONTRADICTION);
@@ -1120,6 +1184,53 @@ public final class DecisionEngineV1 {
         boolean hasIcTitle = containsAny(normalizedTitle, ROLE_IC_TITLE_KEYWORDS);
         boolean hasManagerTitle = containsAny(normalizedTitle, ROLE_MANAGER_TITLE_KEYWORDS);
         return hasManagerScope && hasIcTitle && !hasManagerTitle;
+    }
+
+    private boolean hasRoleIdentityMismatch(String title, String description) {
+        String normalizedTitle = normalize(title);
+        String normalizedDescription = normalize(description);
+        if (normalizedTitle.isBlank() || normalizedDescription.isBlank()) {
+            return false;
+        }
+
+        String explicitPosition = extractExplicitPositionLabel(normalizedDescription);
+        if (explicitPosition.isBlank()) {
+            return false;
+        }
+
+        boolean titleSoftware = containsAny(normalizedTitle, ROLE_SOFTWARE_KEYWORDS);
+        boolean titleNonSoftware = containsAny(normalizedTitle, ROLE_NON_SOFTWARE_MISMATCH_KEYWORDS);
+        boolean positionSoftware = containsAny(explicitPosition, ROLE_SOFTWARE_KEYWORDS);
+        boolean positionNonSoftware = containsAny(explicitPosition, ROLE_NON_SOFTWARE_MISMATCH_KEYWORDS);
+
+        if (titleSoftware && positionNonSoftware && !positionSoftware) {
+            return true;
+        }
+        if (titleNonSoftware && positionSoftware && !titleSoftware) {
+            return true;
+        }
+        return false;
+    }
+
+    private String extractExplicitPositionLabel(String normalizedDescription) {
+        Matcher matcher = POSITION_LABEL_PATTERN.matcher(normalizedDescription);
+        if (!matcher.find()) {
+            return "";
+        }
+        return normalize(matcher.group(1));
+    }
+
+    private boolean hasIntermediaryContractRisk(String combinedText) {
+        int intermediaryHits = countKeywordMatches(combinedText, INTERMEDIARY_CONTRACT_KEYWORDS);
+        int processHits = countKeywordMatches(combinedText, APPLICATION_PROCESS_TEMPLATE_KEYWORDS);
+        boolean genericDesiredSkills = GENERIC_DESIRED_SKILLS_ENGINEER_PATTERN.matcher(combinedText).find();
+
+        if (intermediaryHits >= INTERMEDIARY_KEYWORD_HIT_MIN) {
+            return true;
+        }
+        return intermediaryHits >= 1
+                && processHits >= APPLICATION_TEMPLATE_HIT_MIN
+                && genericDesiredSkills;
     }
 
     private boolean hasInclusionContradiction(String combinedText) {
