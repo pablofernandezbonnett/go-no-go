@@ -44,6 +44,10 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.named<JavaExec>("run") {
+    standardInput = System.`in`
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.add("-parameters")

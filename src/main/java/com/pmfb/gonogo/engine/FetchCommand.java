@@ -17,6 +17,18 @@ import picocli.CommandLine.Option;
         description = "Normalize raw job text into a job input YAML file."
 )
 public final class FetchCommand implements Callable<Integer> {
+    private final RawJobParser parser;
+    private final JobInputYamlWriter writer;
+
+    public FetchCommand() {
+        this(new RawJobParser(), new JobInputYamlWriter());
+    }
+
+    public FetchCommand(RawJobParser parser, JobInputYamlWriter writer) {
+        this.parser = parser;
+        this.writer = writer;
+    }
+
     @Option(
             names = {"--input-file"},
             description = "Raw text file containing a job post.",
@@ -53,11 +65,11 @@ public final class FetchCommand implements Callable<Integer> {
             return 1;
         }
 
-        RawJobExtractionResult extraction = new RawJobParser().parse(rawText, companyName, title);
+        RawJobExtractionResult extraction = parser.parse(rawText, companyName, title);
         JobInput jobInput = extraction.jobInput();
 
         try {
-            new JobInputYamlWriter().write(outputFile, jobInput);
+            writer.write(outputFile, jobInput);
         } catch (IOException e) {
             System.err.println("Failed to write output file '" + outputFile + "': " + e.getMessage());
             return 1;
