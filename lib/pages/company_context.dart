@@ -36,7 +36,6 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
       _isLoading = true;
       _loadError = null;
     });
-
     try {
       final index = await _client.fetchIndex();
       setState(() {
@@ -56,92 +55,53 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
     final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedCompanyId = queryParams['company'];
-
-    if (!kIsWeb) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        p([.text('Loading report index on the client...')]),
-      ]);
-    }
-
-    if (_isLoading) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        p([.text('Loading context artifacts...')]),
-      ]);
-    }
-
-    if (_loadError != null) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        p(classes: 'error', [.text(_loadError!)]),
-        button(onClick: _loadIndex, [.text('Retry')]),
-      ]);
-    }
-
+    if (!kIsWeb) return pageLoading('Company Context', 'Loading report index on the client...');
+    if (_isLoading) return pageLoading('Company Context', 'Loading context artifacts...');
+    if (_loadError != null) return pageError('Company Context', _loadError!, _loadIndex);
     final index = _index;
-    if (index == null || index.runs.isEmpty) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        card([
-          p([.text('No runs available.')]),
-        ]),
-      ]);
-    }
-
+    if (index == null || index.runs.isEmpty) return pageEmpty('Company Context', 'No runs available.');
     final run = selectRun(index.runs, requestedRunId);
-    if (run == null) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        card([
-          p([.text('Selected run was not found.')]),
-        ]),
-      ]);
+    if (run == null) return pageEmpty('Company Context', 'Selected run was not found.');
+    if (run.companyContextReports.isEmpty) {
+      return pageEmpty('Company Context', 'Run ${run.runId} has no company context files.');
     }
+    final selected = _resolveSelected(run.companyContextReports, requestedCompanyId);
+    return _CompanyContextBody(run: run, runs: index.runs, reports: run.companyContextReports, selected: selected);
+  }
 
-    final reports = run.companyContextReports;
-    if (reports.isEmpty) {
-      return section(classes: 'page', [
-        h1([.text('Company Context')]),
-        card([
-          p([
-            .text('Run '),
-            code([.text(run.runId)]),
-            .text(' has no company context files.'),
-          ]),
-        ]),
-      ]);
+  CompanyContextPayload _resolveSelected(List<CompanyContextPayload> reports, String? requestedId) {
+    if (requestedId == null || requestedId.isEmpty) return reports.first;
+    for (final report in reports) {
+      if (report.companyId == requestedId) return report;
     }
+    return reports.first;
+  }
+}
 
-    var selected = reports.first;
-    if (requestedCompanyId != null && requestedCompanyId.isNotEmpty) {
-      for (final report in reports) {
-        if (report.companyId == requestedCompanyId) {
-          selected = report;
-          break;
-        }
-      }
-    }
+class _CompanyContextBody extends StatelessComponent {
+  const _CompanyContextBody({
+    required this.run,
+    required this.runs,
+    required this.reports,
+    required this.selected,
+  });
 
+  final ReportRunPayload run;
+  final List<ReportRunPayload> runs;
+  final List<CompanyContextPayload> reports;
+  final CompanyContextPayload selected;
+
+  @override
+  Component build(BuildContext context) {
     return section(classes: 'page', [
       h1([.text('Company Context')]),
       card([
-        p([
-          .text('Run: '),
-          code([.text(run.runId)]),
-        ]),
-        runTabs(
-          runs: index.runs,
-          selectedRunId: run.runId,
-          destinationPath: '/context',
-        ),
+        p([.text('Run: '), code([.text(run.runId)])]),
+        runTabs(runs: runs, selectedRunId: run.runId, destinationPath: '/context'),
         div(classes: 'context-tabs', [
           for (final report in reports)
             Link(
-              to: buildRouteWithQuery('/context', {
-                'run': run.runId,
-                'company': report.companyId,
-              }),
+              to: buildRouteWithQuery('/context', {'run': run.runId, 'company': report.companyId}),
               classes: report.companyId == selected.companyId ? 'context-tab active' : 'context-tab',
               child: .text(report.companyId),
             ),

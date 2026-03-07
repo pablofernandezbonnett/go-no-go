@@ -66,6 +66,8 @@ Avoid early introduction of:
 - Fail gracefully: render an error state in the component — never throw or crash due to
   missing or malformed artifact data.
 - Before adding a dependency: verify `pubspec.yaml` for an existing equivalent.
+- `build()` methods must not exceed 60 lines. Extract named private `StatelessComponent`
+  sub-classes for large content sections.
 
 ---
 
