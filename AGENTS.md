@@ -25,6 +25,11 @@ Intelligence > volume.
 
 ## Rules
 
+General implementation rule:
+
+- Keep classes and services small and focused.
+- Split them before they accumulate multiple responsibilities or become hard to scan.
+
 ### 1. Do NOT optimize for scraping scale
 
 We track selected companies.
