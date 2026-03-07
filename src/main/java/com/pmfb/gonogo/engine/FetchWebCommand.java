@@ -16,6 +16,16 @@ import picocli.CommandLine.Option;
         description = "Fetch selected company career pages and generate normalized raw job text files."
 )
 public final class FetchWebCommand implements Callable<Integer> {
+    private final CareerPageFetchService fetchService;
+
+    public FetchWebCommand() {
+        this(new CareerPageFetchService());
+    }
+
+    public FetchWebCommand(CareerPageFetchService fetchService) {
+        this.fetchService = fetchService;
+    }
+
     @Option(
             names = {"--config-dir"},
             description = "Directory containing config YAML files.",
@@ -153,7 +163,7 @@ public final class FetchWebCommand implements Callable<Integer> {
                 cacheTtlMinutes,
                 !disableCache
         );
-        CareerPageFetchService.FetchOutcome outcome = new CareerPageFetchService().fetchToRawFiles(
+        CareerPageFetchService.FetchOutcome outcome = fetchService.fetchToRawFiles(
                 config.companies(),
                 options
         );

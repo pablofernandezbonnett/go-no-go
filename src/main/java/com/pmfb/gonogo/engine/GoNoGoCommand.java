@@ -15,6 +15,8 @@ import picocli.CommandLine.Model.CommandSpec;
                 FetchCommand.class,
                 FetchWebCommand.class,
                 EvaluateCommand.class,
+                EvaluateInputCommand.class,
+                CheckCommand.class,
                 BatchEvaluateCommand.class,
                 WeeklyDigestCommand.class,
                 PipelineCommand.class,
