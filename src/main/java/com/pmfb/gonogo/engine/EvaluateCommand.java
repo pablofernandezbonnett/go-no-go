@@ -23,6 +23,16 @@ import picocli.CommandLine.Option;
         description = "Evaluate a single job input using persona-aware rules."
 )
 public final class EvaluateCommand implements Callable<Integer> {
+    private final DecisionEngineV1 engine;
+
+    public EvaluateCommand() {
+        this(new DecisionEngineV1());
+    }
+
+    public EvaluateCommand(DecisionEngineV1 engine) {
+        this.engine = engine;
+    }
+
     @Option(
             names = {"--persona"},
             description = "Persona id from config/personas.yaml",
@@ -78,7 +88,7 @@ public final class EvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        EvaluationResult result = new DecisionEngineV1().evaluate(job, persona.get(), config);
+        EvaluationResult result = engine.evaluate(job, persona.get(), config);
         printResult(persona.get(), job, result);
         return 0;
     }
