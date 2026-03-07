@@ -87,3 +87,19 @@ Component card(List<Component> children, {String? classes}) {
   final resolvedClasses = classes == null || classes.isEmpty ? 'card' : 'card $classes';
   return div(classes: resolvedClasses, children);
 }
+
+Component pageLoading(String title, String message) => section(classes: 'page', [
+  h1([.text(title)]),
+  p([.text(message)]),
+]);
+
+Component pageError(String title, String error, void Function() onRetry) => section(classes: 'page', [
+  h1([.text(title)]),
+  p(classes: 'error', [.text(error)]),
+  button(onClick: onRetry, [.text('Retry')]),
+]);
+
+Component pageEmpty(String title, String message) => section(classes: 'page', [
+  h1([.text(title)]),
+  card([p([.text(message)])]),
+]);

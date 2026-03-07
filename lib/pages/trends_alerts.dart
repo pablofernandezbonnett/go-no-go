@@ -17,7 +17,6 @@ class TrendsAlertsPage extends StatefulComponent {
 
 class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   static const _client = ReportsApiClient();
-  static const _prettyJson = JsonEncoder.withIndent('  ');
 
   ReportsIndexPayload? _index;
   String? _loadError;
@@ -38,7 +37,6 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
       _isLoading = true;
       _loadError = null;
     });
-
     try {
       final index = await _client.fetchIndex();
       setState(() {
@@ -55,66 +53,35 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
 
   @override
   Component build(BuildContext context) {
-    final queryParams = currentQueryParams(context);
-    final requestedRunId = queryParams['run'];
-
-    if (!kIsWeb) {
-      return section(classes: 'page', [
-        h1([.text('Trends & Alerts')]),
-        p([.text('Loading report index on the client...')]),
-      ]);
-    }
-
-    if (_isLoading) {
-      return section(classes: 'page', [
-        h1([.text('Trends & Alerts')]),
-        p([.text('Loading trend artifacts...')]),
-      ]);
-    }
-
-    if (_loadError != null) {
-      return section(classes: 'page', [
-        h1([.text('Trends & Alerts')]),
-        p(classes: 'error', [.text(_loadError!)]),
-        button(onClick: _loadIndex, [.text('Retry')]),
-      ]);
-    }
-
+    final requestedRunId = currentQueryParams(context)['run'];
+    if (!kIsWeb) return pageLoading('Trends & Alerts', 'Loading report index on the client...');
+    if (_isLoading) return pageLoading('Trends & Alerts', 'Loading trend artifacts...');
+    if (_loadError != null) return pageError('Trends & Alerts', _loadError!, _loadIndex);
     final index = _index;
-    if (index == null || index.runs.isEmpty) {
-      return section(classes: 'page', [
-        h1([.text('Trends & Alerts')]),
-        card([
-          p([.text('No runs available.')]),
-        ]),
-      ]);
-    }
-
+    if (index == null || index.runs.isEmpty) return pageEmpty('Trends & Alerts', 'No runs available.');
     final run = selectRun(index.runs, requestedRunId);
-    if (run == null) {
-      return section(classes: 'page', [
-        h1([.text('Trends & Alerts')]),
-        card([
-          p([.text('Selected run was not found.')]),
-        ]),
-      ]);
-    }
+    if (run == null) return pageEmpty('Trends & Alerts', 'Selected run was not found.');
+    return _TrendsAlertsBody(run: run, runs: index.runs);
+  }
+}
 
+class _TrendsAlertsBody extends StatelessComponent {
+  const _TrendsAlertsBody({required this.run, required this.runs});
+
+  final ReportRunPayload run;
+  final List<ReportRunPayload> runs;
+
+  static const _prettyJson = JsonEncoder.withIndent('  ');
+
+  @override
+  Component build(BuildContext context) {
     final trendHistory = run.trendHistoryReports.isEmpty ? null : run.trendHistoryReports.first;
     final trendAlerts = run.trendAlertsReports.isEmpty ? null : run.trendAlertsReports.first;
-
     return section(classes: 'page', [
       h1([.text('Trends & Alerts')]),
       card([
-        p([
-          .text('Run: '),
-          code([.text(run.runId)]),
-        ]),
-        runTabs(
-          runs: index.runs,
-          selectedRunId: run.runId,
-          destinationPath: '/trends',
-        ),
+        p([.text('Run: '), code([.text(run.runId)])]),
+        runTabs(runs: runs, selectedRunId: run.runId, destinationPath: '/trends'),
       ]),
       card([
         h2([.text('Trend History')]),
@@ -138,10 +105,7 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   }
 
   String _renderAlertsPayload(TrendAlertsPayload payload) {
-    if (!payload.isValidJson || payload.decodedJson == null) {
-      return payload.rawJson;
-    }
-
+    if (!payload.isValidJson || payload.decodedJson == null) return payload.rawJson;
     try {
       return _prettyJson.convert(payload.decodedJson);
     } catch (_) {

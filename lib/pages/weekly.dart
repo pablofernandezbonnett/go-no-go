@@ -36,7 +36,6 @@ class _WeeklyPageState extends State<WeeklyPage> {
       _isLoading = true;
       _loadError = null;
     });
-
     try {
       final index = await _client.fetchIndex();
       setState(() {
@@ -56,93 +55,54 @@ class _WeeklyPageState extends State<WeeklyPage> {
     final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedWeeklyId = queryParams['weekly'];
-
-    if (!kIsWeb) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        p([.text('Loading report index on the client...')]),
-      ]);
-    }
-
-    if (_isLoading) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        p([.text('Loading weekly artifacts...')]),
-      ]);
-    }
-
-    if (_loadError != null) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        p(classes: 'error', [.text(_loadError!)]),
-        button(onClick: _loadIndex, [.text('Retry')]),
-      ]);
-    }
-
+    if (!kIsWeb) return pageLoading('Weekly Digest', 'Loading report index on the client...');
+    if (_isLoading) return pageLoading('Weekly Digest', 'Loading weekly artifacts...');
+    if (_loadError != null) return pageError('Weekly Digest', _loadError!, _loadIndex);
     final index = _index;
-    if (index == null || index.runs.isEmpty) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        card([
-          p([.text('No runs available.')]),
-        ]),
-      ]);
-    }
-
+    if (index == null || index.runs.isEmpty) return pageEmpty('Weekly Digest', 'No runs available.');
     final run = selectRun(index.runs, requestedRunId);
-    if (run == null) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        card([
-          p([.text('Selected run was not found.')]),
-        ]),
-      ]);
+    if (run == null) return pageEmpty('Weekly Digest', 'Selected run was not found.');
+    if (run.weeklyDigestReports.isEmpty) {
+      return pageEmpty('Weekly Digest', 'Run ${run.runId} has no weekly digest markdown.');
     }
+    final selected = _resolveSelected(run.weeklyDigestReports, requestedWeeklyId);
+    return _WeeklyBody(run: run, runs: index.runs, reports: run.weeklyDigestReports, selected: selected);
+  }
 
-    final reports = run.weeklyDigestReports;
-    if (reports.isEmpty) {
-      return section(classes: 'page', [
-        h1([.text('Weekly Digest')]),
-        card([
-          p([
-            .text('Run '),
-            code([.text(run.runId)]),
-            .text(' has no weekly digest markdown.'),
-          ]),
-        ]),
-      ]);
+  WeeklyDigestPayload _resolveSelected(List<WeeklyDigestPayload> reports, String? requestedId) {
+    if (requestedId == null || requestedId.isEmpty) return reports.first;
+    for (final report in reports) {
+      if (report.weeklyId == requestedId) return report;
     }
+    return reports.first;
+  }
+}
 
-    var selected = reports.first;
-    if (requestedWeeklyId != null && requestedWeeklyId.isNotEmpty) {
-      for (final report in reports) {
-        if (report.weeklyId == requestedWeeklyId) {
-          selected = report;
-          break;
-        }
-      }
-    }
+class _WeeklyBody extends StatelessComponent {
+  const _WeeklyBody({
+    required this.run,
+    required this.runs,
+    required this.reports,
+    required this.selected,
+  });
 
+  final ReportRunPayload run;
+  final List<ReportRunPayload> runs;
+  final List<WeeklyDigestPayload> reports;
+  final WeeklyDigestPayload selected;
+
+  @override
+  Component build(BuildContext context) {
     return section(classes: 'page', [
       h1([.text('Weekly Digest')]),
       card([
-        p([
-          .text('Run: '),
-          code([.text(run.runId)]),
-        ]),
-        runTabs(
-          runs: index.runs,
-          selectedRunId: run.runId,
-          destinationPath: '/weekly',
-        ),
+        p([.text('Run: '), code([.text(run.runId)])]),
+        runTabs(runs: runs, selectedRunId: run.runId, destinationPath: '/weekly'),
         if (reports.length > 1)
           div(classes: 'digest-tabs', [
             for (final report in reports)
               Link(
-                to: buildRouteWithQuery('/weekly', {
-                  'run': run.runId,
-                  'weekly': report.weeklyId,
-                }),
+                to: buildRouteWithQuery('/weekly', {'run': run.runId, 'weekly': report.weeklyId}),
                 classes: report.weeklyId == selected.weeklyId ? 'digest-tab active' : 'digest-tab',
                 child: .text(report.weeklyId),
               ),
