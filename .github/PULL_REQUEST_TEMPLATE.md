@@ -73,5 +73,5 @@
 - [ ] Scope is focused and aligned with the issue
 - [ ] Code follows project conventions
 - [ ] Tests added/updated where needed
-- [ ] Documentation updated (`README.md`, `Agents.md`, etc.)
+- [ ] Documentation updated (`README.md`, `AGENTS.md`, etc.)
 - [ ] Local verification completed
