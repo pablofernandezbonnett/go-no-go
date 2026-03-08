@@ -1,0 +1,52 @@
+# Example schema for config/personas.yaml
+
+personas:
+
+  - id: product_expat_engineer_example
+    description: "Product-focused expat engineer in Japan"
+
+    # Ordered preference list (weights are priority-aware).
+    priorities:
+      - english_environment
+      - product_company
+      - engineering_culture
+      - hybrid_work
+      - work_life_balance
+      - salary
+      - stability
+
+    # Baseline required by validator:
+    # consulting_company, onsite_only, salary_missing
+    # Optional (engine-supported):
+    # early_stage_startup, japanese_only_environment,
+    # workload_overload, forced_relocation
+    hard_no:
+      - consulting_company
+      - onsite_only
+      - salary_missing
+      - japanese_only_environment
+      - forced_relocation
+
+    # Conditions acceptable depending on the role context.
+    acceptable_if:
+      - hybrid_partial
+      - japanese_not_blocking
+      - stable_scaleup
+
+  - id: product_expat_engineer_growth_tolerant_example
+    description: "Open to growth volatility when role fit is strong"
+    priorities:
+      - english_environment
+      - product_company
+      - engineering_culture
+      - hybrid_work
+      - salary
+      - stability
+    hard_no:
+      - consulting_company
+      - onsite_only
+      - salary_missing
+    acceptable_if:
+      - hybrid_partial
+      - japanese_not_blocking
+      - stable_scaleup
