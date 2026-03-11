@@ -283,7 +283,9 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
     }
 
     private String effectiveCandidateProfileId(ConfigSelections.CandidateProfileResolution resolution) {
-        return resolution.profile().map(CandidateProfileConfig::id).orElse("none");
+        return resolution.profile()
+                .map(CandidateProfileConfig::id)
+                .orElse(ConfigSelections.CANDIDATE_PROFILE_NONE);
     }
 
     private void printErrors(String title, List<String> errors) {

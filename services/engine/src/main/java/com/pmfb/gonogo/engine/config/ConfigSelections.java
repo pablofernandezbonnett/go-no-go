@@ -5,7 +5,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 public final class ConfigSelections {
-    private static final String NONE = "none";
+    public static final String CANDIDATE_PROFILE_NONE = "none";
 
     private ConfigSelections() {
     }
@@ -28,7 +28,7 @@ public final class ConfigSelections {
             }
             return new CandidateProfileResolution(Optional.empty(), false, "");
         }
-        if (NONE.equals(normalizedRequested)) {
+        if (CANDIDATE_PROFILE_NONE.equals(normalizedRequested)) {
             return new CandidateProfileResolution(Optional.empty(), false, "");
         }
 
@@ -41,6 +41,14 @@ public final class ConfigSelections {
                         false,
                         "Unknown candidate profile id '" + requestedId + "'."
                 ));
+    }
+
+    public static boolean isCandidateProfileNone(String value) {
+        return CANDIDATE_PROFILE_NONE.equals(normalize(value));
+    }
+
+    public static String candidateProfileIdOrNone(CandidateProfileConfig profile) {
+        return profile == null ? CANDIDATE_PROFILE_NONE : profile.id();
     }
 
     private static String normalize(String value) {

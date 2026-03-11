@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.report;
 
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.decision.RankingStrategy;
 import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
 import java.time.Instant;
@@ -91,7 +92,10 @@ public final class WeeklyDigestGenerator {
         }
 
         String persona = asString(root.get(FIELD_PERSONA), UNKNOWN_PERSONA);
-        String candidateProfile = asString(root.get(FIELD_CANDIDATE_PROFILE), "none");
+        String candidateProfile = asString(
+                root.get(FIELD_CANDIDATE_PROFILE),
+                ConfigSelections.CANDIDATE_PROFILE_NONE
+        );
         String sourceGeneratedAt = asString(root.get(FIELD_GENERATED_AT), UNKNOWN_VALUE);
 
         List<WeeklyDigestItem> items = parseItems(root.get(FIELD_ITEMS), errors);

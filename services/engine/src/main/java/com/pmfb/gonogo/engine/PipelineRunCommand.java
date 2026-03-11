@@ -929,14 +929,14 @@ public final class PipelineRunCommand implements Callable<Integer> {
     }
 
     private String effectiveCandidateProfileId(CandidateProfileConfig candidateProfile) {
-        return candidateProfile == null ? "none" : candidateProfile.id();
+        return ConfigSelections.candidateProfileIdOrNone(candidateProfile);
     }
 
     private String sanitizeScope(String personaIdValue, String candidateProfileIdValue) {
         String sanitizedPersona = personaIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
         if (candidateProfileIdValue == null
                 || candidateProfileIdValue.isBlank()
-                || "none".equalsIgnoreCase(candidateProfileIdValue)) {
+                || ConfigSelections.isCandidateProfileNone(candidateProfileIdValue)) {
             return sanitizedPersona;
         }
         String sanitizedCandidate =
