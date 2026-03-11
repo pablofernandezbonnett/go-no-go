@@ -134,7 +134,7 @@ public final class EvaluateCommand implements Callable<Integer> {
         System.out.println("language_friction_index: " + result.languageFrictionIndex() + "/100");
         System.out.println("company_reputation_index: " + result.companyReputationIndex() + "/100");
         System.out.println("persona: " + persona.id());
-        System.out.println("candidate_profile: " + (candidateProfile == null ? "none" : candidateProfile.id()));
+        System.out.println("candidate_profile: " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
         System.out.println("company: " + job.companyName());
         System.out.println("role: " + job.title());
         printList("hard_reject_reasons", result.hardRejectReasons());

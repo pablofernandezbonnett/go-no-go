@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.report;
 
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -215,7 +216,9 @@ public final class BatchReportWriter {
     }
 
     private String sanitizeScope(String personaId, String candidateProfileId) {
-        if (candidateProfileId == null || candidateProfileId.isBlank() || "none".equalsIgnoreCase(candidateProfileId)) {
+        if (candidateProfileId == null
+                || candidateProfileId.isBlank()
+                || ConfigSelections.isCandidateProfileNone(candidateProfileId)) {
             return sanitizeFileName(personaId);
         }
         return sanitizeFileName(personaId + "--" + candidateProfileId);

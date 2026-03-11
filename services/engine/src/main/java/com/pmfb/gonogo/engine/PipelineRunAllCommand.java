@@ -366,7 +366,9 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
                 selectedPersonas.size(),
                 succeeded,
                 failed,
-                forwardedCandidateProfileArg.isBlank() ? "none" : forwardedCandidateProfileArg,
+                forwardedCandidateProfileArg.isBlank()
+                        ? ConfigSelections.CANDIDATE_PROFILE_NONE
+                        : forwardedCandidateProfileArg,
                 personaExitCodes
         );
         return failed == 0 ? 0 : 1;
@@ -451,7 +453,7 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
     private String sanitizeScope(String personaId, String candidateProfileIdValue) {
         String sanitizedPersona = sanitizePersonaId(personaId);
         String normalizedCandidate = normalize(candidateProfileIdValue);
-        if (normalizedCandidate.isBlank() || "none".equals(normalizedCandidate)) {
+        if (normalizedCandidate.isBlank() || ConfigSelections.isCandidateProfileNone(normalizedCandidate)) {
             return sanitizedPersona;
         }
         return sanitizedPersona + "--" + normalizedCandidate.replaceAll("[^a-z0-9_-]", "_");
@@ -462,8 +464,8 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             ConfigSelections.CandidateProfileResolution resolution
     ) {
         String normalizedRequested = normalize(requestedCandidateProfileId);
-        if ("none".equals(normalizedRequested)) {
-            return "none";
+        if (ConfigSelections.isCandidateProfileNone(normalizedRequested)) {
+            return ConfigSelections.CANDIDATE_PROFILE_NONE;
         }
         return resolution.profile().map(CandidateProfileConfig::id).orElse("");
     }
