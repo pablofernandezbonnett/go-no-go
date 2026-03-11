@@ -23,6 +23,7 @@ public final class BatchReportWriter {
         sb.append("{\n");
         appendJsonField(sb, 1, "generated_at", report.generatedAt(), true);
         appendJsonField(sb, 1, "persona", report.personaId(), true);
+        appendJsonField(sb, 1, "candidate_profile", report.candidateProfileId(), true);
 
         sb.append(indent(1)).append("\"summary\": {\n");
         appendJsonNumberField(sb, 2, "total_files", report.totalFiles(), true);
@@ -113,7 +114,8 @@ public final class BatchReportWriter {
         StringBuilder sb = new StringBuilder();
         sb.append("# Batch Evaluation Report\n\n");
         sb.append("- generated_at: ").append(report.generatedAt()).append("\n");
-        sb.append("- persona: ").append(report.personaId()).append("\n\n");
+        sb.append("- persona: ").append(report.personaId()).append("\n");
+        sb.append("- candidate_profile: ").append(report.candidateProfileId()).append("\n\n");
 
         sb.append("## Summary\n\n");
         sb.append("- total_files: ").append(report.totalFiles()).append("\n");
@@ -197,11 +199,26 @@ public final class BatchReportWriter {
     }
 
     public String defaultMarkdownFileName(String personaId) {
-        return "batch-evaluation-" + sanitizeFileName(personaId) + ".md";
+        return defaultMarkdownFileName(personaId, "");
+    }
+
+    public String defaultMarkdownFileName(String personaId, String candidateProfileId) {
+        return "batch-evaluation-" + sanitizeScope(personaId, candidateProfileId) + ".md";
     }
 
     public String defaultJsonFileName(String personaId) {
-        return "batch-evaluation-" + sanitizeFileName(personaId) + ".json";
+        return defaultJsonFileName(personaId, "");
+    }
+
+    public String defaultJsonFileName(String personaId, String candidateProfileId) {
+        return "batch-evaluation-" + sanitizeScope(personaId, candidateProfileId) + ".json";
+    }
+
+    private String sanitizeScope(String personaId, String candidateProfileId) {
+        if (candidateProfileId == null || candidateProfileId.isBlank() || "none".equalsIgnoreCase(candidateProfileId)) {
+            return sanitizeFileName(personaId);
+        }
+        return sanitizeFileName(personaId + "--" + candidateProfileId);
     }
 
     private String sanitizeFileName(String value) {

@@ -42,6 +42,7 @@ public final class ConfigValidateCommand implements Callable<Integer> {
         System.out.println("companies: " + config.companies().size());
         System.out.println("personas: " + config.personas().size());
         System.out.println("blacklisted_companies: " + config.blacklistedCompanies().size());
+        System.out.println("candidate_profiles: " + config.candidateProfiles().size());
         return 0;
     }
 

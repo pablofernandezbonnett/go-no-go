@@ -20,7 +20,7 @@ Reduce low-ROI interview processes by:
 - English-first environment preferred
 - Hybrid/remote preferred
 - Product companies preferred
-- No consulting/dispatch roles
+- Consulting/dispatch tolerance depends on persona
 - No early-stage startup preference
 
 ## Decision Principles
@@ -31,12 +31,16 @@ Reduce low-ROI interview processes by:
 - Rule-based logic before ML
 - CLI-first; UI is not the MVP priority
 
-## Hard Filters (Auto Reject)
+## Hard Filters
+
+Persona-configurable hard filters typically include:
 
 - consulting / dispatch detected
 - onsite-only roles
-- salary missing
-- abusive overtime signals
+- salary missing or no explicit range
+- early-stage startup signals
+
+Abusive overtime signals remain an unconditional reject.
 
 ## Current Stack
 
@@ -74,6 +78,8 @@ Implemented now:
 - company profiling + reputation signals from `config/companies.yaml` tags
 - company reputation aggregation + index (`company_reputation_index`, 0-100)
 - engineering environment scoring signals (v1, rule-based from job text)
+- persona-level salary floor (`minimum_salary_yen`) for candidate-market fit
+- runtime candidate profiles (`config/candidate-profiles/`) with candidate-aware stack/domain/seniority signals
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas
 - `gonogo schedule` command to generate non-active scheduled-run artifacts (script + cron file)
@@ -95,7 +101,10 @@ Not implemented yet:
 config/
 ├── companies.yaml
 ├── personas.yaml
-└── blacklist.yaml
+├── blacklist.yaml
+└── candidate-profiles/
+    ├── README.md
+    └── demo_candidate.yaml
 
 examples/
 ├── raw-job-text.example.txt
@@ -116,6 +125,7 @@ Configuration templates and field definitions:
 - `config/README.md`
 - `config/companies.example.yaml`
 - `config/personas.example.yaml`
+- `config/candidate-profiles/README.md`
 
 ## Getting Started
 
@@ -159,8 +169,9 @@ What `pipeline run-all` does by default:
 
 - fetches all companies from `config/companies.yaml`
 - evaluates all personas from `config/personas.yaml`
+- auto-selects the only candidate profile when `config/candidate-profiles/` contains exactly one profile
 - writes per-persona batch reports into `output/`
-- writes per-persona weekly reports into `output/weekly-<persona>.md`
+- writes per-persona weekly reports into `output/weekly-<persona>.md` (or `weekly-<persona>--<candidate>.md` when a candidate profile is active)
 
 Run all with customization examples:
 
@@ -180,6 +191,12 @@ Run one persona pipeline (still defaults to all companies when fetch stage runs)
 
 ```bash
 ./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first"
+```
+
+Run with an explicit candidate profile:
+
+```bash
+./gradlew run --args="check --persona product_expat_engineer_pragmatic --candidate-profile pmfb --stdin"
 ```
 
 Operations UI (MVP, in this repo):

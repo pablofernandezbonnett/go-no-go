@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Public catalog of all 37 signals recognized by DecisionEngineV1.
+ * Public catalog of all 44 signals recognized by DecisionEngineV1.
  *
  * <p>Provides metadata (name, type, priority group, default weight) for each signal,
  * enabling YAML config validation and API exposure via GET /api/signals.
@@ -34,7 +34,7 @@ public final class SignalRegistry {
     }
 
     private static final List<SignalDescriptor> ALL = List.of(
-            // ── Positive signals (15) ──────────────────────────────────────────────
+            // ── Positive signals (18) ──────────────────────────────────────────────
             new SignalDescriptor("salary_transparency",               SignalType.POSITIVE, "salary",               2),
             new SignalDescriptor("hybrid_work",                       SignalType.POSITIVE, "hybrid_work",          2),
             new SignalDescriptor("remote_friendly",                   SignalType.POSITIVE, "hybrid_work",          2),
@@ -50,9 +50,13 @@ public final class SignalRegistry {
             new SignalDescriptor("stability",                         SignalType.POSITIVE, "stability",            2),
             new SignalDescriptor("company_reputation_positive",       SignalType.POSITIVE, "stability",            2),
             new SignalDescriptor("company_reputation_positive_strong",SignalType.POSITIVE, "stability",            2),
+            new SignalDescriptor("candidate_stack_fit",               SignalType.POSITIVE, "engineering_culture",  2),
+            new SignalDescriptor("candidate_domain_fit",              SignalType.POSITIVE, "product_company",      2),
+            new SignalDescriptor("candidate_seniority_fit",           SignalType.POSITIVE, "engineering_culture",  2),
 
-            // ── Risk signals (22) ─────────────────────────────────────────────────
+            // ── Risk signals (26) ─────────────────────────────────────────────────
             new SignalDescriptor("salary_low_confidence",             SignalType.RISK,     "salary",               2),
+            new SignalDescriptor("salary_below_persona_floor",        SignalType.RISK,     "salary",               3),
             new SignalDescriptor("onsite_bias",                       SignalType.RISK,     "hybrid_work",          2),
             new SignalDescriptor("language_friction",                 SignalType.RISK,     "english_environment",  3),
             new SignalDescriptor("language_friction_critical",        SignalType.RISK,     "english_environment",  7),
@@ -73,7 +77,10 @@ public final class SignalRegistry {
             new SignalDescriptor("debt_first_culture_risk",           SignalType.RISK,     "engineering_culture",  6),
             new SignalDescriptor("hypergrowth_execution_risk",        SignalType.RISK,     "stability",            5),
             new SignalDescriptor("company_reputation_risk",           SignalType.RISK,     "stability",            3),
-            new SignalDescriptor("company_reputation_risk_high",      SignalType.RISK,     "stability",            3)
+            new SignalDescriptor("company_reputation_risk_high",      SignalType.RISK,     "stability",            3),
+            new SignalDescriptor("candidate_stack_gap",               SignalType.RISK,     "engineering_culture",  3),
+            new SignalDescriptor("candidate_domain_gap",              SignalType.RISK,     "product_company",      3),
+            new SignalDescriptor("candidate_seniority_mismatch",      SignalType.RISK,     "engineering_culture",  4)
     );
 
     private static final Map<String, SignalDescriptor> BY_NAME;

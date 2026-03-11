@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
@@ -95,6 +96,27 @@ final class DecisionEngineV1Test {
 
         assertEquals(Verdict.NO_GO, result.verdict());
         assertTrue(result.hardRejectReasons().contains("salary information is missing or non-transparent"));
+    }
+
+    @Test
+    void returnsNoGoWhenSalaryHasNoExplicitRange() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Mercari",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 10,000,000",
+                        "Hybrid",
+                        "English-first team with product ownership and code review."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.NO_GO, result.verdict());
+        assertTrue(result.hardRejectReasons().contains("salary information is missing or non-transparent"));
+        assertTrue(result.riskSignals().contains("salary_low_confidence"));
+        assertFalse(result.positiveSignals().contains("salary_transparency"));
     }
 
     @Test
@@ -303,6 +325,148 @@ final class DecisionEngineV1Test {
         assertTrue(result.riskSignals().contains("engineering_environment_risk"));
     }
 
+    @Test
+    void returnsGoWithCautionForConsultingCompanyWhenPersonaIsPragmatic() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Randstad Japan",
+                        "Backend Engineer",
+                        "Japan",
+                        "JPY 7,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Design and develop backend systems, code reviews, Agile teamwork, and architecture contributions."
+                ),
+                pragmaticPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.GO_WITH_CAUTION, result.verdict());
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.riskSignals().contains("consulting_risk"));
+    }
+
+    @Test
+    void flagsSalaryBelowPersonaFloorWhenConfigured() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Atlas Labs",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 4,000,000 - 7,000,000",
+                        "Unspecified",
+                        "General backend engineering role."
+                ),
+                pragmaticPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.NO_GO, result.verdict());
+        assertTrue(result.riskSignals().contains("salary_below_persona_floor"));
+    }
+
+    @Test
+    void usesConservativeSalaryBenchmarkForIntermediaryRoles() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Randstad Japan",
+                        "Senior Java Developer",
+                        "Japan",
+                        "JPY 6,000,000 - 8,500,000",
+                        "Hybrid",
+                        "Java and Spring Boot backend development with code reviews and production support."
+                ),
+                pragmaticPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.NO_GO, result.verdict());
+        assertTrue(result.riskSignals().contains("consulting_risk"));
+        assertTrue(result.riskSignals().contains("salary_below_persona_floor"));
+    }
+
+    @Test
+    void addsCandidateFitSignalsWhenProfileMatchesRole() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Tokyo",
+                8,
+                List.of("Java", "Spring Boot", "AWS", "JPA"),
+                List.of("Kubernetes"),
+                List.of(),
+                List.of("enterprise_java", "system_design"),
+                List.of("cloud_basics"),
+                List.of("mobile_cross_platform")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "avatarin",
+                        "Senior Backend Engineer",
+                        "Tokyo",
+                        "JPY 8,000,000 - 10,000,000",
+                        "Hybrid",
+                        """
+                                Requirements:
+                                - 5+ years of experience in Java and Spring Boot backend development
+                                - Experience with AWS and system design
+                                Responsibilities:
+                                - Build scalable services in a global team
+                                """
+                ),
+                pragmaticPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertTrue(result.positiveSignals().contains("candidate_stack_fit"));
+        assertTrue(result.positiveSignals().contains("candidate_domain_fit"));
+        assertTrue(result.positiveSignals().contains("candidate_seniority_fit"));
+        assertFalse(result.riskSignals().contains("candidate_stack_gap"));
+    }
+
+    @Test
+    void addsCandidateGapSignalsWhenProfileDoesNotMatchRole() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Tokyo",
+                12,
+                List.of("Java", "Spring Boot", "AWS"),
+                List.of(),
+                List.of("Flutter", "Dart"),
+                List.of("enterprise_java"),
+                List.of("system_design"),
+                List.of("mobile_cross_platform")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Mobile Shop",
+                        "Jr.-Mid Mobile Engineer",
+                        "Tokyo",
+                        "JPY 6,000,000 - 8,000,000",
+                        "Hybrid",
+                        """
+                                Requirements:
+                                - 3+ years of experience with Flutter and Dart
+                                - Experience building mobile products
+                                Responsibilities:
+                                - Ship mobile features
+                                """
+                ),
+                pragmaticPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("candidate_stack_gap"));
+        assertTrue(result.riskSignals().contains("candidate_domain_gap"));
+        assertTrue(result.riskSignals().contains("candidate_seniority_mismatch"));
+    }
+
     private PersonaConfig defaultPersona() {
         return new PersonaConfig(
                 "product_expat_engineer",
@@ -318,6 +482,27 @@ final class DecisionEngineV1Test {
                 ),
                 List.of("consulting_company", "onsite_only", "salary_missing", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
+        );
+    }
+
+    private PersonaConfig pragmaticPersona() {
+        return new PersonaConfig(
+                "product_expat_engineer_pragmatic",
+                "Product-oriented expat engineer optimizing for employability first",
+                List.of(
+                        "english_environment",
+                        "product_company",
+                        "engineering_culture",
+                        "hybrid_work",
+                        "work_life_balance",
+                        "salary",
+                        "stability"
+                ),
+                List.of("onsite_only", "salary_missing", "early_stage_startup"),
+                List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup"),
+                java.util.Map.of(),
+                RankingStrategy.BY_SCORE,
+                8_000_000
         );
     }
 
@@ -351,7 +536,8 @@ final class DecisionEngineV1Test {
                                 "Randstad",
                                 "Recruitment / dispatch company"
                         )
-                )
+                ),
+                List.of()
         );
     }
 }

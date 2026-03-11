@@ -254,6 +254,53 @@ final class PipelineRunCommandTest {
         assertTrue(json.contains("\"unchanged\": 1"));
     }
 
+    @Test
+    void autoSelectsSingleCandidateProfileAtRuntime() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-pipeline-candidate-test");
+        Path configDir = tempDir.resolve("config");
+        Path rawDir = tempDir.resolve("raw");
+        Path jobsDir = tempDir.resolve("output/jobs");
+        Path outputDir = tempDir.resolve("output");
+        Path weeklyPath = outputDir.resolve("weekly.md");
+
+        writeConfig(configDir);
+        writeCandidateProfile(configDir);
+        Files.createDirectories(rawDir);
+        Files.writeString(
+                rawDir.resolve("job1.txt"),
+                """
+                        Company: avatarin
+                        Title: Senior Backend Engineer
+                        Location: Tokyo
+                        Salary: JPY 8,000,000 - 10,000,000
+                        Work style: Hybrid
+                        Requirements:
+                        - 5+ years of experience in Java and Spring Boot backend development
+                        - Experience with AWS and system design
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        int exitCode = new CommandLine(new GoNoGoCommand()).execute(
+                "pipeline",
+                "run",
+                "--persona", "product_expat_engineer",
+                "--raw-input-dir", rawDir.toString(),
+                "--raw-pattern", "*.txt",
+                "--config-dir", configDir.toString(),
+                "--jobs-output-dir", jobsDir.toString(),
+                "--batch-output-dir", outputDir.toString(),
+                "--weekly-output-file", weeklyPath.toString()
+        );
+
+        Path batchJsonPath = outputDir.resolve("batch-evaluation-product_expat_engineer--pmfb.json");
+
+        assertEquals(0, exitCode);
+        assertTrue(Files.exists(batchJsonPath));
+        assertTrue(Files.readString(batchJsonPath).contains("\"candidate_profile\": \"pmfb\""));
+        assertTrue(Files.readString(weeklyPath).contains("candidate_profile: pmfb"));
+    }
+
     private void writeConfig(Path configDir) throws IOException {
         writeConfig(configDir, "https://corp.moneyforward.com/recruit/");
     }
@@ -305,6 +352,40 @@ final class PipelineRunCommandTest {
                         blacklisted_companies:
                           - name: Randstad
                             reason: "Recruitment / dispatch company"
+                        """,
+                StandardCharsets.UTF_8
+        );
+    }
+
+    private void writeCandidateProfile(Path configDir) throws IOException {
+        Path candidateProfilesDir = configDir.resolve("candidate-profiles");
+        Files.createDirectories(candidateProfilesDir);
+        Files.writeString(
+                candidateProfilesDir.resolve("demo_candidate.yaml"),
+                """
+                        candidate:
+                          name: "Demo Candidate"
+                          title: "Senior Backend Engineer"
+                          location: "Tokyo"
+                          total_experience_years: 8
+                        stack:
+                          production_proven:
+                            backend:
+                              - Java
+                              - Spring Boot
+                              - AWS
+                          actively_learning:
+                            - Kubernetes
+                          gaps_honest:
+                            - Flutter
+                        domain_expertise:
+                          strong:
+                            - enterprise_java
+                            - system_design
+                          moderate:
+                            - cloud_basics
+                          limited:
+                            - mobile_cross_platform
                         """,
                 StandardCharsets.UTF_8
         );

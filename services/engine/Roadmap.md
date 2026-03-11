@@ -51,9 +51,14 @@ Deliverable status:
 
 ---
 
-## Phase 4 — Personalization (in progress, baseline available)
+## Phase 4 - Personalization (in progress, baseline available)
 
 - [x] persona-aware evaluation model (priorities + hard filters)
+- [x] candidate profile reference artifacts stored in repo (`config/candidate-profiles/`)
+- [x] candidate profile loader + schema validation
+- [x] combined evaluation model: persona preferences + candidate evidence
+- [x] candidate-aware fit scoring (stack, seniority, domain)
+- [ ] candidate-aware salary fit
 - [ ] preference tuning workflows (beyond static config)
 - [ ] opportunity ranking refinements
 
