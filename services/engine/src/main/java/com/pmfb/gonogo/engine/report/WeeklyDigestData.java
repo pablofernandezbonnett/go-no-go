@@ -7,6 +7,7 @@ public record WeeklyDigestData(
         String sourceGeneratedAt,
         String generatedAt,
         String persona,
+        String candidateProfileId,
         List<WeeklyDigestItem> items,
         List<BatchEvaluationError> errors
 ) {

@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 public final class ConfigValidator {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
     private static final Set<String> REQUIRED_PERSONA_HARD_NO =
-            Set.of("consulting_company", "onsite_only");
+            Set.of("onsite_only", "salary_missing");
     private static final Set<String> ALLOWED_COMPANY_PROFILE_TAGS = Set.of(
             "expat_friendly",
             "engineering_brand",
@@ -33,6 +33,7 @@ public final class ConfigValidator {
         validateCompanies(config.companies(), errors);
         validatePersonas(config.personas(), errors);
         validateBlacklist(config.blacklistedCompanies(), errors);
+        validateCandidateProfiles(config.candidateProfiles(), errors);
         return errors;
     }
 
@@ -108,6 +109,9 @@ public final class ConfigValidator {
             if (persona.hardNo().isEmpty()) {
                 errors.add(context + ".hard_no must contain at least one item");
             }
+            if (persona.minimumSalaryYen() < 0) {
+                errors.add(context + ".minimum_salary_yen must be non-negative");
+            }
 
             Set<String> hardNoSet = normalizeSet(persona.hardNo());
             for (String required : REQUIRED_PERSONA_HARD_NO) {
@@ -142,6 +146,40 @@ public final class ConfigValidator {
             if (!normalizedName.isEmpty() && !names.add(normalizedName)) {
                 errors.add("Duplicate blacklisted company name: " + item.name());
             }
+        }
+    }
+
+    private void validateCandidateProfiles(
+            List<CandidateProfileConfig> candidateProfiles,
+            List<String> errors
+    ) {
+        Set<String> ids = new HashSet<>();
+        for (int i = 0; i < candidateProfiles.size(); i++) {
+            CandidateProfileConfig profile = candidateProfiles.get(i);
+            String context = "candidate_profiles[" + i + "]";
+
+            validateId(profile.id(), context + ".id", errors);
+
+            String normalizedId = normalize(profile.id());
+            if (!normalizedId.isEmpty() && !ids.add(normalizedId)) {
+                errors.add("Duplicate candidate profile id: " + profile.id());
+            }
+            if (profile.name().isBlank()) {
+                errors.add(context + ".name cannot be blank");
+            }
+            if (profile.title().isBlank()) {
+                errors.add(context + ".title cannot be blank");
+            }
+            if (profile.totalExperienceYears() < 0) {
+                errors.add(context + ".total_experience_years must be non-negative");
+            }
+
+            checkDuplicates(profile.productionSkills(), context + ".production_skills", errors);
+            checkDuplicates(profile.learningSkills(), context + ".learning_skills", errors);
+            checkDuplicates(profile.gapSkills(), context + ".gap_skills", errors);
+            checkDuplicates(profile.strongDomains(), context + ".strong_domains", errors);
+            checkDuplicates(profile.moderateDomains(), context + ".moderate_domains", errors);
+            checkDuplicates(profile.limitedDomains(), context + ".limited_domains", errors);
         }
     }
 

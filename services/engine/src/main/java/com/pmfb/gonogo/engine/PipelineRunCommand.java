@@ -1,8 +1,10 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
@@ -74,6 +76,12 @@ public final class PipelineRunCommand implements Callable<Integer> {
             defaultValue = "product_expat_engineer"
     )
     private String personaId;
+
+    @Option(
+            names = {"--candidate-profile"},
+            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists)."
+    )
+    private String candidateProfileId;
 
     @Option(
             names = {"--raw-input-dir"},
@@ -325,7 +333,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
             return 1;
         }
 
-        Optional<PersonaConfig> persona = findPersona(config.personas(), personaId);
+        Optional<PersonaConfig> persona = ConfigSelections.findPersona(config.personas(), personaId);
         if (persona.isEmpty()) {
             System.err.println("Unknown persona id '" + personaId + "'.");
             System.err.println("Available personas:");
@@ -334,6 +342,21 @@ public final class PipelineRunCommand implements Callable<Integer> {
             }
             return 1;
         }
+
+        ConfigSelections.CandidateProfileResolution candidateProfileResolution =
+                ConfigSelections.resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
+        if (!candidateProfileResolution.errorMessage().isBlank()) {
+            System.err.println(candidateProfileResolution.errorMessage());
+            if (!config.candidateProfiles().isEmpty()) {
+                System.err.println("Available candidate profiles:");
+                for (CandidateProfileConfig item : config.candidateProfiles()) {
+                    System.err.println(" - " + item.id());
+                }
+            }
+            return 1;
+        }
+        CandidateProfileConfig candidateProfile = candidateProfileResolution.profile().orElse(null);
+        String effectiveCandidateProfileId = effectiveCandidateProfileId(candidateProfile);
         if (incrementalOnly && disableChangeDetection) {
             System.err.println("--incremental-only requires change detection.");
             System.err.println("Remove --disable-change-detection or disable incremental mode.");
@@ -417,7 +440,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         List<EvaluableJob> jobsToEvaluate;
         if (!disableChangeDetection) {
-            Path stateFile = resolveChangeStateFile(persona.get().id());
+            Path stateFile = resolveChangeStateFile(persona.get().id(), effectiveCandidateProfileId);
             try {
                 JobChangeDetector detector = new JobChangeDetector();
                 List<JobChangeDetector.CandidateJob> candidates = preparedJobs.stream()
@@ -460,7 +483,13 @@ public final class PipelineRunCommand implements Callable<Integer> {
         Map<String, String> companyContextById = loadCompanyContextById(config.companies());
         for (EvaluableJob job : jobsToEvaluate) {
             String externalContext = resolveCompanyContext(job.jobInput().companyName(), config.companies(), companyContextById);
-            EvaluationResult evaluation = engine.evaluate(job.jobInput(), persona.get(), config, externalContext);
+            EvaluationResult evaluation = engine.evaluate(
+                    job.jobInput(),
+                    persona.get(),
+                    candidateProfile,
+                    config,
+                    externalContext
+            );
             items.add(new BatchEvaluationItem(
                     job.sourceFile(),
                     job.jobInput(),
@@ -473,6 +502,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         BatchEvaluationReport batchReport = buildBatchReport(
                 persona.get().id(),
+                effectiveCandidateProfileId,
                 rawFiles.size(),
                 items,
                 removedItems,
@@ -486,10 +516,16 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         Path batchJsonPath = batchOutputJson != null
                 ? batchOutputJson
-                : batchOutputDir.resolve(batchWriter.defaultJsonFileName(persona.get().id()));
+                : batchOutputDir.resolve(batchWriter.defaultJsonFileName(
+                        persona.get().id(),
+                        effectiveCandidateProfileId
+                ));
         Path batchMarkdownPath = batchOutputMarkdown != null
                 ? batchOutputMarkdown
-                : batchOutputDir.resolve(batchWriter.defaultMarkdownFileName(persona.get().id()));
+                : batchOutputDir.resolve(batchWriter.defaultMarkdownFileName(
+                        persona.get().id(),
+                        effectiveCandidateProfileId
+                ));
 
         try {
             batchWriter.writeJson(batchJsonPath, batchReport);
@@ -504,7 +540,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
         String digestMarkdown = digestGenerator.toMarkdown(digestData, topPerSection, persona.get().rankingStrategy());
         Path resolvedTrendHistoryFile = null;
         if (!disableTrendHistory) {
-            resolvedTrendHistoryFile = resolveTrendHistoryFile(persona.get().id());
+            resolvedTrendHistoryFile = resolveTrendHistoryFile(persona.get().id(), effectiveCandidateProfileId);
             RunTrendAnalyzer trendAnalyzer = new RunTrendAnalyzer();
             RunTrendAlertEngine trendAlertEngine = new RunTrendAlertEngine();
             RunTrendStore trendStore = new RunTrendStore();
@@ -527,6 +563,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
                             alerts,
                             new com.pmfb.gonogo.engine.report.TrendAlertDispatchContext(
                                     persona.get().id(),
+                                    effectiveCandidateProfileId,
                                     batchReport.generatedAt(),
                                     batchJsonPath,
                                     weeklyOutputFile
@@ -563,6 +600,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
                 batchMarkdownPath,
                 weeklyOutputFile,
                 resolvedTrendHistoryFile,
+                effectiveCandidateProfileId,
                 trendAlertCount,
                 trendDispatchResults
         );
@@ -808,6 +846,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
     private BatchEvaluationReport buildBatchReport(
             String personaIdValue,
+            String candidateProfileIdValue,
             int totalFiles,
             List<BatchEvaluationItem> items,
             List<RemovedJobItem> removedItems,
@@ -833,6 +872,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
         return new BatchEvaluationReport(
                 Instant.now().toString(),
                 personaIdValue,
+                candidateProfileIdValue,
                 totalFiles,
                 items.size(),
                 errors.size(),
@@ -849,27 +889,27 @@ public final class PipelineRunCommand implements Callable<Integer> {
         );
     }
 
-    private Path resolveChangeStateFile(String personaIdValue) {
+    private Path resolveChangeStateFile(String personaIdValue, String candidateProfileIdValue) {
         if (changeStateFile != null) {
             return changeStateFile;
         }
-        String sanitizedPersona = personaIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+        String sanitizedPersona = sanitizeScope(personaIdValue, candidateProfileIdValue);
         return batchOutputDir.resolve("job-change-state-" + sanitizedPersona + ".yaml");
     }
 
-    private Path resolveTrendHistoryFile(String personaIdValue) {
+    private Path resolveTrendHistoryFile(String personaIdValue, String candidateProfileIdValue) {
         if (trendHistoryFile != null) {
             return trendHistoryFile;
         }
-        String sanitizedPersona = personaIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+        String sanitizedPersona = sanitizeScope(personaIdValue, candidateProfileIdValue);
         return batchOutputDir.resolve("trend-history-" + sanitizedPersona + ".yaml");
     }
 
-    private Path resolveAlertJsonFile(String personaIdValue) {
+    private Path resolveAlertJsonFile(String personaIdValue, String candidateProfileIdValue) {
         if (alertJsonFile != null) {
             return alertJsonFile;
         }
-        String sanitizedPersona = personaIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+        String sanitizedPersona = sanitizeScope(personaIdValue, candidateProfileIdValue);
         return batchOutputDir.resolve("trend-alerts-" + sanitizedPersona + ".json");
     }
 
@@ -877,7 +917,10 @@ public final class PipelineRunCommand implements Callable<Integer> {
             List<com.pmfb.gonogo.engine.report.TrendAlert> alerts,
             com.pmfb.gonogo.engine.report.TrendAlertDispatchContext context
     ) throws IOException {
-        List<TrendAlertSink> sinks = TrendAlertSinkFactory.create(alertSinks, resolveAlertJsonFile(context.personaId()));
+        List<TrendAlertSink> sinks = TrendAlertSinkFactory.create(
+                alertSinks,
+                resolveAlertJsonFile(context.personaId(), context.candidateProfileId())
+        );
         List<TrendAlertSink.DispatchResult> results = new ArrayList<>();
         for (TrendAlertSink sink : sinks) {
             results.add(sink.dispatch(alerts, context));
@@ -885,11 +928,20 @@ public final class PipelineRunCommand implements Callable<Integer> {
         return List.copyOf(results);
     }
 
-    private Optional<PersonaConfig> findPersona(List<PersonaConfig> personas, String id) {
-        String normalized = normalize(id);
-        return personas.stream()
-                .filter(persona -> normalize(persona.id()).equals(normalized))
-                .findFirst();
+    private String effectiveCandidateProfileId(CandidateProfileConfig candidateProfile) {
+        return ConfigSelections.candidateProfileIdOrNone(candidateProfile);
+    }
+
+    private String sanitizeScope(String personaIdValue, String candidateProfileIdValue) {
+        String sanitizedPersona = personaIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+        if (candidateProfileIdValue == null
+                || candidateProfileIdValue.isBlank()
+                || ConfigSelections.isCandidateProfileNone(candidateProfileIdValue)) {
+            return sanitizedPersona;
+        }
+        String sanitizedCandidate =
+                candidateProfileIdValue.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+        return sanitizedPersona + "--" + sanitizedCandidate;
     }
 
     private String normalize(String value) {
@@ -914,11 +966,13 @@ public final class PipelineRunCommand implements Callable<Integer> {
             Path batchMarkdownPath,
             Path weeklyPath,
             Path trendHistoryPath,
+            String candidateProfileIdValue,
             int trendAlertCount,
             List<TrendAlertSink.DispatchResult> trendDispatchResults
     ) {
         System.out.println("Pipeline completed.");
         System.out.println("persona: " + report.personaId());
+        System.out.println("candidate_profile: " + candidateProfileIdValue);
         System.out.println("total_raw_files: " + report.totalFiles());
         System.out.println("warnings: " + warningCount);
         System.out.println("evaluated: " + report.evaluatedCount());
