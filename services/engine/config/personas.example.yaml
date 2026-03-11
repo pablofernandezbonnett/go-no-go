@@ -16,12 +16,11 @@ personas:
       - stability
 
     # Baseline required by validator:
-    # consulting_company, onsite_only, salary_missing
+    # onsite_only, salary_missing
     # Optional (engine-supported):
-    # early_stage_startup, japanese_only_environment,
-    # workload_overload, forced_relocation
+    # consulting_company, salary_missing, early_stage_startup,
+    # japanese_only_environment, workload_overload, forced_relocation
     hard_no:
-      - consulting_company
       - onsite_only
       - salary_missing
       - japanese_only_environment
@@ -33,6 +32,10 @@ personas:
       - japanese_not_blocking
       - stable_scaleup
 
+    # Optional persona-specific salary floor.
+    # Jobs materially below this threshold are penalized but not auto-rejected.
+    minimum_salary_yen: 8000000
+
   - id: product_expat_engineer_growth_tolerant_example
     description: "Open to growth volatility when role fit is strong"
     priorities:
@@ -43,7 +46,6 @@ personas:
       - salary
       - stability
     hard_no:
-      - consulting_company
       - onsite_only
       - salary_missing
     acceptable_if:

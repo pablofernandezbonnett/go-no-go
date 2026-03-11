@@ -1,7 +1,9 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
@@ -24,7 +26,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -82,6 +83,12 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
     private Path configDir;
 
     @Option(
+            names = {"--candidate-profile"},
+            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists)."
+    )
+    private String candidateProfileId;
+
+    @Option(
             names = {"--output-dir"},
             description = "Directory for generated reports when output file options are omitted.",
             defaultValue = "output"
@@ -116,12 +123,25 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        Optional<PersonaConfig> persona = findPersona(config.personas(), personaId);
+        Optional<PersonaConfig> persona = ConfigSelections.findPersona(config.personas(), personaId);
         if (persona.isEmpty()) {
             System.err.println("Unknown persona id '" + personaId + "'.");
             System.err.println("Available personas:");
             for (PersonaConfig item : config.personas()) {
                 System.err.println(" - " + item.id());
+            }
+            return 1;
+        }
+
+        ConfigSelections.CandidateProfileResolution candidateProfileResolution =
+                ConfigSelections.resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
+        if (!candidateProfileResolution.errorMessage().isBlank()) {
+            System.err.println(candidateProfileResolution.errorMessage());
+            if (!config.candidateProfiles().isEmpty()) {
+                System.err.println("Available candidate profiles:");
+                for (CandidateProfileConfig item : config.candidateProfiles()) {
+                    System.err.println(" - " + item.id());
+                }
             }
             return 1;
         }
@@ -155,19 +175,37 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
                 continue;
             }
 
-            EvaluationResult result = engine.evaluate(job, persona.get(), config);
+            EvaluationResult result = engine.evaluate(
+                    job,
+                    persona.get(),
+                    candidateProfileResolution.profile().orElse(null),
+                    config
+            );
             items.add(new BatchEvaluationItem(relativizeToInputDir(file), job, result));
         }
 
-        BatchEvaluationReport report = buildReport(persona.get().id(), files.size(), items, errors);
+        String effectiveCandidateProfileId = effectiveCandidateProfileId(candidateProfileResolution);
+        BatchEvaluationReport report = buildReport(
+                persona.get().id(),
+                effectiveCandidateProfileId,
+                files.size(),
+                items,
+                errors
+        );
         BatchReportWriter writer = new BatchReportWriter();
 
         Path markdownPath = outputMarkdown != null
                 ? outputMarkdown
-                : outputDir.resolve(writer.defaultMarkdownFileName(persona.get().id()));
+                : outputDir.resolve(writer.defaultMarkdownFileName(
+                        persona.get().id(),
+                        effectiveCandidateProfileId
+                ));
         Path jsonPath = outputJson != null
                 ? outputJson
-                : outputDir.resolve(writer.defaultJsonFileName(persona.get().id()));
+                : outputDir.resolve(writer.defaultJsonFileName(
+                        persona.get().id(),
+                        effectiveCandidateProfileId
+                ));
 
         try {
             writer.writeMarkdown(markdownPath, report);
@@ -208,6 +246,7 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
 
     private BatchEvaluationReport buildReport(
             String personaIdValue,
+            String candidateProfileIdValue,
             int totalFiles,
             List<BatchEvaluationItem> items,
             List<BatchEvaluationError> errors
@@ -227,6 +266,7 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
         return new BatchEvaluationReport(
                 Instant.now().toString(),
                 personaIdValue,
+                candidateProfileIdValue,
                 totalFiles,
                 items.size(),
                 errors.size(),
@@ -238,19 +278,12 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
         );
     }
 
-    private Optional<PersonaConfig> findPersona(List<PersonaConfig> personas, String id) {
-        String normalized = normalize(id);
-        return personas.stream()
-                .filter(persona -> normalize(persona.id()).equals(normalized))
-                .findFirst();
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
-    }
-
     private String relativizeToInputDir(Path file) {
         return inputDir.relativize(file).toString();
+    }
+
+    private String effectiveCandidateProfileId(ConfigSelections.CandidateProfileResolution resolution) {
+        return resolution.profile().map(CandidateProfileConfig::id).orElse("none");
     }
 
     private void printErrors(String title, List<String> errors) {
@@ -263,6 +296,7 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
     private void printSummary(BatchEvaluationReport report, Path markdownPath, Path jsonPath) {
         System.out.println("Batch evaluation completed.");
         System.out.println("persona: " + report.personaId());
+        System.out.println("candidate_profile: " + report.candidateProfileId());
         System.out.println("total_files: " + report.totalFiles());
         System.out.println("evaluated: " + report.evaluatedCount());
         System.out.println("failed: " + report.failedCount());

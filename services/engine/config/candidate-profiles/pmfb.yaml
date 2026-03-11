@@ -1,0 +1,252 @@
+# Pablo Miguel Fernandez Bonnett - Candidate Profile
+# Source: imported from interviews-workspace/CANDIDATE_PROFILE.yaml
+# Purpose: reference profile for engine calibration and job-fit analysis
+# Imported into this repo: 2026-03-11
+# Last updated in source: 2026-03-07
+
+candidate:
+  name: Pablo Miguel Fernandez Bonnett
+  title: Senior Product Backend Engineer
+  location: Gamagori, Aichi, Japan
+  total_experience_years: 20
+  languages:
+    - English: professional_working
+    - Spanish: native
+
+# STACK - production-proven vs learning
+stack:
+  production_proven:
+    backend:
+      - Java
+      - Spring Boot
+      - Spring Framework
+      - SAP Hybris
+      - SAP Commerce Cloud
+      - REST APIs
+    mobile:
+      - Flutter
+      - Dart
+    frontend_exposure:
+      - TypeScript
+      - React
+    databases:
+      - MongoDB
+      - SQL / relational
+      - H2
+    payments:
+      - Stripe
+    platforms:
+      - Shopify
+      - AWS
+
+  actively_learning:
+    - Kotlin
+    - Kafka
+    - Redis advanced
+    - Android / Jetpack
+    - KMP
+    - Riverpod 2.x
+
+  gaps_honest:
+    - Kafka in production
+    - AWS deep expertise
+    - Kotlin in production
+    - Kubernetes / infra
+
+# EXPERIENCE - key roles for positioning
+experience:
+  - role: Senior Product Backend Engineer (Contract)
+    company: Contractor (undisclosed)
+    period: "2025-05 / present"
+    duration_months: 10
+    domain: construction management software
+    highlights:
+      - Java / Spring Boot backend, TypeScript / React frontend
+      - MongoDB, AWS, containerized architecture
+      - Production readiness and scalability for live customer environment
+    positioning: demonstrates current full-stack ownership and AWS exposure
+
+  - role: Senior Software Engineer
+    company: Philos IT
+    period: "2022-04 / 2025-04"
+    duration_months: 37
+    domain: SAP Hybris commerce platforms
+    highlights:
+      - Custom Hybris backend extensions and plug-and-play features
+      - Led Ionic to Flutter migration for mobile app
+      - Flutter to Hybris backend integration
+      - Stripe payment flow implementation (PaymentIntents, webhooks)
+      - Shopify integration exploration
+      - High ownership with direct collaboration with engineering leadership
+    positioning: most recent Hybris + Flutter + Stripe combination; key for retail roles
+
+  - role: Senior Software Engineer
+    company: EIDA Solutions
+    period: "2021-06 / 2022-03"
+    duration_months: 10
+    domain: construction management software (Dublin, Ireland)
+    highlights:
+      - Java backend + React/TypeScript frontend
+      - Metabase analytics integration
+      - Customer-driven feature delivery
+    positioning: demonstrates E2E product delivery and frontend flexibility
+
+  - role: Senior Software Engineer
+    company: Philos IT Ltd
+    period: "2015-10 / 2021-03"
+    duration_months: 66
+    domain: SAP Store - SAP's global ecommerce platform
+    highlights:
+      - 5.5 years on SAP's own global ecommerce (SAP Store) - Java + SAP Hybris
+      - Selected for cross-product performance initiative (scalability, reliability)
+      - Led and mentored engineers on performance practices
+      - Checkout flow refactor - performance, usability, cart abandonment reduction
+      - Worked with distributed international teams (Germany, US)
+      - SAP design system adoption within commerce platform
+    positioning: >
+      ANCHOR ROLE for all retail interviews. Production reliability at global scale,
+      performance ownership, mentoring, checkout expertise. Use the performance
+      initiative story as the primary STAR anchor.
+
+  - role: Senior Java Developer
+    company: ALTEN SPAIN
+    period: "2014-03 / 2015-09"
+    duration_months: 19
+    domain: enterprise Java, public administration
+    highlights:
+      - Technical lead on Spring-based enterprise projects
+      - Architecture decisions and delivery
+
+  - role: Senior Java Developer
+    company: DECIDE Soluciones
+    period: "2013-07 / 2014-02"
+    duration_months: 8
+    domain: enterprise Java (insurance, aerospace)
+
+  - role: Senior Java Developer
+    company: Accenture
+    period: "2012-03 / 2013-07"
+    duration_months: 17
+    domain: financial compliance platforms (regulated enterprise)
+
+  - role: Senior Java Developer
+    company: Borak
+    period: "2007-06 / 2012-03"
+    duration_months: 58
+    domain: enterprise Java, multiple industries
+
+  - role: Junior Java Developer
+    company: Vector Software Factory
+    period: "2006-09 / 2007-06"
+    duration_months: 10
+
+# EDUCATION
+education:
+  - degree: Master's in Game Design and Development
+    institution: UNIR
+    year: "2020-2021"
+    note: Kotlin/game context - reinforces mobile/Flutter direction
+
+  - degree: Information Systems Engineering
+    institution: Universidad Alfonso X El Sabio
+    year: "2014-2015"
+
+  - degree: Technical Engineer in Computer Systems
+    institution: Universidad Alfonso X El Sabio
+    year: "2003-2006"
+
+# DOMAIN EXPERTISE - for offer matching
+domain_expertise:
+  strong:
+    - ecommerce_platforms
+    - commerce_performance
+    - payment_integrations
+    - omnichannel_retail
+    - mobile_cross_platform
+    - enterprise_java
+    - distributed_teams
+
+  moderate:
+    - event_driven_architecture
+    - system_design
+    - frontend_fullstack
+    - cloud_basics
+
+  limited:
+    - data_pipelines
+    - infrastructure_as_code
+    - kubernetes
+
+# KEY DIFFERENTIATORS - use in opening pitch
+differentiators:
+  - >
+    SAP Hybris at global scale: worked on SAP's own ecommerce (SAP Store),
+    not a typical customer implementation. Understands the platform from the inside,
+    including FlexibleSearch N+1, Impex bulk imports, CronJob memory traps,
+    OCC headless APIs, and the Strangler Fig migration path.
+  - >
+    Performance ownership: selected for a cross-product performance initiative
+    at SAP Store. Can diagnose and resolve production reliability issues at scale,
+    not just describe patterns from textbooks.
+  - >
+    E2E delivery: backend-primary but shipped Flutter mobile apps integrated with
+    Hybris backends. Can own a feature from API design to mobile UI without
+    handing off to a separate team.
+  - >
+    Stripe payment integration: real production experience with PaymentIntents,
+    Auth & Capture, idempotency keys, webhook HMAC validation - directly relevant
+    to any commerce role.
+  - >
+    Japan-based with international experience: Spain, Ireland, Japan. Distributed
+    team fluency. Business-level English. No relocation friction for Japan roles.
+
+# TARGET ROLE FIT - quick lookup
+target_roles:
+  ideal:
+    - Senior Backend Engineer at retail / commerce company (Hybris stack)
+    - Senior Platform Engineer at fashion / apparel / beauty brand (SAP Commerce Cloud)
+    - E2E Senior Engineer at product company (backend-primary, mobile exposure valued)
+
+  good_fit:
+    - Fast Retailing
+    - ASICS
+    - Adidas
+    - Shiseido
+
+  requires_reframing:
+    - Data platform / CDP roles (Treasure Data, etc.)
+    - Pure Android roles
+    - Pure infrastructure / DevOps roles
+
+# ANCHOR STORIES (STAR) - behavioral interviews
+star_stories:
+  - id: sap_store_performance
+    trigger_keywords: [performance, reliability, scale, production incident, ownership]
+    summary: >
+      Selected for cross-product performance initiative at SAP Store.
+      Identified N+1 patterns in cart hydration, led a phased checkout
+      refactor behind feature flags. Result: [FILL IN metrics].
+    best_for: [Fast Retailing, ASICS, Adidas, any reliability-focused role]
+
+  - id: ionic_to_flutter_migration
+    trigger_keywords: [technical disagreement, architecture decision, migration, mobile]
+    summary: >
+      Advocated for Flutter over continuing Ionic despite initial pushback.
+      Led the full migration, integrated with Hybris backend services.
+      Result: cross-platform delivery, improved maintainability.
+    best_for: [roles valuing mobile breadth, technical leadership questions]
+
+  - id: mentoring
+    trigger_keywords: [mentoring, team growth, knowledge transfer, leadership]
+    summary: >
+      Led and mentored engineers on performance practices at SAP Store,
+      acting as technical reference for the team. [FILL IN specifics].
+    best_for: [senior / lead roles, culture-fit questions]
+
+  - id: checkout_refactor
+    trigger_keywords: [refactor, legacy, cart abandonment, performance, risk]
+    summary: >
+      Contributed to checkout flow refactor at SAP Store optimizing
+      performance, usability, and reducing cart abandonment. Used feature
+      flags for phased rollout to avoid downtime. [FILL IN metrics].
+    best_for: [commerce-specific roles, Fast Retailing, ASICS, Adidas]

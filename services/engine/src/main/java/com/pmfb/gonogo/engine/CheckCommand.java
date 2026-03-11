@@ -46,6 +46,12 @@ public final class CheckCommand implements Callable<Integer> {
     private Path configDir;
 
     @Option(
+            names = {"--candidate-profile"},
+            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists)."
+    )
+    private String candidateProfileId;
+
+    @Option(
             names = {"--mode"},
             defaultValue = MODE_AUTO,
             description = "Detection mode: auto, url, raw-text, raw-file, job-yaml."
@@ -130,6 +136,10 @@ public final class CheckCommand implements Callable<Integer> {
         args.add(personaId);
         args.add("--config-dir");
         args.add(configDir.toString());
+        if (!normalize(candidateProfileId).isBlank()) {
+            args.add("--candidate-profile");
+            args.add(candidateProfileId.trim());
+        }
         args.add("--job-file");
         args.add(jobFilePath);
         return new CommandLine(new EvaluateCommand()).execute(args.toArray(new String[0]));
@@ -141,6 +151,10 @@ public final class CheckCommand implements Callable<Integer> {
         args.add(personaId);
         args.add("--config-dir");
         args.add(configDir.toString());
+        if (!normalize(candidateProfileId).isBlank()) {
+            args.add("--candidate-profile");
+            args.add(candidateProfileId.trim());
+        }
 
         switch (resolved.kind()) {
             case URL -> {

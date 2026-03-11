@@ -29,11 +29,12 @@ public final class YamlConfigLoader {
         List<CompanyConfig> companies = loadCompanies(errors);
         List<PersonaConfig> personas = loadPersonas(errors);
         List<BlacklistedCompanyConfig> blacklistedCompanies = loadBlacklistedCompanies(errors);
+        List<CandidateProfileConfig> candidateProfiles = new CandidateProfileYamlLoader(configDirectory).load(errors);
 
         if (!errors.isEmpty()) {
             throw new ConfigLoadException(errors);
         }
-        return new EngineConfig(companies, personas, blacklistedCompanies);
+        return new EngineConfig(companies, personas, blacklistedCompanies, candidateProfiles);
     }
 
     private void ensureConfigDirectory(List<String> errors) {
@@ -99,7 +100,17 @@ public final class YamlConfigLoader {
             List<String> acceptableIf = readStringList(item, "acceptable_if", context, errors);
             Map<String, Integer> signalWeights = readOptionalStringIntMap(item, "signal_weights", context, errors);
             RankingStrategy rankingStrategy = readOptionalRankingStrategy(item, "ranking_strategy", context, errors);
-            personas.add(new PersonaConfig(id, description, priorities, hardNo, acceptableIf, signalWeights, rankingStrategy));
+            int minimumSalaryYen = readOptionalNonNegativeInt(item, "minimum_salary_yen", context, errors);
+            personas.add(new PersonaConfig(
+                    id,
+                    description,
+                    priorities,
+                    hardNo,
+                    acceptableIf,
+                    signalWeights,
+                    rankingStrategy,
+                    minimumSalaryYen
+            ));
         }
         return personas;
     }
@@ -329,5 +340,27 @@ public final class YamlConfigLoader {
             errors.add(context + " field '" + key + "' has unknown value '" + text.trim() + "' — defaulting to BY_SCORE");
             return RankingStrategy.BY_SCORE;
         }
+    }
+
+    private int readOptionalNonNegativeInt(
+            Map<String, Object> map,
+            String key,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return 0;
+        }
+        if (!(value instanceof Number number)) {
+            errors.add(context + " field '" + key + "' must be an integer");
+            return 0;
+        }
+        int intValue = number.intValue();
+        if (intValue < 0) {
+            errors.add(context + " field '" + key + "' must be non-negative");
+            return 0;
+        }
+        return intValue;
     }
 }

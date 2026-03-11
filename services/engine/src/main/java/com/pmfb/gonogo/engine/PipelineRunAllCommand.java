@@ -1,8 +1,10 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.config.CompanyConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
@@ -51,6 +53,12 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             description = "Optional comma-separated persona ids. Defaults to all personas in config."
     )
     private List<String> personaIds;
+
+    @Option(
+            names = {"--candidate-profile"},
+            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists). Use 'none' to disable."
+    )
+    private String candidateProfileId;
 
     @Option(
             names = {"--company-ids"},
@@ -292,6 +300,23 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             return 1;
         }
 
+        ConfigSelections.CandidateProfileResolution candidateProfileResolution =
+                ConfigSelections.resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
+        if (!candidateProfileResolution.errorMessage().isBlank()) {
+            System.err.println(candidateProfileResolution.errorMessage());
+            if (!config.candidateProfiles().isEmpty()) {
+                System.err.println("Available candidate profiles:");
+                for (CandidateProfileConfig item : config.candidateProfiles()) {
+                    System.err.println(" - " + item.id());
+                }
+            }
+            return 1;
+        }
+        String forwardedCandidateProfileArg = resolveForwardedCandidateProfileArg(
+                candidateProfileId,
+                candidateProfileResolution
+        );
+
         int succeeded = 0;
         int failed = 0;
         Map<String, Integer> personaExitCodes = new LinkedHashMap<>();
@@ -317,7 +342,12 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         }
 
         for (PersonaConfig persona : selectedPersonas) {
-            List<String> runArgs = buildRunArgs(persona.id(), runFetchStage, effectiveFetchCompanyIds);
+            List<String> runArgs = buildRunArgs(
+                    persona.id(),
+                    forwardedCandidateProfileArg,
+                    runFetchStage,
+                    effectiveFetchCompanyIds
+            );
             int exitCode = new CommandLine(new PipelineRunCommand()).execute(runArgs.toArray(String[]::new));
             personaExitCodes.put(persona.id(), exitCode);
             if (exitCode == 0) {
@@ -332,20 +362,34 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             runFetchStage = false;
         }
 
-        printSummary(selectedPersonas.size(), succeeded, failed, personaExitCodes);
+        printSummary(
+                selectedPersonas.size(),
+                succeeded,
+                failed,
+                forwardedCandidateProfileArg.isBlank() ? "none" : forwardedCandidateProfileArg,
+                personaExitCodes
+        );
         return failed == 0 ? 0 : 1;
     }
 
-    private List<String> buildRunArgs(String personaId, boolean includeFetchWebStage, List<String> fetchCompanyIds) {
+    private List<String> buildRunArgs(
+            String personaId,
+            String forwardedCandidateProfileArg,
+            boolean includeFetchWebStage,
+            List<String> fetchCompanyIds
+    ) {
         List<String> args = new ArrayList<>();
         args.add("--persona=" + personaId);
+        if (!forwardedCandidateProfileArg.isBlank()) {
+            args.add("--candidate-profile=" + forwardedCandidateProfileArg);
+        }
         args.add("--config-dir=" + configDir);
         args.add("--raw-input-dir=" + rawInputDir);
         args.add("--raw-pattern=" + rawPattern);
         args.add("--recursive");
         args.add("--jobs-output-dir=" + jobsOutputDir);
         args.add("--batch-output-dir=" + batchOutputDir);
-        args.add("--weekly-output-file=" + resolveWeeklyOutputFile(personaId));
+        args.add("--weekly-output-file=" + resolveWeeklyOutputFile(personaId, forwardedCandidateProfileArg));
         args.add("--top-per-section=" + topPerSection);
         args.add("--trend-history-max-runs=" + trendHistoryMaxRuns);
         args.add("--company-context-dir=" + companyContextDir);
@@ -395,13 +439,33 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         return args;
     }
 
-    private String resolveWeeklyOutputFile(String personaId) {
-        String sanitized = sanitizePersonaId(personaId);
+    private String resolveWeeklyOutputFile(String personaId, String candidateProfileIdValue) {
+        String sanitized = sanitizeScope(personaId, candidateProfileIdValue);
         return weeklyOutputDir.resolve(WEEKLY_FILE_PREFIX + sanitized + WEEKLY_FILE_EXTENSION).toString();
     }
 
     private String sanitizePersonaId(String personaId) {
         return normalize(personaId).replaceAll("[^a-z0-9_-]", "_");
+    }
+
+    private String sanitizeScope(String personaId, String candidateProfileIdValue) {
+        String sanitizedPersona = sanitizePersonaId(personaId);
+        String normalizedCandidate = normalize(candidateProfileIdValue);
+        if (normalizedCandidate.isBlank() || "none".equals(normalizedCandidate)) {
+            return sanitizedPersona;
+        }
+        return sanitizedPersona + "--" + normalizedCandidate.replaceAll("[^a-z0-9_-]", "_");
+    }
+
+    private String resolveForwardedCandidateProfileArg(
+            String requestedCandidateProfileId,
+            ConfigSelections.CandidateProfileResolution resolution
+    ) {
+        String normalizedRequested = normalize(requestedCandidateProfileId);
+        if ("none".equals(normalizedRequested)) {
+            return "none";
+        }
+        return resolution.profile().map(CandidateProfileConfig::id).orElse("");
     }
 
     private List<PersonaConfig> selectPersonas(List<PersonaConfig> personas, List<String> requestedIds) {
@@ -557,12 +621,14 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             int totalPersonas,
             int succeeded,
             int failed,
+            String candidateProfile,
             Map<String, Integer> personaExitCodes
     ) {
         System.out.println("run-all completed.");
         System.out.println("personas_total: " + totalPersonas);
         System.out.println("personas_succeeded: " + succeeded);
         System.out.println("personas_failed: " + failed);
+        System.out.println("candidate_profile: " + candidateProfile);
         System.out.println("raw_input_dir: " + rawInputDir);
         System.out.println("jobs_output_dir: " + jobsOutputDir);
         System.out.println("batch_output_dir: " + batchOutputDir);

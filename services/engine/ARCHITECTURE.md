@@ -37,6 +37,7 @@ Sources:
 - `config/companies.yaml`
 - `config/personas.yaml`
 - `config/blacklist.yaml`
+- `config/candidate-profiles/*.yaml`
 
 Properties:
 - deterministic loading
@@ -57,6 +58,12 @@ Responsibilities:
 - apply hard filters first
 - compute explainable scoring
 - produce explicit positive/risk reasons
+
+Current extension:
+- merge persona preferences with candidate profile evidence (stack, seniority, domain fit)
+
+Still planned:
+- candidate-aware salary fit
 
 Output model:
 - normalized score (`0-100`)
@@ -129,6 +136,17 @@ Default port:
 - `reasoning`
 - `positive_signals`
 - `risk_signals`
+
+### Candidate Profile (runtime input)
+
+- `candidate`
+- `stack`
+- `domain_expertise`
+
+Current scoring coverage:
+- production-proven stack fit / stack gaps
+- domain fit / domain gaps
+- seniority fit / mismatch
 
 ---
 

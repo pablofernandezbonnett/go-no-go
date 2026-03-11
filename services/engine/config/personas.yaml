@@ -15,6 +15,9 @@
 #     by_language_ease  — language_friction_index ASC, score DESC tiebreaker
 #     by_reputation     — company_reputation_index DESC, score DESC tiebreaker
 #     by_composite      — 2*score + (100-friction) + reputation DESC
+#
+# minimum_salary_yen:
+#   Optional salary floor. Jobs below this threshold become riskier, not auto-rejected.
 
 personas:
 
@@ -32,6 +35,7 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
+      - salary_missing
       - early_stage_startup
 
     acceptable_if:
@@ -53,6 +57,7 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
+      - salary_missing
       - early_stage_startup
       - japanese_only_environment
       - workload_overload
@@ -76,8 +81,32 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
+      - salary_missing
 
     acceptable_if:
       - hybrid_partial
       - japanese_not_blocking
       - stable_scaleup
+
+  - id: product_expat_engineer_pragmatic
+    description: "Product-oriented expat engineer optimizing for employability first, with consulting tolerated but penalized"
+    priorities:
+      - english_environment
+      - product_company
+      - engineering_culture
+      - hybrid_work
+      - work_life_balance
+      - salary
+      - stability
+
+    hard_no:
+      - onsite_only
+      - salary_missing
+      - early_stage_startup
+
+    acceptable_if:
+      - hybrid_partial
+      - japanese_not_blocking
+      - stable_scaleup
+
+    minimum_salary_yen: 8000000

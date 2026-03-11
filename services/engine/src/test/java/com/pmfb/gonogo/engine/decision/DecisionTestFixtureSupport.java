@@ -78,7 +78,8 @@ final class DecisionTestFixtureSupport {
                                 "Randstad",
                                 "Recruitment / dispatch company"
                         )
-                )
+                ),
+                List.of()
         );
     }
 }
