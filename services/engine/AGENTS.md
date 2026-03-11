@@ -82,28 +82,17 @@ Focus on:
 
 ### 5. Persona-aware design
 
-Initial persona:
-
-"Product Engineer Expat"
-
-Rules must align with:
-
-- English environment
-- hybrid preference
-- product companies
-- no consulting
-- no early-stage startups
+- Keep decision behavior persona-aware and configuration-driven.
+- Do not hardcode candidate-specific or persona-specific policy directly into AGENTS rules.
+- Product behavior, default personas, and decision-policy expectations belong in `ENGINE.md` and runtime config docs.
 
 ---
 
 ### 6. Hard filters
 
-Reject automatically if:
-
-- consulting / dispatch detected
-- onsite-only
-- salary missing
-- abusive overtime signals
+- Hard-filter logic must stay explicit and explainable.
+- Model hard filters through engine policy and config, not through hidden heuristics.
+- When hard-filter behavior changes, update `ENGINE.md` and the relevant runtime docs.
 
 ---
 
