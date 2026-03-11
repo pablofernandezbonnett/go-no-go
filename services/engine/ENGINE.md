@@ -40,17 +40,25 @@ It is a decision support system.
 
 ---
 
-## Target Persona (v1)
+## Target Persona (v1 baseline)
 
 Product-oriented expat engineer in Japan who:
 
 - Works in English
-- Avoids consulting / dispatch
 - Prefers hybrid
 - Values engineering culture
 - Wants stable product companies
 - Avoids early-stage startups
 - Avoids onsite-only roles
+
+Baseline default:
+
+- Consulting / dispatch is undesirable and should be treated as a hard reject for the default product-focused persona.
+
+Persona variation:
+
+- The engine may support alternate personas where consulting is tolerated but penalized rather than auto-rejected.
+- Persona-specific policy belongs in runtime config, not in agent instructions.
 
 ---
 
@@ -115,6 +123,25 @@ With explanation.
 3. Positive signals
 4. Persona alignment
 5. Verdict generation
+
+Current hard-filter baseline:
+
+- onsite-only
+- missing or non-transparent salary
+- abusive overtime signals
+
+Persona-configurable hard filters may also include:
+
+- consulting / dispatch
+- early-stage startup
+- Japanese-only environment
+- workload overload
+- forced relocation
+
+Salary seriousness rule:
+
+- A role is only salary-transparent if it provides an explicit salary range.
+- `TBD`, negotiable-only wording, blank salary, or a single salary number without a range are treated as non-transparent.
 
 ---
 
