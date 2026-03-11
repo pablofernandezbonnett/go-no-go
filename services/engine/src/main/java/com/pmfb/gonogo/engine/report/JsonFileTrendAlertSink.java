@@ -34,6 +34,7 @@ public final class JsonFileTrendAlertSink implements TrendAlertSink {
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
         appendJsonField(sb, 1, "persona", context.personaId(), true);
+        appendJsonField(sb, 1, "candidate_profile", context.candidateProfileId(), true);
         appendJsonField(sb, 1, "generated_at", context.generatedAt(), true);
         appendJsonField(sb, 1, "batch_json", context.batchJsonPath().toString(), true);
         appendJsonField(sb, 1, "weekly_digest", context.weeklyDigestPath().toString(), true);

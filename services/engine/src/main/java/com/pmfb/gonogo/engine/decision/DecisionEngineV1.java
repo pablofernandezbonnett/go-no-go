@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine.decision;
 
 import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
@@ -533,8 +534,12 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_STABILITY = "stability";
     private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE = "company_reputation_positive";
     private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG = "company_reputation_positive_strong";
+    private static final String SIGNAL_CANDIDATE_STACK_FIT = "candidate_stack_fit";
+    private static final String SIGNAL_CANDIDATE_DOMAIN_FIT = "candidate_domain_fit";
+    private static final String SIGNAL_CANDIDATE_SENIORITY_FIT = "candidate_seniority_fit";
 
     private static final String SIGNAL_SALARY_LOW_CONFIDENCE = "salary_low_confidence";
+    private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = "salary_below_persona_floor";
     private static final String SIGNAL_ONSITE_BIAS = "onsite_bias";
     private static final String SIGNAL_LANGUAGE_FRICTION = "language_friction";
     private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = "language_friction_critical";
@@ -556,6 +561,9 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_HYPERGROWTH_EXECUTION_RISK = "hypergrowth_execution_risk";
     private static final String SIGNAL_COMPANY_REPUTATION_RISK = "company_reputation_risk";
     private static final String SIGNAL_COMPANY_REPUTATION_RISK_HIGH = "company_reputation_risk_high";
+    private static final String SIGNAL_CANDIDATE_STACK_GAP = "candidate_stack_gap";
+    private static final String SIGNAL_CANDIDATE_DOMAIN_GAP = "candidate_domain_gap";
+    private static final String SIGNAL_CANDIDATE_SENIORITY_MISMATCH = "candidate_seniority_mismatch";
     private static final int EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE = 4;
     private static final int EXTRA_RISK_PENALTY_ROLE_MISMATCH = 2;
     private static final int EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH = 3;
@@ -571,6 +579,8 @@ public final class DecisionEngineV1 {
     private static final int EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION = 2;
     private static final int EXTRA_RISK_PENALTY_ONSITE_BIAS = 2;
     private static final int EXTRA_RISK_PENALTY_OVERTIME_RISK = 2;
+    private static final int EXTRA_RISK_PENALTY_CANDIDATE_STACK_GAP = 2;
+    private static final int EXTRA_RISK_PENALTY_CANDIDATE_SENIORITY_MISMATCH = 2;
 
     private static final String TAG_PROFILE_EXPAT_FRIENDLY = "expat_friendly";
     private static final String TAG_PROFILE_ENGINEERING_BRAND = "engineering_brand";
@@ -583,6 +593,107 @@ public final class DecisionEngineV1 {
     private static final String TAG_RISK_REPUTATION = "reputation_risk";
     private static final String TAG_RISK_LAYOFF = "layoff_risk";
     private static final String TAG_RISK_OVERTIME = "overtime_risk";
+    private static final List<String> CANDIDATE_REQUIREMENT_SECTION_KEYWORDS = List.of(
+            "requirements",
+            "required skills",
+            "must-have",
+            "must have",
+            "mandatory",
+            "must-have skills",
+            "must have skills"
+    );
+    private static final List<String> CANDIDATE_NON_REQUIREMENT_SECTION_KEYWORDS = List.of(
+            "responsibilities",
+            "job contents",
+            "team culture",
+            "working conditions",
+            "selection process",
+            "benefits",
+            "nice to have",
+            "preferred",
+            "bonus"
+    );
+    private static final List<String> CANDIDATE_REQUIREMENT_LINE_HINTS = List.of(
+            "experience with",
+            "hands-on experience with",
+            "proficiency in",
+            "strong background in",
+            "knowledge of",
+            "expertise in"
+    );
+    private static final List<String> CANDIDATE_ALTERNATIVE_LINE_HINTS = List.of(
+            "at least one",
+            "e.g.",
+            "e.g,",
+            "for example",
+            "such as"
+    );
+    private static final Pattern YEARS_EXPERIENCE_PATTERN =
+            Pattern.compile("(?i)(\\d+)\\+?\\s+years?(?: of)?\\s+(?:hands-on )?(?:experience|exp)");
+    private static final List<Pattern> JUNIOR_MID_TITLE_PATTERNS = List.of(
+            Pattern.compile("(?i)\\b(junior|jr\\.?|entry[- ]level|graduate|new grad)\\b"),
+            Pattern.compile("(?i)\\bmid(?:[- ]level)?\\b")
+    );
+    private static final List<String> SENIOR_ROLE_KEYWORDS = List.of(
+            "senior",
+            "staff",
+            "lead",
+            "principal",
+            "architect"
+    );
+    private static final Map<String, List<String>> CANDIDATE_SKILL_KEYWORDS = Map.ofEntries(
+            Map.entry("java", List.of("java")),
+            Map.entry("spring boot", List.of("spring boot")),
+            Map.entry("spring framework", List.of("spring framework", "spring")),
+            Map.entry("sap hybris", List.of("sap hybris", "hybris")),
+            Map.entry("sap commerce cloud", List.of("sap commerce cloud", "sap commerce")),
+            Map.entry("rest api", List.of("rest api", "rest apis", "restful api", "restful apis")),
+            Map.entry("flutter", List.of("flutter")),
+            Map.entry("dart", List.of("dart")),
+            Map.entry("typescript", List.of("typescript")),
+            Map.entry("react", List.of("react")),
+            Map.entry("mongodb", List.of("mongodb")),
+            Map.entry("sql", List.of("sql", "relational", "mysql", "postgresql")),
+            Map.entry("h2", List.of("h2")),
+            Map.entry("stripe", List.of("stripe")),
+            Map.entry("shopify", List.of("shopify")),
+            Map.entry("aws", List.of("aws")),
+            Map.entry("kotlin", List.of("kotlin")),
+            Map.entry("kafka", List.of("kafka")),
+            Map.entry("redis", List.of("redis")),
+            Map.entry("android", List.of("android", "jetpack")),
+            Map.entry("kmp", List.of("kmp", "kotlin multiplatform")),
+            Map.entry("riverpod", List.of("riverpod")),
+            Map.entry("kubernetes", List.of("kubernetes", "k8s")),
+            Map.entry("go", List.of("go", "golang")),
+            Map.entry("scala", List.of("scala")),
+            Map.entry("rust", List.of("rust")),
+            Map.entry("c#", List.of("c#")),
+            Map.entry("php", List.of("php")),
+            Map.entry("laravel", List.of("laravel")),
+            Map.entry("python", List.of("python")),
+            Map.entry("docker", List.of("docker")),
+            Map.entry("jpa", List.of("jpa")),
+            Map.entry("nosql", List.of("nosql")),
+            Map.entry("gcp", List.of("gcp")),
+            Map.entry("azure", List.of("azure"))
+    );
+    private static final Map<String, List<String>> CANDIDATE_DOMAIN_KEYWORDS = Map.ofEntries(
+            Map.entry("ecommerce_platforms", List.of("ecommerce", "e-commerce", "commerce", "checkout", "cart", "retail")),
+            Map.entry("commerce_performance", List.of("performance", "scalability", "reliability", "high availability", "load")),
+            Map.entry("payment_integrations", List.of("payment", "payments", "stripe")),
+            Map.entry("omnichannel_retail", List.of("omnichannel", "inventory", "order management", "oms", "retail")),
+            Map.entry("mobile_cross_platform", List.of("flutter", "dart", "mobile")),
+            Map.entry("enterprise_java", List.of("java", "spring", "jpa", "hibernate")),
+            Map.entry("distributed_teams", List.of("international", "global team", "multicultural", "distributed")),
+            Map.entry("event_driven_architecture", List.of("event-driven", "event driven", "kafka", "messaging", "pub/sub")),
+            Map.entry("system_design", List.of("system design", "architecture", "scalability", "reliability")),
+            Map.entry("frontend_fullstack", List.of("react", "typescript", "frontend", "full stack", "full-stack")),
+            Map.entry("cloud_basics", List.of("aws", "gcp", "azure", "cloud")),
+            Map.entry("data_pipelines", List.of("data pipeline", "streaming", "cdc", "kafka streams", "etl")),
+            Map.entry("infrastructure_as_code", List.of("terraform", "cdk", "cloudformation", "infrastructure as code", "iac")),
+            Map.entry("kubernetes", List.of("kubernetes", "k8s"))
+    );
 
     private static final Map<String, String> POSITIVE_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_TRANSPARENCY, PRIORITY_SALARY),
@@ -599,10 +710,14 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_WORK_LIFE_BALANCE, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_STABILITY, PRIORITY_STABILITY),
             Map.entry(SIGNAL_COMPANY_REPUTATION_POSITIVE, PRIORITY_STABILITY),
-            Map.entry(SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG, PRIORITY_STABILITY)
+            Map.entry(SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG, PRIORITY_STABILITY),
+            Map.entry(SIGNAL_CANDIDATE_STACK_FIT, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_CANDIDATE_DOMAIN_FIT, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_CANDIDATE_SENIORITY_FIT, PRIORITY_ENGINEERING_CULTURE)
     );
     private static final Map<String, String> RISK_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_LOW_CONFIDENCE, PRIORITY_SALARY),
+            Map.entry(SIGNAL_SALARY_BELOW_PERSONA_FLOOR, PRIORITY_SALARY),
             Map.entry(SIGNAL_ONSITE_BIAS, PRIORITY_HYBRID_WORK),
             Map.entry(SIGNAL_LANGUAGE_FRICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, PRIORITY_ENGLISH_ENVIRONMENT),
@@ -623,7 +738,10 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_STARTUP_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_COMPANY_REPUTATION_RISK, PRIORITY_STABILITY),
-            Map.entry(SIGNAL_COMPANY_REPUTATION_RISK_HIGH, PRIORITY_STABILITY)
+            Map.entry(SIGNAL_COMPANY_REPUTATION_RISK_HIGH, PRIORITY_STABILITY),
+            Map.entry(SIGNAL_CANDIDATE_STACK_GAP, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_CANDIDATE_DOMAIN_GAP, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_CANDIDATE_SENIORITY_MISMATCH, PRIORITY_ENGINEERING_CULTURE)
     );
     private static final Map<String, Integer> RISK_SIGNAL_EXTRA_PENALTY = Map.ofEntries(
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE),
@@ -640,16 +758,37 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_DEBT_FIRST_CULTURE_RISK, EXTRA_RISK_PENALTY_DEBT_FIRST_CULTURE),
             Map.entry(SIGNAL_HYPERGROWTH_EXECUTION_RISK, EXTRA_RISK_PENALTY_HYPERGROWTH_EXECUTION),
             Map.entry(SIGNAL_ONSITE_BIAS, EXTRA_RISK_PENALTY_ONSITE_BIAS),
-            Map.entry(SIGNAL_OVERTIME_RISK, EXTRA_RISK_PENALTY_OVERTIME_RISK)
+            Map.entry(SIGNAL_OVERTIME_RISK, EXTRA_RISK_PENALTY_OVERTIME_RISK),
+            Map.entry(SIGNAL_CANDIDATE_STACK_GAP, EXTRA_RISK_PENALTY_CANDIDATE_STACK_GAP),
+            Map.entry(SIGNAL_CANDIDATE_SENIORITY_MISMATCH, EXTRA_RISK_PENALTY_CANDIDATE_SENIORITY_MISMATCH)
     );
 
     public EvaluationResult evaluate(JobInput job, PersonaConfig persona, EngineConfig config) {
-        return evaluate(job, persona, config, "");
+        return evaluate(job, persona, null, config, "");
     }
 
     public EvaluationResult evaluate(
             JobInput job,
             PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
+            EngineConfig config
+    ) {
+        return evaluate(job, persona, candidateProfile, config, "");
+    }
+
+    public EvaluationResult evaluate(
+            JobInput job,
+            PersonaConfig persona,
+            EngineConfig config,
+            String externalContext
+    ) {
+        return evaluate(job, persona, null, config, externalContext);
+    }
+
+    public EvaluationResult evaluate(
+            JobInput job,
+            PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
             EngineConfig config,
             String externalContext
     ) {
@@ -670,7 +809,17 @@ public final class DecisionEngineV1 {
         int companyReputationIndex = computeCompanyReputationIndex(combinedText, trackedCompany);
 
         detectPositiveSignals(job, combinedText, remotePolicy, salaryRange, trackedCompany, positiveSignals);
-        detectRiskSignals(job, combinedText, remotePolicy, salaryRange, trackedCompany, riskSignals);
+        detectRiskSignals(
+                job,
+                combinedText,
+                remotePolicy,
+                salaryRange,
+                trackedCompany,
+                config.blacklistedCompanies(),
+                persona,
+                riskSignals
+        );
+        detectCandidateProfileSignals(job, combinedText, candidateProfile, positiveSignals, riskSignals);
         detectReputationSignals(companyReputationIndex, positiveSignals, riskSignals);
         detectHardFilters(
                 job,
@@ -775,10 +924,21 @@ public final class DecisionEngineV1 {
             String remotePolicy,
             String salaryRange,
             Optional<CompanyConfig> trackedCompany,
+            List<BlacklistedCompanyConfig> blacklist,
+            PersonaConfig persona,
             Set<String> riskSignals
     ) {
-        if (containsAny(salaryRange, SALARY_MISSING_KEYWORDS) && !salaryRange.isBlank()) {
+        if (isSalaryMissing(salaryRange)) {
             riskSignals.add(SIGNAL_SALARY_LOW_CONFIDENCE);
+        }
+        if (hasSalaryBelowPersonaFloor(
+                job,
+                combinedText,
+                salaryRange,
+                blacklist,
+                persona.minimumSalaryYen()
+        )) {
+            riskSignals.add(SIGNAL_SALARY_BELOW_PERSONA_FLOOR);
         }
         if (isOnsiteBias(remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
@@ -834,10 +994,266 @@ public final class DecisionEngineV1 {
         if (containsAny(combinedText, STARTUP_RISK_KEYWORDS)) {
             riskSignals.add(SIGNAL_STARTUP_RISK);
         }
-        if (containsAny(combinedText, CONSULTING_HARD_KEYWORDS)) {
+        if (isBlacklistedCompany(job.companyName(), blacklist)
+                || containsAny(combinedText, CONSULTING_HARD_KEYWORDS)) {
             riskSignals.add(SIGNAL_CONSULTING_RISK);
         }
         detectCompanyProfileRiskSignals(trackedCompany, riskSignals);
+    }
+
+    private void detectCandidateProfileSignals(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
+            Set<String> positiveSignals,
+            Set<String> riskSignals
+    ) {
+        if (candidateProfile == null) {
+            return;
+        }
+
+        if (hasCandidateStackFit(job, combinedText, candidateProfile)) {
+            positiveSignals.add(SIGNAL_CANDIDATE_STACK_FIT);
+        }
+        if (hasCandidateDomainFit(combinedText, candidateProfile)) {
+            positiveSignals.add(SIGNAL_CANDIDATE_DOMAIN_FIT);
+        }
+        if (hasCandidateSeniorityFit(job, combinedText, candidateProfile)) {
+            positiveSignals.add(SIGNAL_CANDIDATE_SENIORITY_FIT);
+        }
+        if (hasCandidateStackGap(job, candidateProfile)) {
+            riskSignals.add(SIGNAL_CANDIDATE_STACK_GAP);
+        }
+        if (hasCandidateDomainGap(combinedText, candidateProfile)) {
+            riskSignals.add(SIGNAL_CANDIDATE_DOMAIN_GAP);
+        }
+        if (hasCandidateSeniorityMismatch(job, combinedText, candidateProfile)) {
+            riskSignals.add(SIGNAL_CANDIDATE_SENIORITY_MISMATCH);
+        }
+    }
+
+    private boolean hasCandidateStackFit(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile
+    ) {
+        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
+        int explicitRequiredMatches = countExplicitRequiredSkillMatches(job, productionSkills);
+        int broadMatches = countCanonicalSkillMatches(combinedText, productionSkills);
+        return explicitRequiredMatches >= 1 || broadMatches >= 2;
+    }
+
+    private boolean hasCandidateStackGap(JobInput job, CandidateProfileConfig candidateProfile) {
+        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
+        Set<String> learningSkills = canonicalizeSkills(candidateProfile.learningSkills());
+        for (String line : extractRequirementLines(job.description())) {
+            Set<String> requiredSkills = extractMentionedTechs(line);
+            if (requiredSkills.isEmpty()) {
+                continue;
+            }
+
+            boolean productionMatch = containsAnyCanonicalSkill(requiredSkills, productionSkills);
+            boolean learningMatch = containsAnyCanonicalSkill(requiredSkills, learningSkills);
+            boolean alternativeLine = isAlternativeSkillLine(line);
+
+            if (alternativeLine) {
+                if (!productionMatch && learningMatch) {
+                    return true;
+                }
+                if (!productionMatch && !learningMatch) {
+                    return true;
+                }
+                continue;
+            }
+
+            if (!productionMatch && !requiredSkills.isEmpty()) {
+                return true;
+            }
+            if (!productionMatch && learningMatch) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCandidateDomainFit(String combinedText, CandidateProfileConfig candidateProfile) {
+        int strongMatches = countDomainMatches(combinedText, candidateProfile.strongDomains());
+        int moderateMatches = countDomainMatches(combinedText, candidateProfile.moderateDomains());
+        return strongMatches >= 1 || moderateMatches >= 2;
+    }
+
+    private boolean hasCandidateDomainGap(String combinedText, CandidateProfileConfig candidateProfile) {
+        int limitedMatches = countDomainMatches(combinedText, candidateProfile.limitedDomains());
+        if (limitedMatches == 0) {
+            return false;
+        }
+        return !hasCandidateDomainFit(combinedText, candidateProfile);
+    }
+
+    private boolean hasCandidateSeniorityFit(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile
+    ) {
+        int requiredYears = extractRequiredYears(combinedText);
+        String normalizedTitle = normalize(job.title());
+        if (requiredYears > 0 && requiredYears <= candidateProfile.totalExperienceYears()) {
+            return !hasJuniorMidRoleIndicator(normalizedTitle);
+        }
+        return containsAny(normalizedTitle, SENIOR_ROLE_KEYWORDS) && candidateProfile.totalExperienceYears() >= 5;
+    }
+
+    private boolean hasCandidateSeniorityMismatch(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile
+    ) {
+        int requiredYears = extractRequiredYears(combinedText);
+        String normalizedTitle = normalize(job.title());
+        if (requiredYears > candidateProfile.totalExperienceYears()) {
+            return true;
+        }
+        return candidateProfile.totalExperienceYears() >= 10 && hasJuniorMidRoleIndicator(normalizedTitle);
+    }
+
+    private int countExplicitRequiredSkillMatches(JobInput job, Set<String> candidateSkills) {
+        int matches = 0;
+        for (String line : extractRequirementLines(job.description())) {
+            Set<String> requiredSkills = extractMentionedTechs(line);
+            if (requiredSkills.isEmpty()) {
+                continue;
+            }
+            if (containsAnyCanonicalSkill(requiredSkills, candidateSkills)) {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private List<String> extractRequirementLines(String description) {
+        List<String> lines = splitDescriptionLines(description);
+        List<String> requirementLines = new ArrayList<>();
+        boolean withinRequirementsSection = false;
+        for (String line : lines) {
+            String normalizedLine = normalize(line);
+            if (normalizedLine.isBlank()) {
+                continue;
+            }
+            if (containsAny(normalizedLine, CANDIDATE_NON_REQUIREMENT_SECTION_KEYWORDS)) {
+                withinRequirementsSection = false;
+            }
+            if (containsAny(normalizedLine, CANDIDATE_REQUIREMENT_SECTION_KEYWORDS)) {
+                withinRequirementsSection = true;
+            }
+            if (withinRequirementsSection || containsAny(normalizedLine, CANDIDATE_REQUIREMENT_LINE_HINTS)) {
+                requirementLines.add(normalizedLine);
+            }
+        }
+        return requirementLines;
+    }
+
+    private List<String> splitDescriptionLines(String description) {
+        if (description == null || description.isBlank()) {
+            return List.of();
+        }
+        return List.of(description.split("\\R"));
+    }
+
+    private Set<String> extractMentionedTechs(String text) {
+        LinkedHashSet<String> matches = new LinkedHashSet<>();
+        String normalizedText = normalize(text);
+        for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
+            if (matchesAnySkillAlias(normalizedText, entry.getValue())) {
+                matches.add(entry.getKey());
+            }
+        }
+        return matches;
+    }
+
+    private Set<String> canonicalizeSkills(List<String> rawSkills) {
+        LinkedHashSet<String> canonical = new LinkedHashSet<>();
+        for (String rawSkill : rawSkills) {
+            String normalizedSkill = normalize(rawSkill);
+            for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
+                if (matchesAnySkillAlias(normalizedSkill, entry.getValue())) {
+                    canonical.add(entry.getKey());
+                }
+            }
+        }
+        return canonical;
+    }
+
+    private int countCanonicalSkillMatches(String text, Set<String> canonicalSkills) {
+        int matches = 0;
+        for (String skill : canonicalSkills) {
+            List<String> aliases = CANDIDATE_SKILL_KEYWORDS.getOrDefault(skill, List.of(skill));
+            if (matchesAnySkillAlias(text, aliases)) {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private boolean containsAnyCanonicalSkill(Set<String> requiredSkills, Set<String> candidateSkills) {
+        for (String skill : requiredSkills) {
+            if (candidateSkills.contains(skill)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isAlternativeSkillLine(String normalizedLine) {
+        if (containsAny(normalizedLine, CANDIDATE_ALTERNATIVE_LINE_HINTS)) {
+            return true;
+        }
+        return normalizedLine.contains(" or ");
+    }
+
+    private int countDomainMatches(String combinedText, List<String> domainKeys) {
+        int matches = 0;
+        for (String domainKey : domainKeys) {
+            List<String> aliases = CANDIDATE_DOMAIN_KEYWORDS.get(normalize(domainKey));
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matches++;
+            }
+        }
+        return matches;
+    }
+
+    private int extractRequiredYears(String combinedText) {
+        Matcher matcher = YEARS_EXPERIENCE_PATTERN.matcher(combinedText);
+        int maxYears = 0;
+        while (matcher.find()) {
+            int value = Integer.parseInt(matcher.group(1));
+            if (value > maxYears) {
+                maxYears = value;
+            }
+        }
+        return maxYears;
+    }
+
+    private boolean hasJuniorMidRoleIndicator(String normalizedTitle) {
+        return matchesAnyPattern(normalizedTitle, JUNIOR_MID_TITLE_PATTERNS);
+    }
+
+    private boolean matchesAnySkillAlias(String text, List<String> aliases) {
+        for (String alias : aliases) {
+            if (containsTechAlias(text, alias)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsTechAlias(String text, String alias) {
+        String normalizedText = normalize(text);
+        String normalizedAlias = normalize(alias);
+        if (normalizedText.isBlank() || normalizedAlias.isBlank()) {
+            return false;
+        }
+        String pattern = "(^|[^a-z0-9])" + Pattern.quote(normalizedAlias) + "([^a-z0-9]|$)";
+        return Pattern.compile(pattern).matcher(normalizedText).find();
     }
 
     private void detectHardFilters(
@@ -1287,6 +1703,33 @@ public final class DecisionEngineV1 {
         return orderedValues.get(0) > orderedValues.get(orderedValues.size() - 1);
     }
 
+    private boolean hasSalaryBelowPersonaFloor(
+            JobInput job,
+            String combinedText,
+            String salaryRange,
+            List<BlacklistedCompanyConfig> blacklist,
+            int minimumSalaryYen
+    ) {
+        if (minimumSalaryYen <= 0 || !isSalaryTransparent(salaryRange)) {
+            return false;
+        }
+        int benchmarkYen = estimateSalaryBenchmarkYen(
+                salaryRange,
+                shouldUseConservativeSalaryBenchmark(job, combinedText, blacklist)
+        );
+        return benchmarkYen > 0 && benchmarkYen < minimumSalaryYen;
+    }
+
+    private boolean shouldUseConservativeSalaryBenchmark(
+            JobInput job,
+            String combinedText,
+            List<BlacklistedCompanyConfig> blacklist
+    ) {
+        return isBlacklistedCompany(job.companyName(), blacklist)
+                || hasIntermediaryContractRisk(combinedText)
+                || containsAny(combinedText, CONSULTING_HARD_KEYWORDS);
+    }
+
     private List<Integer> extractOrderedSalaryValues(String salaryRange) {
         List<Integer> values = new ArrayList<>();
         Matcher matcher = SALARY_ORDERED_TOKEN_PATTERN.matcher(salaryRange);
@@ -1315,6 +1758,19 @@ public final class DecisionEngineV1 {
             values.add(value);
         }
         return values;
+    }
+
+    private int estimateSalaryBenchmarkYen(String salaryRange, boolean conservativeRange) {
+        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
+        if (orderedValues.size() >= 2) {
+            int lowest = orderedValues.get(0);
+            int highest = orderedValues.get(orderedValues.size() - 1);
+            if (lowest <= highest) {
+                int ratioDivisor = conservativeRange ? 4 : 2;
+                return lowest + ((highest - lowest) / ratioDivisor);
+            }
+        }
+        return parseUpperBoundYen(salaryRange);
     }
 
     private int parseUpperBoundYen(String salaryRange) {
@@ -1470,14 +1926,33 @@ public final class DecisionEngineV1 {
     }
 
     private boolean isSalaryMissing(String salaryRange) {
-        return salaryRange.isBlank() || containsAny(salaryRange, SALARY_MISSING_KEYWORDS);
+        return salaryRange.isBlank()
+                || containsAny(salaryRange, SALARY_MISSING_KEYWORDS)
+                || !hasExplicitSalaryRange(salaryRange);
     }
 
     private boolean isSalaryTransparent(String salaryRange) {
-        if (isSalaryMissing(salaryRange)) {
+        return hasExplicitSalaryRange(salaryRange) && !hasSalaryRangeAnomaly(salaryRange);
+    }
+
+    private boolean hasExplicitSalaryRange(String salaryRange) {
+        if (salaryRange.isBlank() || containsAny(salaryRange, SALARY_MISSING_KEYWORDS)) {
             return false;
         }
-        return salaryRange.chars().anyMatch(Character::isDigit);
+        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
+        if (orderedValues.size() < 2) {
+            return false;
+        }
+        String normalizedSalaryRange = normalize(salaryRange);
+        return normalizedSalaryRange.contains("-")
+                || normalizedSalaryRange.contains("–")
+                || normalizedSalaryRange.contains("—")
+                || normalizedSalaryRange.contains("~")
+                || normalizedSalaryRange.contains("〜")
+                || normalizedSalaryRange.contains("～")
+                || normalizedSalaryRange.contains(" to ")
+                || (normalizedSalaryRange.contains("between")
+                && normalizedSalaryRange.contains(" and "));
     }
 
     private boolean hasCompanyControlledOverseasRelocationRisk(String combinedText) {

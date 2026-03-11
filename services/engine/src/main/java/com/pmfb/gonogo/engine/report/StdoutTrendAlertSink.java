@@ -20,6 +20,7 @@ public final class StdoutTrendAlertSink implements TrendAlertSink {
         System.out.println("trend_alert_dispatch:");
         System.out.println("sink: " + id());
         System.out.println("persona: " + context.personaId());
+        System.out.println("candidate_profile: " + context.candidateProfileId());
         System.out.println("generated_at: " + context.generatedAt());
         for (TrendAlert alert : alerts) {
             System.out.println(

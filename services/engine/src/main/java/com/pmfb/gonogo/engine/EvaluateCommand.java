@@ -1,7 +1,9 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.exception.ConfigLoadException;
+import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
@@ -48,6 +50,12 @@ public final class EvaluateCommand implements Callable<Integer> {
     private Path jobFile;
 
     @Option(
+            names = {"--candidate-profile"},
+            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists)."
+    )
+    private String candidateProfileId;
+
+    @Option(
             names = {"--config-dir"},
             description = "Directory containing config YAML files.",
             defaultValue = "config"
@@ -70,12 +78,25 @@ public final class EvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        Optional<PersonaConfig> persona = findPersona(config.personas(), personaId);
+        Optional<PersonaConfig> persona = ConfigSelections.findPersona(config.personas(), personaId);
         if (persona.isEmpty()) {
             System.err.println("Unknown persona id '" + personaId + "'.");
             System.err.println("Available personas:");
             for (PersonaConfig item : config.personas()) {
                 System.err.println(" - " + item.id());
+            }
+            return 1;
+        }
+
+        ConfigSelections.CandidateProfileResolution candidateProfileResolution =
+                ConfigSelections.resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
+        if (!candidateProfileResolution.errorMessage().isBlank()) {
+            System.err.println(candidateProfileResolution.errorMessage());
+            if (!config.candidateProfiles().isEmpty()) {
+                System.err.println("Available candidate profiles:");
+                for (CandidateProfileConfig item : config.candidateProfiles()) {
+                    System.err.println(" - " + item.id());
+                }
             }
             return 1;
         }
@@ -88,19 +109,22 @@ public final class EvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        EvaluationResult result = engine.evaluate(job, persona.get(), config);
-        printResult(persona.get(), job, result);
+        EvaluationResult result = engine.evaluate(
+                job,
+                persona.get(),
+                candidateProfileResolution.profile().orElse(null),
+                config
+        );
+        printResult(persona.get(), candidateProfileResolution.profile().orElse(null), job, result);
         return 0;
     }
 
-    private Optional<PersonaConfig> findPersona(List<PersonaConfig> personas, String id) {
-        String normalized = normalize(id);
-        return personas.stream()
-                .filter(persona -> normalize(persona.id()).equals(normalized))
-                .findFirst();
-    }
-
-    private void printResult(PersonaConfig persona, JobInput job, EvaluationResult result) {
+    private void printResult(
+            PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
+            JobInput job,
+            EvaluationResult result
+    ) {
         System.out.println("verdict: " + result.verdict());
         System.out.println("score: " + result.score() + "/100");
         System.out.println(
@@ -110,6 +134,7 @@ public final class EvaluateCommand implements Callable<Integer> {
         System.out.println("language_friction_index: " + result.languageFrictionIndex() + "/100");
         System.out.println("company_reputation_index: " + result.companyReputationIndex() + "/100");
         System.out.println("persona: " + persona.id());
+        System.out.println("candidate_profile: " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
         System.out.println("company: " + job.companyName());
         System.out.println("role: " + job.title());
         printList("hard_reject_reasons", result.hardRejectReasons());
@@ -136,7 +161,4 @@ public final class EvaluateCommand implements Callable<Integer> {
         }
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
-    }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 public record BatchEvaluationReport(
         String generatedAt,
         String personaId,
+        String candidateProfileId,
         int totalFiles,
         int evaluatedCount,
         int failedCount,
@@ -22,6 +23,7 @@ public record BatchEvaluationReport(
     public BatchEvaluationReport(
             String generatedAt,
             String personaId,
+            String candidateProfileId,
             int totalFiles,
             int evaluatedCount,
             int failedCount,
@@ -34,6 +36,7 @@ public record BatchEvaluationReport(
         this(
                 generatedAt,
                 personaId,
+                candidateProfileId,
                 totalFiles,
                 evaluatedCount,
                 failedCount,

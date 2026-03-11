@@ -18,6 +18,7 @@ final class WeeklyDigestGeneratorTest {
         BatchEvaluationReport report = new BatchEvaluationReport(
                 "2026-02-22T12:00:00Z",
                 "product_expat_engineer",
+                "pmfb",
                 3,
                 3,
                 0,
@@ -111,8 +112,10 @@ final class WeeklyDigestGeneratorTest {
         String markdown = generator.toMarkdown(data, 5);
 
         assertEquals("product_expat_engineer", data.persona());
+        assertEquals("pmfb", data.candidateProfileId());
         assertEquals(3, data.items().size());
         assertTrue(markdown.contains("# Weekly Digest"));
+        assertTrue(markdown.contains("candidate_profile: pmfb"));
         assertTrue(markdown.contains("## Top GO"));
         assertTrue(markdown.contains("Money Forward - Backend Engineer"));
         assertTrue(markdown.contains("language_friction_index: 8/100"));
@@ -130,6 +133,7 @@ final class WeeklyDigestGeneratorTest {
         BatchEvaluationReport report = new BatchEvaluationReport(
                 "2026-02-22T12:00:00Z",
                 "product_expat_engineer",
+                "pmfb",
                 1,
                 1,
                 0,
@@ -170,6 +174,7 @@ final class WeeklyDigestGeneratorTest {
         String markdown = generator.toMarkdown(data, 5);
 
         assertEquals("product_expat_engineer", data.persona());
+        assertEquals("pmfb", data.candidateProfileId());
         assertEquals(1, data.items().size());
         assertEquals(5, data.items().get(0).languageFrictionIndex());
         assertEquals(66, data.items().get(0).companyReputationIndex());

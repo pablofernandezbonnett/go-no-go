@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.report;
 
+import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.decision.RankingStrategy;
 import com.pmfb.gonogo.engine.exception.WeeklyDigestException;
 import java.time.Instant;
@@ -14,6 +15,7 @@ import org.yaml.snakeyaml.error.YAMLException;
 public final class WeeklyDigestGenerator {
     private final OpportunityRanker ranker = new OpportunityRanker();
     private static final String FIELD_PERSONA = "persona";
+    private static final String FIELD_CANDIDATE_PROFILE = "candidate_profile";
     private static final String FIELD_GENERATED_AT = "generated_at";
     private static final String FIELD_ITEMS = "items";
     private static final String FIELD_ERRORS = "errors";
@@ -70,6 +72,7 @@ public final class WeeklyDigestGenerator {
                 report.generatedAt(),
                 Instant.now().toString(),
                 report.personaId(),
+                report.candidateProfileId(),
                 items,
                 report.errors()
         );
@@ -89,6 +92,10 @@ public final class WeeklyDigestGenerator {
         }
 
         String persona = asString(root.get(FIELD_PERSONA), UNKNOWN_PERSONA);
+        String candidateProfile = asString(
+                root.get(FIELD_CANDIDATE_PROFILE),
+                ConfigSelections.CANDIDATE_PROFILE_NONE
+        );
         String sourceGeneratedAt = asString(root.get(FIELD_GENERATED_AT), UNKNOWN_VALUE);
 
         List<WeeklyDigestItem> items = parseItems(root.get(FIELD_ITEMS), errors);
@@ -98,7 +105,15 @@ public final class WeeklyDigestGenerator {
             throw new WeeklyDigestException(errors);
         }
 
-        return new WeeklyDigestData(sourcePath, sourceGeneratedAt, Instant.now().toString(), persona, items, batchErrors);
+        return new WeeklyDigestData(
+                sourcePath,
+                sourceGeneratedAt,
+                Instant.now().toString(),
+                persona,
+                candidateProfile,
+                items,
+                batchErrors
+        );
     }
 
     public String toMarkdown(WeeklyDigestData data, int topPerSection) {
@@ -115,7 +130,8 @@ public final class WeeklyDigestGenerator {
         sb.append("- generated_at: ").append(data.generatedAt()).append("\n");
         sb.append("- source_report: ").append(data.sourceReport()).append("\n");
         sb.append("- source_generated_at: ").append(data.sourceGeneratedAt()).append("\n");
-        sb.append("- persona: ").append(data.persona()).append("\n\n");
+        sb.append("- persona: ").append(data.persona()).append("\n");
+        sb.append("- candidate_profile: ").append(data.candidateProfileId()).append("\n\n");
 
         sb.append("## Summary\n\n");
         sb.append("- evaluated: ").append(data.items().size()).append("\n");
