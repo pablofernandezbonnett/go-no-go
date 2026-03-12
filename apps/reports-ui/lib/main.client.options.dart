@@ -9,6 +9,7 @@ import 'package:jaspr/client.dart';
 import 'package:go_no_go_reports_ui/pages/batch.dart' deferred as _batch;
 import 'package:go_no_go_reports_ui/pages/company_context.dart'
     deferred as _company_context;
+import 'package:go_no_go_reports_ui/pages/evaluate.dart' deferred as _evaluate;
 import 'package:go_no_go_reports_ui/pages/job_detail.dart'
     deferred as _job_detail;
 import 'package:go_no_go_reports_ui/pages/runs.dart' deferred as _runs;
@@ -41,6 +42,10 @@ ClientOptions get defaultClientOptions => ClientOptions(
     'company_context': ClientLoader(
       (p) => _company_context.CompanyContextPage(),
       loader: _company_context.loadLibrary,
+    ),
+    'evaluate': ClientLoader(
+      (p) => _evaluate.EvaluatePage(),
+      loader: _evaluate.loadLibrary,
     ),
     'job_detail': ClientLoader(
       (p) => _job_detail.JobDetailPage(),

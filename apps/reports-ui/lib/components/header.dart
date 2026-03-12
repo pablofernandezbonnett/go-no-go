@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import '../constants/evaluation_contract.dart';
 import '../constants/theme.dart';
 
 class Header extends StatelessComponent {
@@ -23,6 +24,7 @@ class Header extends StatelessComponent {
       nav(classes: 'sidebar-nav', [
         for (final route in [
           (label: 'Runs', path: '/'),
+          (label: 'Evaluate', path: evaluatePageRoute),
           (label: 'Batch', path: '/batch'),
           (label: 'Job Detail', path: '/job'),
           (label: 'Weekly', path: '/weekly'),
@@ -36,7 +38,7 @@ class Header extends StatelessComponent {
           ),
       ]),
       p(classes: 'sidebar-note', [
-        .text('Read-only reports from engine artifacts.'),
+        .text('Reports and ad-hoc evaluation results from engine artifacts.'),
       ]),
     ]);
   }

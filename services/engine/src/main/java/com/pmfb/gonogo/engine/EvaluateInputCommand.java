@@ -46,11 +46,16 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private static final String DEFAULT_UNKNOWN = "Unknown";
     private static final String SOURCE_URL_PREFIX = "Source URL: ";
     private static final int MAX_FALLBACK_DESCRIPTION_LENGTH = 1200;
+    private static final String OUTPUT_FORMAT_TEXT = "text";
+    private static final String OUTPUT_FORMAT_JSON = "json";
 
     private final DecisionEngineV1 engine;
     private final RawJobParser rawJobParser;
     private final JobPostingExtractor extractor;
     private final CareerPageHttpFetcher httpFetcher;
+    private final DirectInputSecurity directInputSecurity;
+    private final EvaluateInputArtifactWriter artifactWriter;
+    private final EvaluateInputOutputFormatter outputFormatter;
 
     @Option(
             names = {"--persona"},
@@ -91,6 +96,12 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private String rawText;
 
     @Option(
+            names = {"--stdin"},
+            description = "Read raw job text from STDIN."
+    )
+    private boolean readFromStdin;
+
+    @Option(
             names = {"--company-name"},
             description = "Optional company override for raw text parsing or URL mode."
     )
@@ -116,20 +127,47 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     )
     private String userAgent;
 
+    @Option(
+            names = {"--output-format"},
+            description = "Output format: text, json.",
+            defaultValue = OUTPUT_FORMAT_TEXT
+    )
+    private String outputFormat;
+
+    @Option(
+            names = {"--output-analysis-file"},
+            description = "Optional YAML artifact path for normalized input and evaluation output."
+    )
+    private Path outputAnalysisFile;
+
     public EvaluateInputCommand() {
-        this(new DecisionEngineV1(), new RawJobParser(), new JobPostingExtractor(), new CareerPageHttpFetcher());
+        this(
+                new DecisionEngineV1(),
+                new RawJobParser(),
+                new JobPostingExtractor(),
+                new CareerPageHttpFetcher(new DirectInputSecurity()::ensureSafeHttpUri),
+                new DirectInputSecurity(),
+                new EvaluateInputArtifactWriter(),
+                new EvaluateInputOutputFormatter()
+        );
     }
 
     EvaluateInputCommand(
             DecisionEngineV1 engine,
             RawJobParser rawJobParser,
             JobPostingExtractor extractor,
-            CareerPageHttpFetcher httpFetcher
+            CareerPageHttpFetcher httpFetcher,
+            DirectInputSecurity directInputSecurity,
+            EvaluateInputArtifactWriter artifactWriter,
+            EvaluateInputOutputFormatter outputFormatter
     ) {
         this.engine = engine;
         this.rawJobParser = rawJobParser;
         this.extractor = extractor;
         this.httpFetcher = httpFetcher;
+        this.directInputSecurity = directInputSecurity;
+        this.artifactWriter = artifactWriter;
+        this.outputFormatter = outputFormatter;
     }
 
     @Override
@@ -171,6 +209,13 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             return 1;
         }
 
+        String normalizedOutputFormat = normalize(outputFormat);
+        if (!OUTPUT_FORMAT_TEXT.equals(normalizedOutputFormat)
+                && !OUTPUT_FORMAT_JSON.equals(normalizedOutputFormat)) {
+            System.err.println("Unknown output format '" + outputFormat + "'. Use: text, json.");
+            return 1;
+        }
+
         InputSource source = detectSource();
         if (source == InputSource.INVALID) {
             return 1;
@@ -178,14 +223,25 @@ public final class EvaluateInputCommand implements Callable<Integer> {
 
         JobInput jobInput;
         List<String> warnings;
+        String sourceUrl = "";
+        String sourceFile = "";
+        String sourceRawText = "";
         try {
             if (source == InputSource.URL) {
                 jobInput = fromUrl(jobUrl, config);
                 warnings = List.of();
+                sourceUrl = jobUrl.trim();
             } else {
-                RawJobExtractionResult extraction = fromRawText(source);
+                LoadedRawText loadedRawText = loadRawText(source);
+                RawJobExtractionResult extraction = rawJobParser.parse(
+                        loadedRawText.rawText(),
+                        companyNameOverride,
+                        titleOverride
+                );
                 jobInput = extraction.jobInput();
                 warnings = extraction.warnings();
+                sourceFile = loadedRawText.sourceFile();
+                sourceRawText = loadedRawText.rawText();
             }
         } catch (IOException | InterruptedException e) {
             System.err.println("Failed to load input: " + e.getMessage());
@@ -204,12 +260,34 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 candidateProfileResolution.profile().orElse(null),
                 config
         );
-        printResult(persona.get(), candidateProfileResolution.profile().orElse(null), jobInput, result);
-        if (!warnings.isEmpty()) {
-            System.out.println("normalization_warnings:");
-            for (String warning : warnings) {
-                System.out.println(" - " + warning);
+        EvaluateInputAnalysis analysis = new EvaluateInputAnalysis(
+                java.time.Instant.now().toString(),
+                persona.get().id(),
+                ConfigSelections.candidateProfileIdOrNone(candidateProfileResolution.profile().orElse(null)),
+                new EvaluateInputAnalysis.SourceDetails(
+                        source.value(),
+                        sourceUrl,
+                        sourceFile,
+                        sourceRawText
+                ),
+                jobInput,
+                result,
+                warnings
+        );
+        String analysisFile = outputAnalysisFile == null ? "" : outputAnalysisFile.toString();
+        if (outputAnalysisFile != null) {
+            try {
+                artifactWriter.write(outputAnalysisFile, analysis);
+            } catch (IOException e) {
+                System.err.println("Failed to write analysis artifact: " + e.getMessage());
+                return 1;
             }
+        }
+
+        if (OUTPUT_FORMAT_JSON.equals(normalizedOutputFormat)) {
+            System.out.println(outputFormatter.toJson(analysis, analysisFile));
+        } else {
+            System.out.print(outputFormatter.toText(analysis, analysisFile));
         }
         return 0;
     }
@@ -225,33 +303,46 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         if (rawText != null && !rawText.isBlank()) {
             count++;
         }
+        if (readFromStdin) {
+            count++;
+        }
         if (count == 0) {
-            System.err.println("Provide one input source: --job-url OR --raw-text-file OR --raw-text.");
+            System.err.println("Provide one input source: --job-url OR --raw-text-file OR --raw-text OR --stdin.");
             return InputSource.INVALID;
         }
         if (count > 1) {
-            System.err.println("Use only one input source at a time: --job-url OR --raw-text-file OR --raw-text.");
+            System.err.println("Use only one input source at a time: --job-url OR --raw-text-file OR --raw-text OR --stdin.");
             return InputSource.INVALID;
         }
         if (jobUrl != null && !jobUrl.isBlank()) {
             return InputSource.URL;
         }
+        if (rawTextFile != null) {
+            return InputSource.RAW_TEXT_FILE;
+        }
+        if (readFromStdin) {
+            return InputSource.STDIN;
+        }
         return InputSource.RAW_TEXT;
     }
 
-    private RawJobExtractionResult fromRawText(InputSource source) throws IOException {
+    private LoadedRawText loadRawText(InputSource source) throws IOException {
         String effectiveRawText = rawText;
-        if (source == InputSource.RAW_TEXT && rawTextFile != null) {
+        String sourceFile = "";
+        if (source == InputSource.RAW_TEXT_FILE && rawTextFile != null) {
             effectiveRawText = Files.readString(rawTextFile, StandardCharsets.UTF_8);
+            sourceFile = rawTextFile.toString();
+        } else if (source == InputSource.STDIN) {
+            effectiveRawText = readStdinText();
         }
         if (effectiveRawText == null || effectiveRawText.isBlank()) {
             throw new JobInputLoadException(List.of("Raw text is empty."));
         }
-        return rawJobParser.parse(effectiveRawText, companyNameOverride, titleOverride);
+        return new LoadedRawText(directInputSecurity.sanitizeRawText(effectiveRawText), sourceFile);
     }
 
     private JobInput fromUrl(String url, EngineConfig config) throws IOException, InterruptedException {
-        String normalizedUrl = normalize(url);
+        String normalizedUrl = directInputSecurity.validateUrl(url);
         if (normalizedUrl.isBlank()) {
             throw new JobInputLoadException(List.of("URL cannot be blank."));
         }
@@ -365,41 +456,6 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         return candidateHost.equals(baseHost) || candidateHost.endsWith("." + baseHost);
     }
 
-    private void printResult(
-            PersonaConfig persona,
-            CandidateProfileConfig candidateProfile,
-            JobInput job,
-            EvaluationResult result
-    ) {
-        System.out.println("verdict: " + result.verdict());
-        System.out.println("score: " + result.score() + "/100");
-        System.out.println(
-                "raw_score: " + result.rawScore()
-                        + " (range " + result.rawScoreMin() + ".." + result.rawScoreMax() + ")"
-        );
-        System.out.println("language_friction_index: " + result.languageFrictionIndex() + "/100");
-        System.out.println("company_reputation_index: " + result.companyReputationIndex() + "/100");
-        System.out.println("persona: " + persona.id());
-        System.out.println("candidate_profile: " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
-        System.out.println("company: " + job.companyName());
-        System.out.println("role: " + job.title());
-        printList("hard_reject_reasons", result.hardRejectReasons());
-        printList("positive_signals", result.positiveSignals());
-        printList("risk_signals", result.riskSignals());
-        printList("reasoning", result.reasoning());
-    }
-
-    private void printList(String key, List<String> values) {
-        if (values.isEmpty()) {
-            System.out.println(key + ": []");
-            return;
-        }
-        System.out.println(key + ":");
-        for (String value : values) {
-            System.out.println(" - " + value);
-        }
-    }
-
     private void printErrors(String title, List<String> errors) {
         System.err.println(title + " with " + errors.size() + " error(s):");
         for (String error : errors) {
@@ -425,9 +481,33 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         return value.replaceAll("\\s+", " ").trim();
     }
 
+    private String readStdinText() throws IOException {
+        byte[] bytes = System.in.readAllBytes();
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private record LoadedRawText(
+            String rawText,
+            String sourceFile
+    ) {
+    }
+
     private enum InputSource {
         URL,
+        RAW_TEXT_FILE,
         RAW_TEXT,
+        STDIN,
         INVALID
+        ;
+
+        private String value() {
+            return switch (this) {
+                case URL -> "url";
+                case RAW_TEXT_FILE -> "raw_text_file";
+                case RAW_TEXT -> "raw_text";
+                case STDIN -> "stdin";
+                case INVALID -> "invalid";
+            };
+        }
     }
 }

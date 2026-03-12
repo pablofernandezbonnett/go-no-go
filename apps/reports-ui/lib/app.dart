@@ -3,8 +3,10 @@ import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
 import 'components/header.dart';
+import 'constants/evaluation_contract.dart';
 import 'pages/batch.dart';
 import 'pages/company_context.dart';
+import 'pages/evaluate.dart';
 import 'pages/job_detail.dart';
 import 'pages/runs.dart';
 import 'pages/trends_alerts.dart';
@@ -26,6 +28,7 @@ class App extends StatelessComponent {
           Router(
             routes: [
               Route(path: '/', title: 'Runs', builder: (context, state) => const RunsPage()),
+              Route(path: evaluatePageRoute, title: 'Evaluate', builder: (context, state) => const EvaluatePage()),
               Route(path: '/batch', title: 'Batch', builder: (context, state) => const BatchPage()),
               Route(path: '/job', title: 'Job Detail', builder: (context, state) => const JobDetailPage()),
               Route(path: '/weekly', title: 'Weekly', builder: (context, state) => const WeeklyPage()),
@@ -194,6 +197,46 @@ class App extends StatelessComponent {
       border: Border.all(width: 1.px, color: const Color('#c6ceda')),
       radius: .all(.circular(6.px)),
       backgroundColor: Colors.white,
+    ),
+    css('.controls input, .controls textarea').styles(
+      padding: .all(0.5.rem),
+      border: Border.all(width: 1.px, color: const Color('#c6ceda')),
+      radius: .all(.circular(8.px)),
+      backgroundColor: Colors.white,
+      fontFamily: const .list([FontFamily('Space Grotesk'), FontFamilies.sansSerif]),
+      fontSize: 0.95.rem,
+    ),
+    css('.controls textarea').styles(
+      minHeight: 16.rem,
+      raw: const {
+        'resize': 'vertical',
+      },
+    ),
+    css('.controls button').styles(
+      padding: .symmetric(horizontal: 0.95.rem, vertical: 0.62.rem),
+      border: Border.all(width: 1.px, color: const Color('#01589B')),
+      radius: .all(.circular(8.px)),
+      backgroundColor: const Color('#01589B'),
+      color: Colors.white,
+      fontWeight: .w700,
+      cursor: Cursor.pointer,
+    ),
+    css('.controls button:disabled').styles(
+      backgroundColor: const Color('#94a3b8'),
+      border: Border.all(width: 1.px, color: const Color('#94a3b8')),
+      cursor: Cursor.notAllowed,
+    ),
+    css('.form-grid').styles(
+      display: Display.grid,
+      gap: Gap.all(0.9.rem),
+      raw: const {
+        'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))',
+      },
+    ),
+    css('.form-grid .span-full').styles(
+      raw: const {
+        'grid-column': '1 / -1',
+      },
     ),
     css('.summary-grid').styles(
       display: Display.grid,
