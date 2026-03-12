@@ -50,18 +50,38 @@ jaspr serve
 
 Default local URL:
 
-- `http://localhost:8787`
+- `http://localhost:8792`
+
+This default is intentionally different from `services/engine/ops-ui` so both Jaspr UIs can run at the same time.
 
 Recommended when using engine artifacts from sibling project:
 
 ```bash
-REPORTS_ROOT=/Users/pmfb/Documents/coding/go-no-go-engine/output jaspr serve
+jaspr serve
 ```
 
-Optional port override:
+Recommended when running `reports-ui` together with `services/engine/ops-ui`:
 
 ```bash
-PORT=8090 jaspr serve
+jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+```
+
+Why this is needed:
+
+- `--port` controls the final app URL (`http://localhost:8792`)
+- `--web-port` controls the internal webdev resource server (default `5467`)
+- `--proxy-port` controls the Jaspr proxy server (default `5567`)
+
+If another Jaspr app is already running, a bind error on `5467` or `5567` means the internal dev ports are colliding, even if `8792` is free.
+
+When `REPORTS_ROOT` is unset, the server now prefers `../../services/engine/output` automatically when that monorepo path exists, and falls back to local `output/` otherwise.
+
+Use `REPORTS_ROOT` only when you want a non-default artifact directory.
+
+Optional local dev overrides:
+
+```bash
+jaspr serve --port 8090 --web-port 5470 --proxy-port 5570
 ```
 
 ## Build

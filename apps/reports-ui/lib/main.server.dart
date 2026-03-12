@@ -117,11 +117,13 @@ HttpServer? activeServer;
 Object? activeReloadLock;
 
 int _resolvePort(Map<String, String> environment) {
-  const fallbackPort = 8787;
-  final raw = environment['PORT'];
-  final parsed = raw == null ? null : int.tryParse(raw.trim());
-  if (parsed == null || parsed <= 0 || parsed > 65535) {
-    return fallbackPort;
+  const fallbackPort = 8792;
+  final candidates = [environment['REPORTS_UI_PORT'], environment['PORT']];
+  for (final candidate in candidates) {
+    final parsed = int.tryParse(candidate?.trim() ?? '');
+    if (parsed != null && parsed > 0 && parsed <= 65535) {
+      return parsed;
+    }
   }
-  return parsed;
+  return fallbackPort;
 }

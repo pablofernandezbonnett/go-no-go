@@ -30,11 +30,12 @@ public final class YamlConfigLoader {
         List<PersonaConfig> personas = loadPersonas(errors);
         List<BlacklistedCompanyConfig> blacklistedCompanies = loadBlacklistedCompanies(errors);
         List<CandidateProfileConfig> candidateProfiles = new CandidateProfileYamlLoader(configDirectory).load(errors);
+        RuntimeSettingsConfig runtimeSettings = loadRuntimeSettings(errors);
 
         if (!errors.isEmpty()) {
             throw new ConfigLoadException(errors);
         }
-        return new EngineConfig(companies, personas, blacklistedCompanies, candidateProfiles);
+        return new EngineConfig(companies, personas, blacklistedCompanies, candidateProfiles, runtimeSettings);
     }
 
     private void ensureConfigDirectory(List<String> errors) {
@@ -132,6 +133,82 @@ public final class YamlConfigLoader {
             companies.add(new BlacklistedCompanyConfig(name, reason));
         }
         return companies;
+    }
+
+    private RuntimeSettingsConfig loadRuntimeSettings(List<String> errors) {
+        String fileName = "runtime.yaml";
+        Path path = configDirectory.resolve(fileName);
+        if (!Files.exists(path)) {
+            return RuntimeSettingsConfig.defaults();
+        }
+        Map<String, Object> root = loadRoot(path, errors);
+        if (root == null) {
+            return RuntimeSettingsConfig.defaults();
+        }
+        return new RuntimeSettingsConfig(
+                loadFetchWebRuntime(root, fileName, errors),
+                loadEvaluationRuntime(root, fileName, errors)
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private FetchWebRuntimeConfig loadFetchWebRuntime(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        FetchWebRuntimeConfig defaults = FetchWebRuntimeConfig.defaults();
+        Object value = root.get("fetch_web");
+        if (value == null) {
+            return defaults;
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            errors.add(fileName + " field 'fetch_web' must be a map");
+            return defaults;
+        }
+
+        Map<String, Object> map = (Map<String, Object>) rawMap;
+        String context = fileName + " fetch_web";
+        return new FetchWebRuntimeConfig(
+                readOptionalIntWithDefault(map, "timeout_seconds", defaults.timeoutSeconds(), context, errors),
+                readOptionalStringWithDefault(map, "user_agent", defaults.userAgent(), context, errors),
+                readOptionalIntWithDefault(map, "retries", defaults.retries(), context, errors),
+                readOptionalLongWithDefault(map, "backoff_millis", defaults.backoffMillis(), context, errors),
+                readOptionalLongWithDefault(map, "request_delay_millis", defaults.requestDelayMillis(), context, errors),
+                readOptionalIntWithDefault(map, "max_concurrency", defaults.maxConcurrency(), context, errors),
+                readOptionalIntWithDefault(
+                        map,
+                        "max_concurrency_per_host",
+                        defaults.maxConcurrencyPerHost(),
+                        context,
+                        errors
+                ),
+                readOptionalStringWithDefault(map, "robots_mode", defaults.robotsMode(), context, errors),
+                readOptionalLongWithDefault(map, "cache_ttl_minutes", defaults.cacheTtlMinutes(), context, errors)
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private EvaluationRuntimeConfig loadEvaluationRuntime(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        EvaluationRuntimeConfig defaults = EvaluationRuntimeConfig.defaults();
+        Object value = root.get("evaluation");
+        if (value == null) {
+            return defaults;
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            errors.add(fileName + " field 'evaluation' must be a map");
+            return defaults;
+        }
+
+        Map<String, Object> map = (Map<String, Object>) rawMap;
+        String context = fileName + " evaluation";
+        return new EvaluationRuntimeConfig(
+                readOptionalIntWithDefault(map, "max_concurrency", defaults.maxConcurrency(), context, errors)
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -362,5 +439,59 @@ public final class YamlConfigLoader {
             return 0;
         }
         return intValue;
+    }
+
+    private int readOptionalIntWithDefault(
+            Map<String, Object> map,
+            String key,
+            int defaultValue,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (!(value instanceof Number number)) {
+            errors.add(context + " field '" + key + "' must be an integer");
+            return defaultValue;
+        }
+        return number.intValue();
+    }
+
+    private long readOptionalLongWithDefault(
+            Map<String, Object> map,
+            String key,
+            long defaultValue,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (!(value instanceof Number number)) {
+            errors.add(context + " field '" + key + "' must be an integer");
+            return defaultValue;
+        }
+        return number.longValue();
+    }
+
+    private String readOptionalStringWithDefault(
+            Map<String, Object> map,
+            String key,
+            String defaultValue,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return defaultValue;
+        }
+        if (!(value instanceof String text)) {
+            errors.add(context + " field '" + key + "' must be a string");
+            return defaultValue;
+        }
+        return text.trim();
     }
 }

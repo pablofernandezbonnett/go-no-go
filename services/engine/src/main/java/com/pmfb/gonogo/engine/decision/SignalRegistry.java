@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Public catalog of all 44 signals recognized by DecisionEngineV1.
+ * Public catalog of all 55 signals recognized by DecisionEngineV1.
  *
  * <p>Provides metadata (name, type, priority group, default weight) for each signal,
  * enabling YAML config validation and API exposure via GET /api/signals.
@@ -34,7 +34,7 @@ public final class SignalRegistry {
     }
 
     private static final List<SignalDescriptor> ALL = List.of(
-            // ── Positive signals (18) ──────────────────────────────────────────────
+            // ── Positive signals (24) ──────────────────────────────────────────────
             new SignalDescriptor("salary_transparency",               SignalType.POSITIVE, "salary",               2),
             new SignalDescriptor("hybrid_work",                       SignalType.POSITIVE, "hybrid_work",          2),
             new SignalDescriptor("remote_friendly",                   SignalType.POSITIVE, "hybrid_work",          2),
@@ -53,8 +53,14 @@ public final class SignalRegistry {
             new SignalDescriptor("candidate_stack_fit",               SignalType.POSITIVE, "engineering_culture",  2),
             new SignalDescriptor("candidate_domain_fit",              SignalType.POSITIVE, "product_company",      2),
             new SignalDescriptor("candidate_seniority_fit",           SignalType.POSITIVE, "engineering_culture",  2),
+            new SignalDescriptor("product_pm_collaboration",          SignalType.POSITIVE, "product_company",      2),
+            new SignalDescriptor("engineering_maturity",              SignalType.POSITIVE, "engineering_culture",  2),
+            new SignalDescriptor("casual_interview",                  SignalType.POSITIVE, "engineering_culture",  2),
+            new SignalDescriptor("async_communication",               SignalType.POSITIVE, "work_life_balance",    2),
+            new SignalDescriptor("real_flextime",                     SignalType.POSITIVE, "work_life_balance",    2),
+            new SignalDescriptor("low_overtime_disclosed",            SignalType.POSITIVE, "work_life_balance",    2),
 
-            // ── Risk signals (26) ─────────────────────────────────────────────────
+            // ── Risk signals (31) ─────────────────────────────────────────────────
             new SignalDescriptor("salary_low_confidence",             SignalType.RISK,     "salary",               2),
             new SignalDescriptor("salary_below_persona_floor",        SignalType.RISK,     "salary",               3),
             new SignalDescriptor("onsite_bias",                       SignalType.RISK,     "hybrid_work",          2),
@@ -80,7 +86,12 @@ public final class SignalRegistry {
             new SignalDescriptor("company_reputation_risk_high",      SignalType.RISK,     "stability",            3),
             new SignalDescriptor("candidate_stack_gap",               SignalType.RISK,     "engineering_culture",  3),
             new SignalDescriptor("candidate_domain_gap",              SignalType.RISK,     "product_company",      3),
-            new SignalDescriptor("candidate_seniority_mismatch",      SignalType.RISK,     "engineering_culture",  4)
+            new SignalDescriptor("candidate_seniority_mismatch",      SignalType.RISK,     "engineering_culture",  4),
+            new SignalDescriptor("algorithmic_interview_risk",        SignalType.RISK,     "engineering_culture",  2),
+            new SignalDescriptor("pressure_culture_risk",             SignalType.RISK,     "work_life_balance",    2),
+            new SignalDescriptor("fake_flextime_risk",                SignalType.RISK,     "work_life_balance",    2),
+            new SignalDescriptor("traditional_corporate_process_risk",SignalType.RISK,     "english_environment",  2),
+            new SignalDescriptor("customer_site_risk",                SignalType.RISK,     "product_company",      2)
     );
 
     private static final Map<String, SignalDescriptor> BY_NAME;
@@ -94,7 +105,7 @@ public final class SignalRegistry {
 
     private SignalRegistry() {}
 
-    /** Returns an unmodifiable list of all 37 signal descriptors. */
+    /** Returns an unmodifiable list of all signal descriptors. */
     public static List<SignalDescriptor> all() {
         return ALL;
     }

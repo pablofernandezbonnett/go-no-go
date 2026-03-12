@@ -4,6 +4,7 @@ import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
+import com.pmfb.gonogo.engine.config.RuntimeSettingsConfig;
 import java.util.List;
 
 final class DecisionTestFixtureSupport {
@@ -79,7 +80,8 @@ final class DecisionTestFixtureSupport {
                                 "Recruitment / dispatch company"
                         )
                 ),
-                List.of()
+                List.of(),
+                RuntimeSettingsConfig.defaults()
         );
     }
 }

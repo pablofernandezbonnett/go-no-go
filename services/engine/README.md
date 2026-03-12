@@ -61,6 +61,7 @@ Implemented now:
 - CLI entrypoint (`gonogo` root command)
 - initial package structure for core modules
 - YAML config loader + validator
+- runtime operational defaults via `config/runtime.yaml`
 - `gonogo config validate` command
 - `gonogo fetch` command to normalize raw text into YAML
 - `gonogo fetch-web` command to fetch selected career pages from `config/companies.yaml`
@@ -78,6 +79,7 @@ Implemented now:
 - company profiling + reputation signals from `config/companies.yaml` tags
 - company reputation aggregation + index (`company_reputation_index`, 0-100)
 - engineering environment scoring signals (v1, rule-based from job text)
+- interview-process and Japan-market work-style signals (algorithmic screening risk, casual interview, real flextime, disclosed overtime)
 - persona-level salary floor (`minimum_salary_yen`) for candidate-market fit
 - runtime candidate profiles (`config/candidate-profiles/`) with candidate-aware stack/domain/seniority signals
 - run-level trend history and weekly deltas in pipeline output
@@ -86,6 +88,7 @@ Implemented now:
 - embedded Ops UI (`ops-ui`, Jaspr) with left navigation and dedicated screens (`Create Run`, `Runs`, `Company`, `Persona`, `Settings`)
 - Ops UI API endpoint to add companies into YAML config (`POST /api/config/companies`)
 - Ops UI API endpoint to add personas into YAML config (`POST /api/config/personas`)
+- Ops UI read-only candidate profile screen showing full YAML-backed candidate profile content
 - deterministic `DecisionEngineV1` with explainable output
 - baseline tests for decision rules, raw parsing, and report writing
 - regression fixtures for decision outcomes (`src/test/resources/fixtures/decision-regression/cases.yaml`)
@@ -102,6 +105,7 @@ config/
 ├── companies.yaml
 ├── personas.yaml
 ├── blacklist.yaml
+├── runtime.yaml
 └── candidate-profiles/
     ├── README.md
     └── pmfb.yaml
@@ -125,6 +129,7 @@ Configuration templates and field definitions:
 - `config/README.md`
 - `config/companies.example.yaml`
 - `config/personas.example.yaml`
+- `config/runtime.example.yaml`
 - `config/candidate-profiles/README.md`
 
 ## Getting Started
@@ -199,6 +204,42 @@ Run with an explicit candidate profile:
 ./gradlew run --args="check --persona product_expat_engineer_pragmatic --candidate-profile pmfb --stdin"
 ```
 
+## Local Benchmarking
+
+Keep benchmarking simple and comparable.
+
+Recommended workflow:
+
+1. Start with a deterministic company subset and fixed flags.
+2. Run once with a warm cache and once with cache disabled when needed.
+3. Compare the built-in timing summary before changing concurrency settings.
+
+Fetch-only baseline:
+
+```bash
+/usr/bin/time -l ./gradlew run --args="fetch-web --company-ids moneyforward,mercari --request-delay-millis 1200 --max-concurrency 4"
+```
+
+Pipeline baseline:
+
+```bash
+/usr/bin/time -l ./gradlew run --args="pipeline run --persona product_expat_engineer --fetch-web-first --fetch-web-company-ids moneyforward,mercari --fetch-web-max-concurrency 4"
+```
+
+Cold-cache comparison:
+
+```bash
+/usr/bin/time -l ./gradlew run --args="fetch-web --company-ids moneyforward,mercari --disable-cache --max-concurrency 4"
+```
+
+Use the CLI summaries to compare:
+
+- total duration
+- fetch / normalize / evaluate / report timings
+- fresh cache hits vs misses
+- retry count
+- outgoing request count
+
 Operations UI (MVP, in this repo):
 
 ```bash
@@ -212,9 +253,11 @@ Default URL: `http://localhost:8791`
 Current Ops UI capabilities:
 
 - Create runs with explicit pipeline parameters
+- Choose candidate-profile mode per run (`Auto`, `None`, or explicit profile)
+- Browse full read-only candidate profile detail loaded from YAML
 - View run history and run details (logs, command, status)
 - Add company entries to `config/companies.yaml` from UI form
-- Add persona entries to `config/personas.yaml` from UI form
+- Add persona entries to `config/personas.yaml` from UI form, including optional salary floor
 - Local UI settings (poll interval and auto-refresh)
 
 ## Command Reference
@@ -425,6 +468,23 @@ Pipeline integration:
 - Reliability flags are available in both commands:
   `--retries`, `--backoff-millis`, `--request-delay-millis`, `--cache-dir`, `--cache-ttl-minutes`, `--disable-cache`
   and pipeline-prefixed variants like `--fetch-web-retries`.
+- Bounded company-level fetch concurrency is available via `--max-concurrency` in `fetch-web`
+  and `--fetch-web-max-concurrency` in pipeline commands.
+- Shared-host politeness can also be bounded explicitly with `--max-concurrency-per-host`
+  and `--fetch-web-max-concurrency-per-host`.
+- Batch evaluation concurrency can be bounded explicitly with `--evaluate-max-concurrency`
+  in `pipeline run` and `pipeline run-all`.
+- Multi-persona execution can be parallelized with `--persona-concurrency` in `pipeline run-all`.
+- When `--persona-concurrency > 1`, `run-all` performs the fetch stage once up front and isolates
+  generated job YAML files under persona-specific subdirectories inside `--jobs-output-dir`.
+- `--fail-fast` remains a sequential-mode guard and requires `--persona-concurrency=1`.
+- When those fetch flags are not passed explicitly, the engine now uses `config/runtime.yaml`
+  for operational defaults such as retries, backoff, request delay, robots mode, cache TTL,
+  user-agent, timeout, max concurrency, and max concurrency per host.
+- The same runtime config also controls `evaluation.max_concurrency` when
+  `--evaluate-max-concurrency` is not provided explicitly.
+- The default fetch concurrency is conservative (`4`), the default per-host cap is `1`,
+  the default evaluation concurrency is `4`, and final report ordering remains deterministic.
 - By default, fetch-web enforces a host-level politeness delay (`--request-delay-millis=1200`).
 - For pipeline fetch stage, the equivalent flag is `--fetch-web-request-delay-millis`.
 - Robots policy for remote sites is configurable via `--robots-mode` / `--fetch-web-robots-mode`:

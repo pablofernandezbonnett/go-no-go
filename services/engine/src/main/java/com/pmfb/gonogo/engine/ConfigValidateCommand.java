@@ -43,6 +43,15 @@ public final class ConfigValidateCommand implements Callable<Integer> {
         System.out.println("personas: " + config.personas().size());
         System.out.println("blacklisted_companies: " + config.blacklistedCompanies().size());
         System.out.println("candidate_profiles: " + config.candidateProfiles().size());
+        System.out.println("runtime_fetch_web_max_concurrency: " + config.runtimeSettings().fetchWeb().maxConcurrency());
+        System.out.println(
+                "runtime_fetch_web_max_concurrency_per_host: "
+                        + config.runtimeSettings().fetchWeb().maxConcurrencyPerHost()
+        );
+        System.out.println(
+                "runtime_evaluation_max_concurrency: "
+                        + config.runtimeSettings().evaluation().maxConcurrency()
+        );
         return 0;
     }
 
