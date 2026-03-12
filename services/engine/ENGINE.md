@@ -81,6 +81,8 @@ Therefore the system focuses on:
 - Clear salary range
 - Product ownership
 - Transparent benefits
+- Interview process that looks experience-driven rather than puzzle-heavy
+- Real flextime or low disclosed overtime
 
 ---
 
@@ -92,6 +94,7 @@ Therefore the system focuses on:
 - Vague role definition
 - Consulting language
 - Onsite-only
+- Algorithm-heavy screening language when interview ROI is likely low
 
 ---
 

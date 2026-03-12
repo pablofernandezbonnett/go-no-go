@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine.job;
 
 import com.pmfb.gonogo.engine.config.CompanyConfig;
+import com.pmfb.gonogo.engine.config.FetchWebRuntimeConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -18,6 +19,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
@@ -26,10 +34,6 @@ public final class CareerPageFetchService {
     private static final int CONTEXT_DISCOVERY_MAX_URLS = 6;
     private static final int CONTEXT_SUMMARY_MAX_PAGES = 3;
     private static final Path DEFAULT_CONTEXT_OUTPUT_DIR = Path.of("output/company-context");
-    private static final int DEFAULT_RETRIES = 2;
-    private static final long DEFAULT_BACKOFF_MILLIS = 300;
-    private static final long DEFAULT_CACHE_TTL_MINUTES = 720;
-    private static final long DEFAULT_REQUEST_DELAY_MILLIS = 1200;
     private static final Path DEFAULT_CACHE_DIR = Path.of(".cache/fetch-web");
     private static final long MAX_BACKOFF_MILLIS = 10_000;
     private static final String ROBOTS_MODE_STRICT = "strict";
@@ -108,59 +112,194 @@ public final class CareerPageFetchService {
     public FetchOutcome fetchToRawFiles(List<CompanyConfig> companies, FetchOptions options) {
         List<CompanyConfig> selectedCompanies = selectCompanies(companies, options.companyIds());
         if (selectedCompanies.isEmpty()) {
-            return new FetchOutcome(0, 0, 0, 0, List.of(), List.of());
+            return new FetchOutcome(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, List.of(), List.of());
+        }
+
+        long startedAtMillis = Instant.now().toEpochMilli();
+        List<String> info = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        CareerPageResponseCache cache = options.cacheEnabled()
+                ? new CareerPageResponseCache(options.cacheDir())
+                : null;
+        CareerUrlResolutionStore resolutionStore = CareerUrlResolutionStore.load(DEFAULT_RESOLUTION_STATE_FILE, info);
+        FetchRuntimeState runtimeState = new FetchRuntimeState();
+        List<CompanyFetchWorkItem> workItems = new ArrayList<>();
+        for (int i = 0; i < selectedCompanies.size(); i++) {
+            CompanyConfig company = selectedCompanies.get(i);
+            workItems.add(new CompanyFetchWorkItem(i, company, resolutionStore.find(company.id())));
+        }
+
+        List<CompanyFetchResult> companyResults;
+        try {
+            companyResults = fetchCompanies(workItems, options, cache, runtimeState);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            errors.add("Fetch interrupted before completion.");
+            return new FetchOutcome(
+                    selectedCompanies.size(),
+                    selectedCompanies.size(),
+                    0,
+                    0,
+                    Instant.now().toEpochMilli() - startedAtMillis,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.copyOf(info),
+                    List.copyOf(errors)
+            );
         }
 
         int totalFiles = 0;
         int contextFiles = 0;
         int companyFailures = 0;
+        FetchStatsTracker stats = new FetchStatsTracker();
+
+        for (CompanyFetchResult result : companyResults) {
+            totalFiles += result.rawFilesGenerated();
+            contextFiles += result.contextFilesGenerated();
+            if (result.failed()) {
+                companyFailures++;
+            }
+            stats.addAll(result.stats());
+            info.addAll(result.informationalMessages());
+            errors.addAll(result.errorMessages());
+            result.resolutionEntry().ifPresent(resolutionStore::remember);
+        }
+
+        resolutionStore.save(DEFAULT_RESOLUTION_STATE_FILE, info);
+
+        return new FetchOutcome(
+                selectedCompanies.size(),
+                companyFailures,
+                totalFiles,
+                contextFiles,
+                Instant.now().toEpochMilli() - startedAtMillis,
+                stats.freshCacheHits(),
+                stats.cacheMisses(),
+                stats.staleCacheFallbacks(),
+                stats.retriesUsed(),
+                stats.outgoingRequests(),
+                List.copyOf(info),
+                List.copyOf(errors)
+        );
+    }
+
+    private String companyFetchTimingMessage(
+            String companyId,
+            long companyStartedAtMillis,
+            int companyRawFilesGenerated,
+            int companyContextFilesGenerated,
+            String companyStatus
+    ) {
+        long durationMillis = Math.max(0, Instant.now().toEpochMilli() - companyStartedAtMillis);
+        return "company_fetch_timing: "
+                + companyId
+                + " duration_ms="
+                + durationMillis
+                + " raw_files="
+                + companyRawFilesGenerated
+                + " context_files="
+                + companyContextFilesGenerated
+                + " status="
+                + companyStatus;
+    }
+
+    private List<CompanyFetchResult> fetchCompanies(
+            List<CompanyFetchWorkItem> workItems,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            FetchRuntimeState runtimeState
+    ) throws InterruptedException {
+        if (workItems.isEmpty()) {
+            return List.of();
+        }
+
+        int effectiveConcurrency = Math.min(workItems.size(), Math.max(1, options.maxConcurrency()));
+        if (effectiveConcurrency <= 1) {
+            List<CompanyFetchResult> results = new ArrayList<>();
+            for (CompanyFetchWorkItem workItem : workItems) {
+                results.add(fetchCompany(workItem, options, cache, runtimeState));
+            }
+            return List.copyOf(results);
+        }
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(
+                effectiveConcurrency,
+                Thread.ofVirtual().name("fetch-web-company-", 0).factory()
+        )) {
+            List<Future<CompanyFetchResult>> futures = new ArrayList<>();
+            for (CompanyFetchWorkItem workItem : workItems) {
+                futures.add(executor.submit(() -> fetchCompany(workItem, options, cache, runtimeState)));
+            }
+
+            List<CompanyFetchResult> results = new ArrayList<>();
+            for (int i = 0; i < futures.size(); i++) {
+                Future<CompanyFetchResult> future = futures.get(i);
+                CompanyFetchWorkItem workItem = workItems.get(i);
+                try {
+                    results.add(future.get());
+                } catch (ExecutionException e) {
+                    results.add(unexpectedFetchFailure(workItem.company(), e.getCause()));
+                }
+            }
+            return List.copyOf(results);
+        }
+    }
+
+    private CompanyFetchResult fetchCompany(
+            CompanyFetchWorkItem workItem,
+            FetchOptions options,
+            CareerPageResponseCache cache,
+            FetchRuntimeState runtimeState
+    ) {
+        CompanyConfig company = workItem.company();
+        long companyStartedAtMillis = Instant.now().toEpochMilli();
+        int companyRawFilesGenerated = 0;
+        int companyContextFilesGenerated = 0;
+        String companyStatus = "ok";
+        boolean failed = false;
         List<String> info = new ArrayList<>();
         List<String> errors = new ArrayList<>();
-        Map<String, Long> lastRequestByHost = new HashMap<>();
-        Map<String, Optional<RobotsTxtRules>> robotsRulesByHost = new HashMap<>();
-        CareerPageResponseCache cache = options.cacheEnabled()
-                ? new CareerPageResponseCache(options.cacheDir())
-                : null;
-        CareerUrlResolutionStore resolutionStore = CareerUrlResolutionStore.load(DEFAULT_RESOLUTION_STATE_FILE, info);
+        FetchStatsTracker stats = new FetchStatsTracker();
+        Optional<CareerUrlResolutionEntry> resolutionEntry = Optional.empty();
 
-        for (CompanyConfig company : selectedCompanies) {
-            try {
-                Optional<CareerUrlResolutionEntry> previousResolution = resolutionStore.find(company.id());
-                Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse = readFromCache(cache, company.careerUrl());
-                CareerPageHttpFetcher.FetchResult configuredResponse = chooseResponse(
-                        company,
-                        options,
-                        cachedResponse,
-                        cache,
-                        lastRequestByHost,
-                        robotsRulesByHost,
-                        info,
-                        errors
+        try {
+            Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse = readFromCache(cache, company.careerUrl());
+            CareerPageHttpFetcher.FetchResult configuredResponse = chooseResponse(
+                    company,
+                    options,
+                    cachedResponse,
+                    cache,
+                    runtimeState,
+                    stats,
+                    info,
+                    errors
+            );
+            CareerResolutionResult resolution = resolveCareerPageForJobs(
+                    company,
+                    configuredResponse,
+                    workItem.previousResolution(),
+                    options,
+                    cache,
+                    runtimeState,
+                    stats,
+                    info,
+                    errors
+            );
+
+            if (!resolution.reachable()) {
+                failed = true;
+                companyStatus = "failed";
+                errors.add(
+                        "Failed fetch for " + company.id()
+                                + " (" + company.careerUrl()
+                                + "): no reachable career page candidate."
                 );
-                CareerResolutionResult resolution = resolveCareerPageForJobs(
-                        company,
-                        configuredResponse,
-                        previousResolution,
-                        options,
-                        cache,
-                        lastRequestByHost,
-                        robotsRulesByHost,
-                        info,
-                        errors
-                );
-
-                if (!resolution.reachable()) {
-                    companyFailures++;
-                    errors.add(
-                            "Failed fetch for " + company.id()
-                                    + " (" + company.careerUrl()
-                                    + "): no reachable career page candidate."
-                    );
-                    continue;
-                }
-
+            } else {
                 if (resolution.hasResolvedUrl() && !resolution.jobs().isEmpty()) {
-                    resolutionStore.remember(new CareerUrlResolutionEntry(
+                    resolutionEntry = Optional.of(new CareerUrlResolutionEntry(
                             company.id(),
                             company.careerUrl(),
                             resolution.resolvedCareerUrl(),
@@ -176,46 +315,73 @@ public final class CareerPageFetchService {
                             resolution.contextResponse(),
                             options,
                             cache,
-                            lastRequestByHost,
-                            robotsRulesByHost,
+                            runtimeState,
+                            stats,
                             info,
                             errors
                     );
                     if (contextDocument.hasContent()) {
                         writeCompanyContextFile(options.contextOutputDir(), company, contextDocument);
-                        contextFiles++;
+                        companyContextFilesGenerated++;
                     }
                 }
 
                 List<JobPostingCandidate> jobs = resolution.jobs();
                 if (jobs.isEmpty()) {
+                    companyStatus = "no_jobs";
                     info.add("No job candidates detected for " + company.id() + ".");
-                    continue;
+                } else {
+                    int written = writeCompanyRawFiles(options.outputDir(), company, jobs);
+                    companyRawFilesGenerated = written;
+                    info.add("Fetched " + company.id() + ": " + written + " raw job files generated.");
                 }
-
-                int written = writeCompanyRawFiles(options.outputDir(), company, jobs);
-                totalFiles += written;
-                info.add("Fetched " + company.id() + ": " + written + " raw job files generated.");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                companyFailures++;
-                errors.add("Fetch interrupted for " + company.id() + ".");
-                break;
-            } catch (IOException e) {
-                companyFailures++;
-                errors.add("I/O failure for " + company.id() + ": " + e.getMessage());
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            failed = true;
+            companyStatus = "failed";
+            errors.add("Fetch interrupted for " + company.id() + ".");
+        } catch (IOException e) {
+            failed = true;
+            companyStatus = "failed";
+            errors.add("I/O failure for " + company.id() + ": " + e.getMessage());
+        } finally {
+            info.add(companyFetchTimingMessage(
+                    company.id(),
+                    companyStartedAtMillis,
+                    companyRawFilesGenerated,
+                    companyContextFilesGenerated,
+                    companyStatus
+            ));
         }
 
-        resolutionStore.save(DEFAULT_RESOLUTION_STATE_FILE, info);
-
-        return new FetchOutcome(
-                selectedCompanies.size(),
-                companyFailures,
-                totalFiles,
-                contextFiles,
+        return new CompanyFetchResult(
+                workItem.index(),
+                company.id(),
+                failed,
+                companyRawFilesGenerated,
+                companyContextFilesGenerated,
+                stats.snapshot(),
                 List.copyOf(info),
-                List.copyOf(errors)
+                List.copyOf(errors),
+                resolutionEntry
+        );
+    }
+
+    private CompanyFetchResult unexpectedFetchFailure(CompanyConfig company, Throwable cause) {
+        String message = cause == null || cause.getMessage() == null || cause.getMessage().isBlank()
+                ? "Unexpected fetch task failure."
+                : cause.getMessage();
+        return new CompanyFetchResult(
+                -1,
+                company.id(),
+                true,
+                0,
+                0,
+                new FetchStatsSnapshot(0, 0, 0, 0, 0),
+                List.of(),
+                List.of("Fetch failed for " + company.id() + ": " + message),
+                Optional.empty()
         );
     }
 
@@ -224,8 +390,8 @@ public final class CareerPageFetchService {
             FetchOptions options,
             Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse,
             CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -235,8 +401,8 @@ public final class CareerPageFetchService {
                 options,
                 cachedResponse,
                 cache,
-                lastRequestByHost,
-                robotsRulesByHost,
+                runtimeState,
+                stats,
                 info,
                 errors
         );
@@ -248,20 +414,23 @@ public final class CareerPageFetchService {
             FetchOptions options,
             Optional<CareerPageResponseCache.CachedFetchResult> cachedResponse,
             CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
-        if (!isAllowedByRobots(url, options, lastRequestByHost, robotsRulesByHost, info, errors, companyId)) {
+        if (!isAllowedByRobots(url, options, runtimeState, stats, info, errors, companyId)) {
             return null;
         }
         if (cachedResponse.isPresent() && isFresh(cachedResponse.get(), options.cacheTtlMinutes())) {
+            stats.recordFreshCacheHit();
             info.add("Using fresh cache for " + companyId + ".");
             return cachedResponse.get().response();
         }
 
-        FetchAttemptOutcome attempt = fetchWithRetry(url, options, lastRequestByHost);
+        stats.recordCacheMiss();
+        FetchAttemptOutcome attempt = fetchWithRetry(url, options, runtimeState, stats);
+        stats.addRetries(attempt.retriesUsed());
         if (attempt.response() != null && attempt.response().statusCode() < 400) {
             if (attempt.retriesUsed() > 0) {
                 info.add("Recovered " + companyId + " after " + attempt.retriesUsed() + " retry attempt(s).");
@@ -271,6 +440,7 @@ public final class CareerPageFetchService {
         }
 
         if (cachedResponse.isPresent()) {
+            stats.recordStaleCacheFallback();
             info.add("Using stale cache for " + companyId + " after fetch failure.");
             if (attempt.errorMessage() != null && !attempt.errorMessage().isBlank()) {
                 errors.add("Fetch warning for " + companyId + ": " + attempt.errorMessage());
@@ -295,8 +465,8 @@ public final class CareerPageFetchService {
             Optional<CareerUrlResolutionEntry> previousResolution,
             FetchOptions options,
             CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -350,8 +520,8 @@ public final class CareerPageFetchService {
                         options,
                         readFromCache(cache, candidateUrl),
                         cache,
-                        lastRequestByHost,
-                        robotsRulesByHost,
+                        runtimeState,
+                        stats,
                         info,
                         errors
                 );
@@ -592,8 +762,8 @@ public final class CareerPageFetchService {
             CareerPageHttpFetcher.FetchResult careerResponse,
             FetchOptions options,
             CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -606,8 +776,8 @@ public final class CareerPageFetchService {
                 company,
                 options,
                 cache,
-                lastRequestByHost,
-                robotsRulesByHost,
+                runtimeState,
+                stats,
                 info,
                 errors
         );
@@ -638,8 +808,8 @@ public final class CareerPageFetchService {
                         options,
                         readFromCache(cache, link.url()),
                         cache,
-                        lastRequestByHost,
-                        robotsRulesByHost,
+                        runtimeState,
+                        stats,
                         info,
                         errors
                 );
@@ -771,8 +941,8 @@ public final class CareerPageFetchService {
             CompanyConfig company,
             FetchOptions options,
             CareerPageResponseCache cache,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors
     ) throws InterruptedException {
@@ -788,8 +958,8 @@ public final class CareerPageFetchService {
                 options,
                 readFromCache(cache, company.corporateUrl()),
                 cache,
-                lastRequestByHost,
-                robotsRulesByHost,
+                runtimeState,
+                stats,
                 info,
                 errors
         );
@@ -820,8 +990,8 @@ public final class CareerPageFetchService {
     private boolean isAllowedByRobots(
             String url,
             FetchOptions options,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info,
             List<String> errors,
             String companyId
@@ -834,8 +1004,8 @@ public final class CareerPageFetchService {
         Optional<RobotsTxtRules> rulesOptional = loadRobotsRules(
                 url,
                 options,
-                lastRequestByHost,
-                robotsRulesByHost,
+                runtimeState,
+                stats,
                 info
         );
         if (rulesOptional.isEmpty()) {
@@ -857,12 +1027,12 @@ public final class CareerPageFetchService {
     private Optional<RobotsTxtRules> loadRobotsRules(
             String targetUrl,
             FetchOptions options,
-            Map<String, Long> lastRequestByHost,
-            Map<String, Optional<RobotsTxtRules>> robotsRulesByHost,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
             List<String> info
     ) throws InterruptedException {
         String host = hostKey(targetUrl);
-        Optional<RobotsTxtRules> cached = robotsRulesByHost.get(host);
+        Optional<RobotsTxtRules> cached = runtimeState.robotsRulesByHost().get(host);
         if (cached != null) {
             return cached;
         }
@@ -870,30 +1040,89 @@ public final class CareerPageFetchService {
         String robotsUrl = buildRobotsUrl(targetUrl);
         if (robotsUrl.isBlank()) {
             Optional<RobotsTxtRules> empty = Optional.empty();
-            robotsRulesByHost.put(host, empty);
+            runtimeState.robotsRulesByHost().put(host, empty);
             return empty;
         }
 
+        CompletableFuture<Optional<RobotsTxtRules>> created = new CompletableFuture<>();
+        CompletableFuture<Optional<RobotsTxtRules>> existing =
+                runtimeState.robotsLoadsInFlight().putIfAbsent(host, created);
+        if (existing != null) {
+            return waitForRobotsRules(host, existing, info);
+        }
+
         try {
-            applyRequestDelay(robotsUrl, options.requestDelayMillis(), lastRequestByHost);
+            Optional<RobotsTxtRules> loaded = fetchRobotsRulesFromNetwork(
+                    host,
+                    robotsUrl,
+                    options,
+                    runtimeState,
+                    stats,
+                    info
+            );
+            runtimeState.robotsRulesByHost().put(host, loaded);
+            created.complete(loaded);
+            return loaded;
+        } catch (InterruptedException e) {
+            created.completeExceptionally(e);
+            throw e;
+        } catch (RuntimeException e) {
+            created.completeExceptionally(e);
+            throw e;
+        } finally {
+            runtimeState.robotsLoadsInFlight().remove(host, created);
+        }
+    }
+
+    private Optional<RobotsTxtRules> waitForRobotsRules(
+            String host,
+            CompletableFuture<Optional<RobotsTxtRules>> future,
+            List<String> info
+    ) throws InterruptedException {
+        try {
+            Optional<RobotsTxtRules> loaded = future.get();
+            return loaded == null ? Optional.empty() : loaded;
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interrupted;
+            }
+            String message = cause == null || cause.getMessage() == null || cause.getMessage().isBlank()
+                    ? "unknown failure"
+                    : cause.getMessage();
+            info.add("robots_warning: failed to reuse robots.txt result for " + host + ": " + message);
+            return Optional.empty();
+        }
+    }
+
+    private Optional<RobotsTxtRules> fetchRobotsRulesFromNetwork(
+            String host,
+            String robotsUrl,
+            FetchOptions options,
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats,
+            List<String> info
+    ) throws InterruptedException {
+        Semaphore semaphore = runtimeState.hostSemaphore(host, options.maxConcurrencyPerHost());
+        semaphore.acquire();
+        try {
+            applyRequestDelay(robotsUrl, options.requestDelayMillis(), runtimeState);
+            stats.recordOutgoingRequest();
             CareerPageHttpFetcher.FetchResult robotsResponse = fetcher.fetch(
                     robotsUrl,
                     Duration.ofSeconds(Math.max(5, options.timeoutSeconds())),
                     options.userAgent()
             );
             if (robotsResponse.statusCode() >= 400) {
-                Optional<RobotsTxtRules> empty = Optional.empty();
-                robotsRulesByHost.put(host, empty);
-                return empty;
+                return Optional.empty();
             }
-            Optional<RobotsTxtRules> parsed = Optional.of(RobotsTxtRules.parse(robotsResponse.body()));
-            robotsRulesByHost.put(host, parsed);
-            return parsed;
+            return Optional.of(RobotsTxtRules.parse(robotsResponse.body()));
         } catch (IOException e) {
             info.add("robots_warning: failed to read robots.txt for " + host + ": " + e.getMessage());
-            Optional<RobotsTxtRules> empty = Optional.empty();
-            robotsRulesByHost.put(host, empty);
-            return empty;
+            return Optional.empty();
+        } finally {
+            semaphore.release();
         }
     }
 
@@ -918,20 +1147,30 @@ public final class CareerPageFetchService {
     private FetchAttemptOutcome fetchWithRetry(
             String url,
             FetchOptions options,
-            Map<String, Long> lastRequestByHost
+            FetchRuntimeState runtimeState,
+            FetchStatsTracker stats
     ) throws InterruptedException {
         int maxAttempts = Math.max(1, options.retries() + 1);
         int retriesUsed = 0;
         String lastError = null;
+        String host = hostKey(url);
+        Semaphore semaphore = runtimeState.hostSemaphore(host, options.maxConcurrencyPerHost());
 
         for (int attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex++) {
             try {
-                applyRequestDelay(url, options.requestDelayMillis(), lastRequestByHost);
-                CareerPageHttpFetcher.FetchResult response = fetcher.fetch(
-                        url,
-                        Duration.ofSeconds(Math.max(5, options.timeoutSeconds())),
-                        options.userAgent()
-                );
+                semaphore.acquire();
+                CareerPageHttpFetcher.FetchResult response;
+                try {
+                    applyRequestDelay(url, options.requestDelayMillis(), runtimeState);
+                    stats.recordOutgoingRequest();
+                    response = fetcher.fetch(
+                            url,
+                            Duration.ofSeconds(Math.max(5, options.timeoutSeconds())),
+                            options.userAgent()
+                    );
+                } finally {
+                    semaphore.release();
+                }
                 if (isRetryableStatus(response.statusCode()) && attemptIndex < maxAttempts - 1) {
                     retriesUsed++;
                     sleepWithBackoff(attemptIndex, options.backoffMillis());
@@ -953,24 +1192,26 @@ public final class CareerPageFetchService {
     private void applyRequestDelay(
             String url,
             long requestDelayMillis,
-            Map<String, Long> lastRequestByHost
+            FetchRuntimeState runtimeState
     ) throws InterruptedException {
         long normalizedDelayMillis = Math.max(0, requestDelayMillis);
-        if (normalizedDelayMillis == 0) {
-            return;
-        }
-
         String hostKey = hostKey(url);
-        long now = Instant.now().toEpochMilli();
-        Long lastRequestAt = lastRequestByHost.get(hostKey);
-        if (lastRequestAt != null) {
-            long elapsed = now - lastRequestAt;
-            long waitMillis = normalizedDelayMillis - elapsed;
-            if (waitMillis > 0) {
-                Thread.sleep(waitMillis);
+        Object hostLock = runtimeState.hostLock(hostKey);
+        synchronized (hostLock) {
+            if (normalizedDelayMillis == 0) {
+                return;
             }
+            long now = Instant.now().toEpochMilli();
+            Long lastRequestAt = runtimeState.lastRequestByHost().get(hostKey);
+            if (lastRequestAt != null) {
+                long elapsed = now - lastRequestAt;
+                long waitMillis = normalizedDelayMillis - elapsed;
+                if (waitMillis > 0) {
+                    Thread.sleep(waitMillis);
+                }
+            }
+            runtimeState.lastRequestByHost().put(hostKey, Instant.now().toEpochMilli());
         }
-        lastRequestByHost.put(hostKey, Instant.now().toEpochMilli());
     }
 
     private String hostKey(String url) {
@@ -1420,6 +1661,8 @@ public final class CareerPageFetchService {
             int retries,
             long backoffMillis,
             long requestDelayMillis,
+            int maxConcurrency,
+            int maxConcurrencyPerHost,
             Path contextOutputDir,
             boolean contextEnabled,
             String robotsMode,
@@ -1434,14 +1677,16 @@ public final class CareerPageFetchService {
                     maxJobsPerCompany,
                     timeoutSeconds,
                     userAgent,
-                    DEFAULT_RETRIES,
-                    DEFAULT_BACKOFF_MILLIS,
-                    DEFAULT_REQUEST_DELAY_MILLIS,
+                    FetchWebRuntimeConfig.defaults().retries(),
+                    FetchWebRuntimeConfig.defaults().backoffMillis(),
+                    FetchWebRuntimeConfig.defaults().requestDelayMillis(),
+                    FetchWebRuntimeConfig.defaults().maxConcurrency(),
+                    FetchWebRuntimeConfig.defaults().maxConcurrencyPerHost(),
                     DEFAULT_CONTEXT_OUTPUT_DIR,
                     true,
-                    ROBOTS_MODE_STRICT,
+                    FetchWebRuntimeConfig.defaults().robotsMode(),
                     DEFAULT_CACHE_DIR,
-                    DEFAULT_CACHE_TTL_MINUTES,
+                    FetchWebRuntimeConfig.defaults().cacheTtlMinutes(),
                     true
             );
         }
@@ -1457,6 +1702,8 @@ public final class CareerPageFetchService {
             retries = Math.max(0, retries);
             backoffMillis = Math.max(0, backoffMillis);
             requestDelayMillis = Math.max(0, requestDelayMillis);
+            maxConcurrency = Math.max(1, maxConcurrency);
+            maxConcurrencyPerHost = Math.max(1, maxConcurrencyPerHost);
             contextOutputDir = contextOutputDir == null ? DEFAULT_CONTEXT_OUTPUT_DIR : contextOutputDir;
             robotsMode = normalizeRobotsMode(robotsMode);
             cacheDir = cacheDir == null ? DEFAULT_CACHE_DIR : cacheDir;
@@ -1469,11 +1716,149 @@ public final class CareerPageFetchService {
             int companiesFailed,
             int rawFilesGenerated,
             int contextFilesGenerated,
+            long totalDurationMillis,
+            int freshCacheHitCount,
+            int cacheMissCount,
+            int staleCacheFallbackCount,
+            int retryCount,
+            int outgoingRequestCount,
             List<String> informationalMessages,
             List<String> errorMessages
     ) {
         public boolean allSelectedCompaniesFailed() {
             return selectedCompanies > 0 && companiesFailed == selectedCompanies;
+        }
+    }
+
+    private static final class FetchStatsTracker {
+        private int freshCacheHits;
+        private int cacheMisses;
+        private int staleCacheFallbacks;
+        private int retriesUsed;
+        private int outgoingRequests;
+
+        private void recordFreshCacheHit() {
+            freshCacheHits++;
+        }
+
+        private void recordCacheMiss() {
+            cacheMisses++;
+        }
+
+        private void recordStaleCacheFallback() {
+            staleCacheFallbacks++;
+        }
+
+        private void addRetries(int count) {
+            retriesUsed += Math.max(0, count);
+        }
+
+        private void recordOutgoingRequest() {
+            outgoingRequests++;
+        }
+
+        private void addAll(FetchStatsSnapshot snapshot) {
+            if (snapshot == null) {
+                return;
+            }
+            freshCacheHits += Math.max(0, snapshot.freshCacheHits());
+            cacheMisses += Math.max(0, snapshot.cacheMisses());
+            staleCacheFallbacks += Math.max(0, snapshot.staleCacheFallbacks());
+            retriesUsed += Math.max(0, snapshot.retriesUsed());
+            outgoingRequests += Math.max(0, snapshot.outgoingRequests());
+        }
+
+        private FetchStatsSnapshot snapshot() {
+            return new FetchStatsSnapshot(
+                    freshCacheHits,
+                    cacheMisses,
+                    staleCacheFallbacks,
+                    retriesUsed,
+                    outgoingRequests
+            );
+        }
+
+        private int freshCacheHits() {
+            return freshCacheHits;
+        }
+
+        private int cacheMisses() {
+            return cacheMisses;
+        }
+
+        private int staleCacheFallbacks() {
+            return staleCacheFallbacks;
+        }
+
+        private int retriesUsed() {
+            return retriesUsed;
+        }
+
+        private int outgoingRequests() {
+            return outgoingRequests;
+        }
+    }
+
+    private record FetchStatsSnapshot(
+            int freshCacheHits,
+            int cacheMisses,
+            int staleCacheFallbacks,
+            int retriesUsed,
+            int outgoingRequests
+    ) {
+    }
+
+    private record CompanyFetchWorkItem(
+            int index,
+            CompanyConfig company,
+            Optional<CareerUrlResolutionEntry> previousResolution
+    ) {
+    }
+
+    private record CompanyFetchResult(
+            int index,
+            String companyId,
+            boolean failed,
+            int rawFilesGenerated,
+            int contextFilesGenerated,
+            FetchStatsSnapshot stats,
+            List<String> informationalMessages,
+            List<String> errorMessages,
+            Optional<CareerUrlResolutionEntry> resolutionEntry
+    ) {
+    }
+
+    private static final class FetchRuntimeState {
+        private final ConcurrentHashMap<String, Long> lastRequestByHost = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, Optional<RobotsTxtRules>> robotsRulesByHost = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, Object> hostLocks = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, Semaphore> hostSemaphores = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, CompletableFuture<Optional<RobotsTxtRules>>> robotsLoadsInFlight =
+                new ConcurrentHashMap<>();
+
+        private ConcurrentHashMap<String, Long> lastRequestByHost() {
+            return lastRequestByHost;
+        }
+
+        private ConcurrentHashMap<String, Optional<RobotsTxtRules>> robotsRulesByHost() {
+            return robotsRulesByHost;
+        }
+
+        private Object hostLock(String host) {
+            String normalizedHost = host == null ? "" : host;
+            return hostLocks.computeIfAbsent(normalizedHost, ignored -> new Object());
+        }
+
+        private Semaphore hostSemaphore(String host, int maxConcurrencyPerHost) {
+            String normalizedHost = host == null ? "" : host;
+            return hostSemaphores.computeIfAbsent(
+                    normalizedHost,
+                    ignored -> new Semaphore(Math.max(1, maxConcurrencyPerHost), true)
+            );
+        }
+
+        private ConcurrentHashMap<String, CompletableFuture<Optional<RobotsTxtRules>>> robotsLoadsInFlight() {
+            return robotsLoadsInFlight;
         }
     }
 

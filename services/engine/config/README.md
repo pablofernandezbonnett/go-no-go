@@ -6,11 +6,13 @@ Active files:
 - `companies.yaml`
 - `personas.yaml`
 - `blacklist.yaml`
+- `runtime.yaml` - operational runtime defaults for fetch/pipeline commands
 - `candidate-profiles/` - optional runtime candidate profiles used for candidate-aware evaluation
 
 Templates/examples:
 - `companies.example.yaml`
 - `personas.example.yaml`
+- `runtime.example.yaml`
 - `candidate-profiles/README.md`
 
 Use the example files as schema guides when adding new entries.
@@ -88,6 +90,33 @@ Runtime behavior:
 Current candidate-aware signals:
 - positive: `candidate_stack_fit`, `candidate_domain_fit`, `candidate_seniority_fit`
 - risk: `candidate_stack_gap`, `candidate_domain_gap`, `candidate_seniority_mismatch`
+
+## runtime.yaml
+
+Top-level key:
+- `fetch_web`: operational defaults used when CLI flags are not provided explicitly
+- `evaluation`: operational defaults used by batch/pipeline evaluation stages when CLI flags are not provided explicitly
+
+Supported `fetch_web` fields:
+- `timeout_seconds`
+- `user_agent`
+- `retries`
+- `backoff_millis`
+- `request_delay_millis`
+- `max_concurrency`
+- `max_concurrency_per_host`
+- `robots_mode`
+- `cache_ttl_minutes`
+
+Supported `evaluation` fields:
+- `max_concurrency`
+
+Priority order:
+- explicit CLI flag
+- `config/runtime.yaml`
+- built-in fallback
+
+This keeps fetch and pipeline behavior configurable at runtime without turning every operational default into a compile-time constant.
 
 ## Validation
 

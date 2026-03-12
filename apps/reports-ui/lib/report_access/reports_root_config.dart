@@ -1,21 +1,25 @@
 import 'dart:io';
 
 class ReportsRootConfig {
+  static const String envVarName = 'REPORTS_ROOT';
+  static const String fallbackReportsRoot = 'output';
+  static const String monorepoReportsRoot = '../../services/engine/output';
+
   const ReportsRootConfig({
     required this.reportsRoot,
   });
-
-  static const String envVarName = 'REPORTS_ROOT';
-  static const String defaultReportsRoot = 'output';
 
   final String reportsRoot;
 
   factory ReportsRootConfig.fromEnvironment({
     Map<String, String>? environment,
+    String? currentWorkingDirectory,
   }) {
     final env = environment ?? Platform.environment;
     final configured = env[envVarName];
-    final value = (configured == null || configured.trim().isEmpty) ? defaultReportsRoot : configured.trim();
+    final value = (configured == null || configured.trim().isEmpty)
+        ? _defaultReportsRootForCwd(currentWorkingDirectory ?? Directory.current.path)
+        : configured.trim();
     return ReportsRootConfig(reportsRoot: value);
   }
 
@@ -40,6 +44,15 @@ class ReportsRootConfig {
       ),
     );
   }
+}
+
+String _defaultReportsRootForCwd(String currentWorkingDirectory) {
+  final cwd = Directory(currentWorkingDirectory).absolute.path;
+  final monorepoCandidate = Directory('$cwd${Platform.pathSeparator}${ReportsRootConfig.monorepoReportsRoot}').absolute;
+  if (monorepoCandidate.existsSync()) {
+    return ReportsRootConfig.monorepoReportsRoot;
+  }
+  return ReportsRootConfig.fallbackReportsRoot;
 }
 
 bool _isAbsolutePath(String path) {
