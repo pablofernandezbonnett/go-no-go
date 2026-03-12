@@ -10,12 +10,16 @@ import 'dart:io';
 import 'package:jaspr/dom.dart';
 // Server-specific Jaspr import.
 import 'package:jaspr/server.dart';
+import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
 // Imports the [App] component.
 import 'app.dart';
+import 'backend/engine_catalog_repository.dart';
+import 'backend/evaluation_runner.dart';
+import 'constants/evaluation_contract.dart';
 import 'report_access/report_access.dart';
 
 // This file is generated automatically by Jaspr, do not remove or edit.
@@ -33,24 +37,100 @@ void main() async {
 
   final port = _resolvePort(Platform.environment);
   var router = Router();
+  final engineRoot = _resolveEngineRoot(Platform.environment);
+  final gradlew = _resolveGradlew(Platform.environment);
   final reportsConfig = ReportsRootConfig.fromEnvironment();
+  final reportsRoot = reportsConfig.resolveDirectory();
   final reportSource = ReportSource(config: reportsConfig);
   const reportIndexBuilder = ReportIndexBuilder();
+  final engineCatalogRepository = EngineCatalogRepository(engineRoot: engineRoot);
+  final evaluationRunner = EngineEvaluationRunner(
+    engineRoot: engineRoot,
+    reportsRoot: reportsRoot,
+    gradlewCommand: gradlew,
+  );
 
   // Route your api requests to your own endpoint.
-  router.get('/api/health', (request) {
+  router.get(healthApiPath, (request) {
     return Response.ok('ok');
   });
 
-  router.get('/api/reports/index', (request) async {
+  router.get(reportsIndexApiPath, (request) async {
     final sourceResult = await reportSource.discoverArtifacts();
     final index = reportIndexBuilder.build(sourceResult);
     return Response.ok(
       jsonEncode(index.toJson()),
       headers: const {
-        'content-type': 'application/json',
+        'content-type': jsonContentType,
       },
     );
+  });
+
+  router.get(evaluateOptionsApiPath, (request) async {
+    try {
+      final catalog = await engineCatalogRepository.loadEvaluateCatalog();
+      return Response.ok(
+        jsonEncode(catalog.toJson()),
+        headers: const {'content-type': jsonContentType},
+      );
+    } catch (error) {
+      return Response.internalServerError(
+        body: jsonEncode({
+          'error': evaluationErrorOptionsLoadFailed,
+          'message': 'Failed to load evaluation options.',
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    }
+  });
+
+  router.post(evaluateApiPath, (request) async {
+    try {
+      final body = await request.readAsString();
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) {
+        return Response(
+          HttpStatus.badRequest,
+          body: jsonEncode({
+            'error': evaluationErrorInvalidPayload,
+            'message': 'Request body must be a JSON object.',
+          }),
+          headers: const {'content-type': jsonContentType},
+        );
+      }
+
+      final evaluationRequest = EvaluationRequest.fromJson(decoded);
+      final result = await evaluationRunner.evaluate(evaluationRequest);
+      return Response.ok(
+        jsonEncode(result),
+        headers: const {'content-type': jsonContentType},
+      );
+    } on FormatException catch (error) {
+      return Response(
+        HttpStatus.badRequest,
+        body: jsonEncode({
+          'error': evaluationErrorInvalidRequest,
+          'message': error.message,
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    } on StateError catch (error) {
+      return Response.internalServerError(
+        body: jsonEncode({
+          'error': evaluationErrorEvaluationFailed,
+          'message': _safeEvaluationMessage(error.message),
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    } catch (error) {
+      return Response.internalServerError(
+        body: jsonEncode({
+          'error': evaluationErrorEvaluationFailed,
+          'message': 'The engine evaluation could not be completed.',
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    }
   });
 
   // Use [serveApp] instead of [runApp] to get a shelf handler you can mount.
@@ -116,9 +196,28 @@ HttpServer? activeServer;
 /// This is needed to track reloads which might happen in quick succession.
 Object? activeReloadLock;
 
+Directory _resolveEngineRoot(Map<String, String> environment) {
+  final configured = environment[engineRootEnvVar];
+  if (configured != null && configured.trim().isNotEmpty) {
+    return Directory(configured.trim()).absolute;
+  }
+
+  final cwd = Directory.current.absolute.path;
+  final defaultRoot = p.normalize(p.join(cwd, '..', '..', 'services', 'engine'));
+  return Directory(defaultRoot).absolute;
+}
+
+String _resolveGradlew(Map<String, String> environment) {
+  final configured = environment[engineGradlewEnvVar];
+  if (configured != null && configured.trim().isNotEmpty) {
+    return configured.trim();
+  }
+  return './gradlew';
+}
+
 int _resolvePort(Map<String, String> environment) {
   const fallbackPort = 8792;
-  final candidates = [environment['REPORTS_UI_PORT'], environment['PORT']];
+  final candidates = [environment[reportsUiPortEnvVar], environment[fallbackPortEnvVar]];
   for (final candidate in candidates) {
     final parsed = int.tryParse(candidate?.trim() ?? '');
     if (parsed != null && parsed > 0 && parsed <= 65535) {
@@ -126,4 +225,15 @@ int _resolvePort(Map<String, String> environment) {
     }
   }
   return fallbackPort;
+}
+
+String _safeEvaluationMessage(String message) {
+  final trimmed = message.trim();
+  if (trimmed.isEmpty) {
+    return 'The engine evaluation could not be completed.';
+  }
+  if (trimmed.contains(Platform.pathSeparator) || trimmed.contains('\\')) {
+    return 'The engine evaluation could not be completed.';
+  }
+  return trimmed;
 }
