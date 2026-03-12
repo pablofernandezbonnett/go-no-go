@@ -6,7 +6,7 @@ Monorepo for the Go No-Go system.
 
 - `services/engine`: core engine and CLI-driven workflows
 - `services/engine/ops-ui`: visual configuration UI owned by the engine
-- `apps/reports-ui`: reporting UI
+- `apps/reports-ui`: reporting UI plus ad-hoc job evaluation delegated to the engine
 
 ## Local UI Ports
 

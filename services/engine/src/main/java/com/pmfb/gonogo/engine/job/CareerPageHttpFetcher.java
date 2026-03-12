@@ -10,12 +10,25 @@ import java.util.Optional;
 
 public final class CareerPageHttpFetcher implements CareerPageFetcher {
     private static final int MAX_REDIRECTS = 6;
+    @FunctionalInterface
+    public interface UriSafetyValidator {
+        void validate(URI uri) throws IOException;
+    }
+
+    private static final UriSafetyValidator ALLOW_ALL_URIS = uri -> {
+    };
     private final HttpClient client;
+    private final UriSafetyValidator uriSafetyValidator;
 
     public CareerPageHttpFetcher() {
+        this(ALLOW_ALL_URIS);
+    }
+
+    public CareerPageHttpFetcher(UriSafetyValidator uriSafetyValidator) {
         this.client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
+        this.uriSafetyValidator = uriSafetyValidator == null ? ALLOW_ALL_URIS : uriSafetyValidator;
     }
 
     @Override
@@ -48,6 +61,7 @@ public final class CareerPageHttpFetcher implements CareerPageFetcher {
             Duration timeout,
             String userAgent
     ) throws IOException, InterruptedException {
+        uriSafetyValidator.validate(uri);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(uri)
                 .timeout(timeout)
