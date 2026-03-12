@@ -281,8 +281,12 @@ Current Ops UI capabilities:
 
 `evaluate-input`
 
-- Evaluates directly from `--job-url` or from raw text (`--raw-text-file` / `--raw-text`).
-- Useful for quick checks without generating intermediate YAML files.
+- Evaluates directly from `--job-url` or from raw text (`--raw-text-file` / `--raw-text` / `--stdin`).
+- Supports `--output-format text|json`.
+- Supports `--output-analysis-file` to persist a YAML artifact with normalized input plus evaluation output.
+- Used by `apps/reports-ui` for ad-hoc URL/raw-text evaluation.
+- Rejects localhost/private-network URLs in direct URL mode.
+- Sanitizes raw HTML/script-like pasted input into safe plain text before parsing/storing artifacts.
 
 `check` (aliases: `quick-check`, `qc`)
 
@@ -375,6 +379,16 @@ Quick evaluate from raw text file:
 
 ```bash
 ./gradlew run --args="evaluate-input --persona product_expat_engineer --raw-text-file examples/raw-job-text.example.txt"
+```
+
+Quick evaluate from pasted stdin and persist a YAML analysis artifact:
+
+```bash
+cat <<'EOF' | ./gradlew run --args="evaluate-input --persona product_expat_engineer --stdin --output-format json --output-analysis-file output/ad-hoc-evaluations/example.yaml"
+About the job
+Senior Backend Engineer
+Salary: JPY 8,000,000 - 10,000,000
+EOF
 ```
 
 Build:
