@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 class RunRequest {
   const RunRequest({
     required this.personaId,
+    required this.candidateProfileId,
     required this.companyIds,
     required this.fetchWebFirst,
     required this.robotsMode,
@@ -37,6 +38,7 @@ class RunRequest {
   static const int maxTopPerSection = 20;
 
   final String personaId;
+  final String candidateProfileId;
   final List<String> companyIds;
   final bool fetchWebFirst;
   final String robotsMode;
@@ -49,6 +51,7 @@ class RunRequest {
 
   static RunRequest fromJson(Map<String, dynamic> json) {
     final personaId = (json['personaId']?.toString() ?? '').trim();
+    final candidateProfileId = (json['candidateProfileId']?.toString() ?? '').trim();
     final companyIds = _asStringList(json['companyIds']);
     final fetchWebFirst = json['fetchWebFirst'] == true;
     final robotsMode = (json['robotsMode']?.toString() ?? robotsModeStrict).trim().toLowerCase();
@@ -61,6 +64,7 @@ class RunRequest {
 
     _validate(
       personaId: personaId,
+      candidateProfileId: candidateProfileId,
       companyIds: companyIds,
       robotsMode: robotsMode,
       maxJobsPerCompany: maxJobsPerCompany,
@@ -73,6 +77,7 @@ class RunRequest {
 
     return RunRequest(
       personaId: personaId,
+      candidateProfileId: candidateProfileId,
       companyIds: companyIds,
       fetchWebFirst: fetchWebFirst,
       robotsMode: robotsMode,
@@ -88,6 +93,7 @@ class RunRequest {
   Map<String, Object?> toJson() {
     return {
       'personaId': personaId,
+      'candidateProfileId': candidateProfileId,
       'companyIds': companyIds,
       'fetchWebFirst': fetchWebFirst,
       'robotsMode': robotsMode,
@@ -126,6 +132,7 @@ class RunRequest {
 
   static void _validate({
     required String personaId,
+    required String candidateProfileId,
     required List<String> companyIds,
     required String robotsMode,
     required int maxJobsPerCompany,
@@ -139,6 +146,9 @@ class RunRequest {
       throw const FormatException('personaId is required.');
     }
     final idPattern = RegExp(r'^[a-zA-Z0-9_-]+$');
+    if (candidateProfileId.isNotEmpty && !idPattern.hasMatch(candidateProfileId)) {
+      throw FormatException('Invalid candidateProfileId: $candidateProfileId');
+    }
     for (final companyId in companyIds) {
       if (!idPattern.hasMatch(companyId)) {
         throw FormatException('Invalid company id: $companyId');
@@ -375,6 +385,10 @@ class RunManager {
       request.robotsMode,
     ];
 
+    if (request.candidateProfileId.isNotEmpty) {
+      args.add('--candidate-profile');
+      args.add(request.candidateProfileId);
+    }
     if (request.fetchWebFirst) {
       args.add('--fetch-web-first');
     }
@@ -388,12 +402,7 @@ class RunManager {
 
   String _buildRunId() {
     final now = DateTime.now().toUtc();
-    final ts = now
-        .toIso8601String()
-        .replaceAll(':', '')
-        .replaceAll('-', '')
-        .replaceAll('.', '')
-        .replaceAll('Z', '');
+    final ts = now.toIso8601String().replaceAll(':', '').replaceAll('-', '').replaceAll('.', '').replaceAll('Z', '');
     final suffix = now.microsecondsSinceEpoch.remainder(100000).toString().padLeft(5, '0');
     return 'run-$ts-$suffix';
   }

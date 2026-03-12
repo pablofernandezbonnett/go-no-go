@@ -84,6 +84,126 @@ Deliverable status:
 
 ---
 
+## Phase 6.5 — Performance And Throughput (next)
+
+Goal:
+Reduce end-to-end runtime without making the engine harder to reason about.
+
+Principles:
+- keep deterministic outputs
+- parallelize at clear boundaries first
+- preserve robots.txt and per-host politeness guarantees
+- prefer simple Java concurrency primitives over reactive rewrites
+- measure first, then optimize the slow path
+
+Execution plan:
+
+### Step 1 — Baseline Timing And Visibility
+
+Purpose:
+Understand where time is actually spent before changing concurrency behavior.
+
+Tasks:
+
+- [x] add phase timing to `fetch-web` summary (per company + total)
+- [x] add timing to pipeline summary (fetch, normalize, evaluate, report)
+- [x] log cache hit/miss counts and retry counts
+- [x] document a simple local benchmarking workflow
+
+Expected outcome:
+- clear baseline for fetch bottlenecks
+- confidence about where parallelism will help most
+
+### Step 2 — Safe Fetch Concurrency Per Company
+
+Purpose:
+Speed up `fetch-web` while keeping the current imperative code shape.
+
+Tasks:
+
+- [x] introduce bounded company-level concurrency in `CareerPageFetchService`
+- [x] use Java virtual threads for blocking fetch tasks
+- [x] keep output ordering deterministic after task completion
+- [x] add a small CLI/config surface such as `--max-concurrency`
+- [x] keep default conservative rather than “max speed”
+
+Expected outcome:
+- meaningful speedup on multi-company runs
+- minimal complexity increase
+
+### Step 3 — Host-Aware Politeness Under Concurrency
+
+Purpose:
+Make parallel fetch safe for shared hosts and ATS providers.
+
+Tasks:
+
+- [x] replace shared mutable fetch timing maps with concurrency-safe host state
+- [x] enforce per-host delay correctly under parallel execution
+- [x] add optional `--max-concurrency-per-host`
+- [x] keep robots resolution cached per host without duplicate fetches
+
+Expected outcome:
+- concurrent fetch without breaking request-delay guarantees
+- better behavior on shared ATS domains
+
+### Step 4 — Parallel Evaluation In `pipeline run`
+
+Purpose:
+Reduce evaluation time when many raw jobs are already present.
+
+Tasks:
+
+- [x] parallelize job evaluation after raw parsing / change detection
+- [x] preserve stable ordering in batch outputs
+- [x] keep report writing and final aggregation single-threaded
+- [x] add tests for deterministic output ordering
+
+Expected outcome:
+- faster batch evaluation with no report-format surprises
+
+### Step 5 — Parallel Persona Runs In `pipeline run-all`
+
+Purpose:
+Speed up multi-persona execution only after shared inputs are stable.
+
+Tasks:
+
+- [x] isolate shared intermediate artifacts where needed
+- [x] parallelize per-persona evaluation runs after fetch stage is complete
+- [x] keep fetch stage single-execution and shared
+- [x] add a conservative `--persona-concurrency` option
+
+Expected outcome:
+- faster `run-all` for multiple personas
+- no collisions in outputs or state files
+
+### Step 6 — Optional HTTP Client Upgrade (only if still needed)
+
+Purpose:
+Avoid premature complexity if virtual-thread concurrency already solves the problem.
+
+Tasks:
+
+- [ ] reassess whether `HttpClient.sendAsync(...)` is necessary
+- [ ] only consider async fetch if bounded virtual-thread fetch still underperforms
+- [ ] avoid reactive framework adoption unless there is clear evidence
+
+Expected outcome:
+- no unnecessary rewrite
+- higher complexity only if justified by measurements
+
+First implementation target:
+- Step 1
+- then Step 2 with company-level virtual-thread concurrency
+
+Non-goals for this track:
+- no reactive rewrite
+- no microservice split
+- no speculative infra work
+
+---
+
 ## Phase 7 — Discovery Engine (planned, no AI)
 
 Goal:

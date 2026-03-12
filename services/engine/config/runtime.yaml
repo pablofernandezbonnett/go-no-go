@@ -1,0 +1,13 @@
+fetch_web:
+  timeout_seconds: 20
+  user_agent: "go-no-go-engine/0.1 (+https://local)"
+  retries: 2
+  backoff_millis: 300
+  request_delay_millis: 1200
+  max_concurrency: 4
+  max_concurrency_per_host: 1
+  robots_mode: strict
+  cache_ttl_minutes: 720
+
+evaluation:
+  max_concurrency: 4

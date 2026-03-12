@@ -13,12 +13,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 public final class DecisionEngineV1 {
+    private final MarketSignalDetector marketSignalDetector;
     private static final int POSITIVE_PRIORITY_WEIGHT = 2;
     private static final int POSITIVE_DEFAULT_WEIGHT = 1;
     private static final int RISK_PRIORITY_WEIGHT = 3;
@@ -71,6 +73,15 @@ public final class DecisionEngineV1 {
             "negotiable",
             "competitive"
     );
+
+    public DecisionEngineV1() {
+        this(new MarketSignalDetector());
+    }
+
+    DecisionEngineV1(MarketSignalDetector marketSignalDetector) {
+        this.marketSignalDetector = Objects.requireNonNull(marketSignalDetector, "marketSignalDetector");
+    }
+
     private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
             "onsite-only",
             "on-site only",
@@ -471,7 +482,6 @@ public final class DecisionEngineV1 {
     );
     private static final List<String> WORK_LIFE_BALANCE_KEYWORDS = List.of(
             "work-life balance",
-            "flexible hours",
             "no overtime",
             "mental health",
             "well-being"
@@ -537,6 +547,12 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_CANDIDATE_STACK_FIT = "candidate_stack_fit";
     private static final String SIGNAL_CANDIDATE_DOMAIN_FIT = "candidate_domain_fit";
     private static final String SIGNAL_CANDIDATE_SENIORITY_FIT = "candidate_seniority_fit";
+    private static final String SIGNAL_PRODUCT_PM_COLLABORATION = "product_pm_collaboration";
+    private static final String SIGNAL_ENGINEERING_MATURITY = "engineering_maturity";
+    private static final String SIGNAL_CASUAL_INTERVIEW = "casual_interview";
+    private static final String SIGNAL_ASYNC_COMMUNICATION = "async_communication";
+    private static final String SIGNAL_REAL_FLEXTIME = "real_flextime";
+    private static final String SIGNAL_LOW_OVERTIME_DISCLOSED = "low_overtime_disclosed";
 
     private static final String SIGNAL_SALARY_LOW_CONFIDENCE = "salary_low_confidence";
     private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = "salary_below_persona_floor";
@@ -564,6 +580,11 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_CANDIDATE_STACK_GAP = "candidate_stack_gap";
     private static final String SIGNAL_CANDIDATE_DOMAIN_GAP = "candidate_domain_gap";
     private static final String SIGNAL_CANDIDATE_SENIORITY_MISMATCH = "candidate_seniority_mismatch";
+    private static final String SIGNAL_ALGORITHMIC_INTERVIEW_RISK = "algorithmic_interview_risk";
+    private static final String SIGNAL_PRESSURE_CULTURE_RISK = "pressure_culture_risk";
+    private static final String SIGNAL_FAKE_FLEXTIME_RISK = "fake_flextime_risk";
+    private static final String SIGNAL_TRADITIONAL_CORPORATE_PROCESS_RISK = "traditional_corporate_process_risk";
+    private static final String SIGNAL_CUSTOMER_SITE_RISK = "customer_site_risk";
     private static final int EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE = 4;
     private static final int EXTRA_RISK_PENALTY_ROLE_MISMATCH = 2;
     private static final int EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH = 3;
@@ -713,7 +734,13 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG, PRIORITY_STABILITY),
             Map.entry(SIGNAL_CANDIDATE_STACK_FIT, PRIORITY_ENGINEERING_CULTURE),
             Map.entry(SIGNAL_CANDIDATE_DOMAIN_FIT, PRIORITY_PRODUCT_COMPANY),
-            Map.entry(SIGNAL_CANDIDATE_SENIORITY_FIT, PRIORITY_ENGINEERING_CULTURE)
+            Map.entry(SIGNAL_CANDIDATE_SENIORITY_FIT, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_PRODUCT_PM_COLLABORATION, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_ENGINEERING_MATURITY, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_CASUAL_INTERVIEW, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_ASYNC_COMMUNICATION, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_REAL_FLEXTIME, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_LOW_OVERTIME_DISCLOSED, PRIORITY_WORK_LIFE_BALANCE)
     );
     private static final Map<String, String> RISK_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_LOW_CONFIDENCE, PRIORITY_SALARY),
@@ -741,7 +768,12 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_COMPANY_REPUTATION_RISK_HIGH, PRIORITY_STABILITY),
             Map.entry(SIGNAL_CANDIDATE_STACK_GAP, PRIORITY_ENGINEERING_CULTURE),
             Map.entry(SIGNAL_CANDIDATE_DOMAIN_GAP, PRIORITY_PRODUCT_COMPANY),
-            Map.entry(SIGNAL_CANDIDATE_SENIORITY_MISMATCH, PRIORITY_ENGINEERING_CULTURE)
+            Map.entry(SIGNAL_CANDIDATE_SENIORITY_MISMATCH, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_ALGORITHMIC_INTERVIEW_RISK, PRIORITY_ENGINEERING_CULTURE),
+            Map.entry(SIGNAL_PRESSURE_CULTURE_RISK, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_FAKE_FLEXTIME_RISK, PRIORITY_WORK_LIFE_BALANCE),
+            Map.entry(SIGNAL_TRADITIONAL_CORPORATE_PROCESS_RISK, PRIORITY_ENGLISH_ENVIRONMENT),
+            Map.entry(SIGNAL_CUSTOMER_SITE_RISK, PRIORITY_PRODUCT_COMPANY)
     );
     private static final Map<String, Integer> RISK_SIGNAL_EXTRA_PENALTY = Map.ofEntries(
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE),
@@ -819,6 +851,7 @@ public final class DecisionEngineV1 {
                 persona,
                 riskSignals
         );
+        detectMarketSignals(combinedText, positiveSignals, riskSignals);
         detectCandidateProfileSignals(job, combinedText, candidateProfile, positiveSignals, riskSignals);
         detectReputationSignals(companyReputationIndex, positiveSignals, riskSignals);
         detectHardFilters(
@@ -999,6 +1032,47 @@ public final class DecisionEngineV1 {
             riskSignals.add(SIGNAL_CONSULTING_RISK);
         }
         detectCompanyProfileRiskSignals(trackedCompany, riskSignals);
+    }
+
+    private void detectMarketSignals(
+            String combinedText,
+            Set<String> positiveSignals,
+            Set<String> riskSignals
+    ) {
+        MarketSignalDetector.SignalMatches matches = marketSignalDetector.detect(combinedText);
+        if (matches.productPmCollaborationPositive()) {
+            positiveSignals.add(SIGNAL_PRODUCT_PM_COLLABORATION);
+        }
+        if (matches.engineeringMaturityPositive()) {
+            positiveSignals.add(SIGNAL_ENGINEERING_MATURITY);
+        }
+        if (matches.casualInterviewPositive()) {
+            positiveSignals.add(SIGNAL_CASUAL_INTERVIEW);
+        }
+        if (matches.asyncCommunicationPositive()) {
+            positiveSignals.add(SIGNAL_ASYNC_COMMUNICATION);
+        }
+        if (matches.realFlextimePositive()) {
+            positiveSignals.add(SIGNAL_REAL_FLEXTIME);
+        }
+        if (matches.lowOvertimeDisclosedPositive()) {
+            positiveSignals.add(SIGNAL_LOW_OVERTIME_DISCLOSED);
+        }
+        if (matches.algorithmicInterviewRisk()) {
+            riskSignals.add(SIGNAL_ALGORITHMIC_INTERVIEW_RISK);
+        }
+        if (matches.pressureCultureRisk()) {
+            riskSignals.add(SIGNAL_PRESSURE_CULTURE_RISK);
+        }
+        if (matches.fakeFlextimeRisk()) {
+            riskSignals.add(SIGNAL_FAKE_FLEXTIME_RISK);
+        }
+        if (matches.traditionalCorporateProcessRisk()) {
+            riskSignals.add(SIGNAL_TRADITIONAL_CORPORATE_PROCESS_RISK);
+        }
+        if (matches.customerSiteRisk()) {
+            riskSignals.add(SIGNAL_CUSTOMER_SITE_RISK);
+        }
     }
 
     private void detectCandidateProfileSignals(

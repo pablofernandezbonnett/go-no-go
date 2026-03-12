@@ -19,4 +19,4 @@ dev_dependencies:
 
 jaspr:
   mode: server
-  port: 8787
+  port: 8792

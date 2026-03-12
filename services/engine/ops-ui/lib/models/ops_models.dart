@@ -1,27 +1,34 @@
 class OpsConfigPayload {
   const OpsConfigPayload({
     required this.personaIds,
+    required this.candidateProfileIds,
     required this.companies,
   });
 
   final List<String> personaIds;
+  final List<String> candidateProfileIds;
   final List<CompanyPayload> companies;
 
   factory OpsConfigPayload.fromJson(Map<String, dynamic> json) {
     final personasRaw = json['personaIds'];
+    final candidateProfilesRaw = json['candidateProfileIds'];
     final companiesRaw = json['companies'];
 
     final personaIds = (personasRaw is List)
         ? personasRaw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList()
         : <String>[];
+    final candidateProfileIds = (candidateProfilesRaw is List)
+        ? candidateProfilesRaw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList()
+        : <String>[];
     final companies = (companiesRaw is List)
-        ? companiesRaw
-              .whereType<Map<String, dynamic>>()
-              .map(CompanyPayload.fromJson)
-              .toList()
+        ? companiesRaw.whereType<Map<String, dynamic>>().map(CompanyPayload.fromJson).toList()
         : <CompanyPayload>[];
 
-    return OpsConfigPayload(personaIds: personaIds, companies: companies);
+    return OpsConfigPayload(
+      personaIds: personaIds,
+      candidateProfileIds: candidateProfileIds,
+      companies: companies,
+    );
   }
 }
 
@@ -38,6 +45,64 @@ class HealthPayload {
     return HealthPayload(
       status: json['status']?.toString() ?? '',
       engineRoot: json['engineRoot']?.toString() ?? '',
+    );
+  }
+}
+
+class CandidateProfileDetailPayload {
+  const CandidateProfileDetailPayload({
+    required this.id,
+    required this.name,
+    required this.title,
+    required this.location,
+    required this.totalExperienceYears,
+    required this.productionSkills,
+    required this.learningSkills,
+    required this.gapSkills,
+    required this.strongDomains,
+    required this.moderateDomains,
+    required this.limitedDomains,
+    required this.content,
+    required this.rawYaml,
+  });
+
+  final String id;
+  final String name;
+  final String title;
+  final String location;
+  final int totalExperienceYears;
+  final List<String> productionSkills;
+  final List<String> learningSkills;
+  final List<String> gapSkills;
+  final List<String> strongDomains;
+  final List<String> moderateDomains;
+  final List<String> limitedDomains;
+  final Map<String, Object?> content;
+  final String rawYaml;
+
+  factory CandidateProfileDetailPayload.fromJson(Map<String, dynamic> json) {
+    List<String> parseList(String key) {
+      final raw = json[key];
+      if (raw is! List) {
+        return const <String>[];
+      }
+      return raw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList();
+    }
+
+    return CandidateProfileDetailPayload(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      location: json['location']?.toString() ?? '',
+      totalExperienceYears: _toInt(json['total_experience_years']),
+      productionSkills: parseList('production_skills'),
+      learningSkills: parseList('learning_skills'),
+      gapSkills: parseList('gap_skills'),
+      strongDomains: parseList('strong_domains'),
+      moderateDomains: parseList('moderate_domains'),
+      limitedDomains: parseList('limited_domains'),
+      content: _toJsonObjectMap(json['content']),
+      rawYaml: json['raw_yaml']?.toString() ?? '',
     );
   }
 }
@@ -103,9 +168,7 @@ class RunPayload {
           ? RunRequestPayload.fromJson(requestRaw)
           : const RunRequestPayload.empty(),
       command: json['command']?.toString() ?? '',
-      arguments: (argumentsRaw is List)
-          ? argumentsRaw.map((item) => item.toString()).toList()
-          : <String>[],
+      arguments: (argumentsRaw is List) ? argumentsRaw.map((item) => item.toString()).toList() : <String>[],
       logs: (logsRaw is List) ? logsRaw.map((item) => item.toString()).toList() : <String>[],
     );
   }
@@ -114,6 +177,7 @@ class RunPayload {
 class RunRequestPayload {
   const RunRequestPayload({
     required this.personaId,
+    required this.candidateProfileId,
     required this.companyIds,
     required this.fetchWebFirst,
     required this.robotsMode,
@@ -126,18 +190,20 @@ class RunRequestPayload {
   });
 
   const RunRequestPayload.empty()
-      : personaId = '',
-        companyIds = const <String>[],
-        fetchWebFirst = false,
-        robotsMode = 'strict',
-        maxJobsPerCompany = 0,
-        timeoutSeconds = 0,
-        retries = 0,
-        backoffMillis = 0,
-        requestDelayMillis = 0,
-        topPerSection = 0;
+    : personaId = '',
+      candidateProfileId = '',
+      companyIds = const <String>[],
+      fetchWebFirst = false,
+      robotsMode = 'strict',
+      maxJobsPerCompany = 0,
+      timeoutSeconds = 0,
+      retries = 0,
+      backoffMillis = 0,
+      requestDelayMillis = 0,
+      topPerSection = 0;
 
   final String personaId;
+  final String candidateProfileId;
   final List<String> companyIds;
   final bool fetchWebFirst;
   final String robotsMode;
@@ -153,6 +219,7 @@ class RunRequestPayload {
 
     return RunRequestPayload(
       personaId: json['personaId']?.toString() ?? '',
+      candidateProfileId: json['candidateProfileId']?.toString() ?? '',
       companyIds: (companyIdsRaw is List)
           ? companyIdsRaw.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList()
           : <String>[],
@@ -173,4 +240,33 @@ class RunRequestPayload {
     }
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
+}
+
+int _toInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+Map<String, Object?> _toJsonObjectMap(Object? value) {
+  if (value is! Map) {
+    return const <String, Object?>{};
+  }
+
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    result[entry.key.toString()] = _normalizeJsonValue(entry.value);
+  }
+  return result;
+}
+
+Object? _normalizeJsonValue(Object? value) {
+  if (value is Map) {
+    return _toJsonObjectMap(value);
+  }
+  if (value is List) {
+    return value.map(_normalizeJsonValue).toList();
+  }
+  return value;
 }

@@ -6,7 +6,10 @@ import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
+import com.pmfb.gonogo.engine.config.EvaluationRuntimeConfig;
+import com.pmfb.gonogo.engine.config.FetchWebRuntimeConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
+import com.pmfb.gonogo.engine.config.RuntimeOptionResolver;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
 import com.pmfb.gonogo.engine.report.TrendAlertSinkFactory;
 import java.io.IOException;
@@ -22,11 +25,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 import org.yaml.snakeyaml.Yaml;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 @Command(
         name = "run-all",
@@ -39,6 +48,9 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
     private static final String WEEKLY_FILE_EXTENSION = ".md";
     private static final String DEFAULT_ALERT_SINK = TrendAlertSinkFactory.SINK_NONE;
     private static final Path RESOLUTION_STATE_FILE = Path.of("output/fetch-web-resolution.yaml");
+
+    @Spec
+    private CommandSpec spec;
 
     @Option(
             names = {"--config-dir"},
@@ -150,6 +162,27 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             defaultValue = "1200"
     )
     private long fetchWebRequestDelayMillis;
+
+    @Option(
+            names = {"--fetch-web-max-concurrency"},
+            description = "Maximum number of companies to fetch in parallel during fetch stage.",
+            defaultValue = "4"
+    )
+    private int fetchWebMaxConcurrency;
+
+    @Option(
+            names = {"--fetch-web-max-concurrency-per-host"},
+            description = "Maximum number of in-flight requests allowed per host during fetch stage.",
+            defaultValue = "1"
+    )
+    private int fetchWebMaxConcurrencyPerHost;
+
+    @Option(
+            names = {"--evaluate-max-concurrency"},
+            description = "Maximum number of jobs to evaluate in parallel inside each pipeline run.",
+            defaultValue = "4"
+    )
+    private int evaluateMaxConcurrency;
 
     @Option(
             names = {"--fetch-web-robots-mode"},
@@ -266,6 +299,24 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
     )
     private boolean failFast;
 
+    @Option(
+            names = {"--persona-concurrency"},
+            description = "Maximum number of persona runs to execute in parallel after shared fetch is complete.",
+            defaultValue = "1"
+    )
+    private int personaConcurrency;
+
+    private int effectiveFetchWebTimeoutSeconds;
+    private String effectiveFetchWebUserAgent;
+    private int effectiveFetchWebRetries;
+    private long effectiveFetchWebBackoffMillis;
+    private long effectiveFetchWebRequestDelayMillis;
+    private int effectiveFetchWebMaxConcurrency;
+    private int effectiveFetchWebMaxConcurrencyPerHost;
+    private String effectiveFetchWebRobotsMode;
+    private long effectiveFetchWebCacheTtlMinutes;
+    private int effectiveEvaluateMaxConcurrency;
+
     @Override
     public Integer call() {
         if (fetchWebMaxJobsPerCompany < 1) {
@@ -278,6 +329,18 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         }
         if (incrementalOnly && disableChangeDetection) {
             System.err.println("--incremental-only requires change detection.");
+            return 1;
+        }
+        if (personaConcurrency < 1) {
+            System.err.println("--persona-concurrency must be at least 1.");
+            return 1;
+        }
+        if (evaluateMaxConcurrency < 1) {
+            System.err.println("--evaluate-max-concurrency must be at least 1.");
+            return 1;
+        }
+        if (failFast && personaConcurrency > 1) {
+            System.err.println("--fail-fast is only supported with --persona-concurrency=1.");
             return 1;
         }
 
@@ -294,6 +357,11 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             printErrors("Configuration validation failed", configValidationErrors);
             return 1;
         }
+
+        applyRuntimeDefaults(
+                config.runtimeSettings().fetchWeb(),
+                config.runtimeSettings().evaluation()
+        );
 
         List<PersonaConfig> selectedPersonas = selectPersonas(config.personas(), personaIds);
         if (selectedPersonas.isEmpty()) {
@@ -317,9 +385,6 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
                 candidateProfileResolution
         );
 
-        int succeeded = 0;
-        int failed = 0;
-        Map<String, Integer> personaExitCodes = new LinkedHashMap<>();
         boolean runFetchStage = !skipFetchWeb;
         List<String> effectiveFetchCompanyIds = null; // null = all configured companies
 
@@ -341,25 +406,41 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             }
         }
 
+        if (runFetchStage) {
+            int fetchExitCode = runSharedFetchStage(effectiveFetchCompanyIds);
+            if (fetchExitCode != 0) {
+                return fetchExitCode;
+            }
+        }
+
+        List<PersonaRunRequest> requests = new ArrayList<>(selectedPersonas.size());
         for (PersonaConfig persona : selectedPersonas) {
-            List<String> runArgs = buildRunArgs(
+            requests.add(new PersonaRunRequest(
                     persona.id(),
-                    forwardedCandidateProfileArg,
-                    runFetchStage,
-                    effectiveFetchCompanyIds
-            );
-            int exitCode = new CommandLine(new PipelineRunCommand()).execute(runArgs.toArray(String[]::new));
-            personaExitCodes.put(persona.id(), exitCode);
-            if (exitCode == 0) {
+                    resolvePersonaJobsOutputDir(persona.id(), forwardedCandidateProfileArg, personaConcurrency),
+                    buildRunArgs(persona.id(), forwardedCandidateProfileArg, personaConcurrency > 1)
+            ));
+        }
+
+        List<PersonaRunResult> results = personaConcurrency == 1
+                ? runPersonaRequestsSequentially(requests)
+                : runPersonaRequestsConcurrently(requests);
+        Map<String, Integer> personaExitCodes = new LinkedHashMap<>();
+        int succeeded = 0;
+        int failed = 0;
+        for (PersonaRunResult result : results) {
+            personaExitCodes.put(result.personaId(), result.exitCode());
+            if (result.exitCode() == 0) {
                 succeeded++;
             } else {
                 failed++;
-                System.err.println("run-all failure: persona '" + persona.id() + "' exited with code " + exitCode + ".");
-                if (failFast) {
-                    break;
-                }
+                System.err.println("run-all failure: persona '" + result.personaId()
+                        + "' exited with code " + result.exitCode() + ".");
             }
-            runFetchStage = false;
+            if (!result.jobsOutputDir().equals(jobsOutputDir)) {
+                System.out.println("persona_jobs_output_dir: "
+                        + result.personaId() + "=" + result.jobsOutputDir());
+            }
         }
 
         printSummary(
@@ -369,7 +450,8 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
                 forwardedCandidateProfileArg.isBlank()
                         ? ConfigSelections.CANDIDATE_PROFILE_NONE
                         : forwardedCandidateProfileArg,
-                personaExitCodes
+                personaExitCodes,
+                personaConcurrency
         );
         return failed == 0 ? 0 : 1;
     }
@@ -377,8 +459,7 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
     private List<String> buildRunArgs(
             String personaId,
             String forwardedCandidateProfileArg,
-            boolean includeFetchWebStage,
-            List<String> fetchCompanyIds
+            boolean suppressSummaryOutput
     ) {
         List<String> args = new ArrayList<>();
         args.add("--persona=" + personaId);
@@ -389,7 +470,6 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         args.add("--raw-input-dir=" + rawInputDir);
         args.add("--raw-pattern=" + rawPattern);
         args.add("--recursive");
-        args.add("--jobs-output-dir=" + jobsOutputDir);
         args.add("--batch-output-dir=" + batchOutputDir);
         args.add("--weekly-output-file=" + resolveWeeklyOutputFile(personaId, forwardedCandidateProfileArg));
         args.add("--top-per-section=" + topPerSection);
@@ -417,33 +497,123 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         if (failOnWarnings) {
             args.add("--fail-on-warnings");
         }
-
-        if (includeFetchWebStage) {
-            args.add("--fetch-web-first");
-            args.add("--fetch-web-max-jobs-per-company=" + fetchWebMaxJobsPerCompany);
-            args.add("--fetch-web-timeout-seconds=" + fetchWebTimeoutSeconds);
-            args.add("--fetch-web-user-agent=" + fetchWebUserAgent);
-            args.add("--fetch-web-retries=" + fetchWebRetries);
-            args.add("--fetch-web-backoff-millis=" + fetchWebBackoffMillis);
-            args.add("--fetch-web-request-delay-millis=" + fetchWebRequestDelayMillis);
-            args.add("--fetch-web-robots-mode=" + fetchWebRobotsMode);
-            args.add("--fetch-web-cache-dir=" + fetchWebCacheDir);
-            args.add("--fetch-web-cache-ttl-minutes=" + fetchWebCacheTtlMinutes);
-            if (fetchWebDisableCache) {
-                args.add("--fetch-web-disable-cache");
-            }
-            List<String> idsToFetch = hasValues(fetchCompanyIds) ? fetchCompanyIds : companyIds;
-            if (hasValues(idsToFetch)) {
-                args.add("--company-ids=" + joinNonBlank(idsToFetch));
-            }
+        args.add("--evaluate-max-concurrency=" + effectiveEvaluateMaxConcurrency);
+        if (suppressSummaryOutput) {
+            args.add("--suppress-summary-output");
         }
 
         return args;
     }
 
+    private int runSharedFetchStage(List<String> fetchCompanyIds) {
+        List<String> args = new ArrayList<>();
+        args.add("--config-dir=" + configDir);
+        args.add("--output-dir=" + rawInputDir);
+        args.add("--max-jobs-per-company=" + fetchWebMaxJobsPerCompany);
+        args.add("--timeout-seconds=" + effectiveFetchWebTimeoutSeconds);
+        args.add("--user-agent=" + effectiveFetchWebUserAgent);
+        args.add("--retries=" + effectiveFetchWebRetries);
+        args.add("--backoff-millis=" + effectiveFetchWebBackoffMillis);
+        args.add("--request-delay-millis=" + effectiveFetchWebRequestDelayMillis);
+        args.add("--max-concurrency=" + effectiveFetchWebMaxConcurrency);
+        args.add("--max-concurrency-per-host=" + effectiveFetchWebMaxConcurrencyPerHost);
+        args.add("--context-output-dir=" + companyContextDir);
+        args.add("--robots-mode=" + effectiveFetchWebRobotsMode);
+        args.add("--cache-dir=" + fetchWebCacheDir);
+        args.add("--cache-ttl-minutes=" + effectiveFetchWebCacheTtlMinutes);
+        if (disableCompanyContext) {
+            args.add("--disable-company-context");
+        }
+        if (fetchWebDisableCache) {
+            args.add("--disable-cache");
+        }
+        List<String> idsToFetch = hasValues(fetchCompanyIds) ? fetchCompanyIds : companyIds;
+        if (hasValues(idsToFetch)) {
+            args.add("--company-ids=" + joinNonBlank(idsToFetch));
+        }
+        return new CommandLine(new FetchWebCommand()).execute(args.toArray(String[]::new));
+    }
+
+    private void applyRuntimeDefaults(
+            FetchWebRuntimeConfig fetchWebRuntimeDefaults,
+            EvaluationRuntimeConfig evaluationRuntimeDefaults
+    ) {
+        effectiveFetchWebTimeoutSeconds = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-timeout-seconds",
+                fetchWebTimeoutSeconds,
+                fetchWebRuntimeDefaults.timeoutSeconds()
+        );
+        effectiveFetchWebUserAgent = RuntimeOptionResolver.resolveString(
+                spec,
+                "--fetch-web-user-agent",
+                fetchWebUserAgent,
+                fetchWebRuntimeDefaults.userAgent()
+        );
+        effectiveFetchWebRetries = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-retries",
+                fetchWebRetries,
+                fetchWebRuntimeDefaults.retries()
+        );
+        effectiveFetchWebBackoffMillis = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-backoff-millis",
+                fetchWebBackoffMillis,
+                fetchWebRuntimeDefaults.backoffMillis()
+        );
+        effectiveFetchWebRequestDelayMillis = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-request-delay-millis",
+                fetchWebRequestDelayMillis,
+                fetchWebRuntimeDefaults.requestDelayMillis()
+        );
+        effectiveFetchWebMaxConcurrency = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-max-concurrency",
+                fetchWebMaxConcurrency,
+                fetchWebRuntimeDefaults.maxConcurrency()
+        );
+        effectiveFetchWebMaxConcurrencyPerHost = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-max-concurrency-per-host",
+                fetchWebMaxConcurrencyPerHost,
+                fetchWebRuntimeDefaults.maxConcurrencyPerHost()
+        );
+        effectiveFetchWebRobotsMode = RuntimeOptionResolver.resolveString(
+                spec,
+                "--fetch-web-robots-mode",
+                fetchWebRobotsMode,
+                fetchWebRuntimeDefaults.robotsMode()
+        );
+        effectiveFetchWebCacheTtlMinutes = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-cache-ttl-minutes",
+                fetchWebCacheTtlMinutes,
+                fetchWebRuntimeDefaults.cacheTtlMinutes()
+        );
+        effectiveEvaluateMaxConcurrency = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--evaluate-max-concurrency",
+                evaluateMaxConcurrency,
+                evaluationRuntimeDefaults.maxConcurrency()
+        );
+    }
+
     private String resolveWeeklyOutputFile(String personaId, String candidateProfileIdValue) {
         String sanitized = sanitizeScope(personaId, candidateProfileIdValue);
         return weeklyOutputDir.resolve(WEEKLY_FILE_PREFIX + sanitized + WEEKLY_FILE_EXTENSION).toString();
+    }
+
+    private Path resolvePersonaJobsOutputDir(
+            String personaId,
+            String candidateProfileIdValue,
+            int personaConcurrencyValue
+    ) {
+        if (personaConcurrencyValue <= 1) {
+            return jobsOutputDir;
+        }
+        return jobsOutputDir.resolve(sanitizeScope(personaId, candidateProfileIdValue));
     }
 
     private String sanitizePersonaId(String personaId) {
@@ -624,12 +794,14 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             int succeeded,
             int failed,
             String candidateProfile,
-            Map<String, Integer> personaExitCodes
+            Map<String, Integer> personaExitCodes,
+            int personaConcurrencyValue
     ) {
         System.out.println("run-all completed.");
         System.out.println("personas_total: " + totalPersonas);
         System.out.println("personas_succeeded: " + succeeded);
         System.out.println("personas_failed: " + failed);
+        System.out.println("persona_concurrency: " + personaConcurrencyValue);
         System.out.println("candidate_profile: " + candidateProfile);
         System.out.println("raw_input_dir: " + rawInputDir);
         System.out.println("jobs_output_dir: " + jobsOutputDir);
@@ -639,5 +811,64 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
         for (Map.Entry<String, Integer> entry : personaExitCodes.entrySet()) {
             System.out.println("persona_exit: " + entry.getKey() + "=" + entry.getValue());
         }
+    }
+
+    private List<PersonaRunResult> runPersonaRequestsSequentially(List<PersonaRunRequest> requests) {
+        List<PersonaRunResult> results = new ArrayList<>(requests.size());
+        for (PersonaRunRequest request : requests) {
+            List<String> args = new ArrayList<>(request.args());
+            args.add("--jobs-output-dir=" + request.jobsOutputDir());
+            int exitCode = new CommandLine(new PipelineRunCommand()).execute(args.toArray(String[]::new));
+            results.add(new PersonaRunResult(request.personaId(), request.jobsOutputDir(), exitCode));
+            if (exitCode != 0 && failFast) {
+                break;
+            }
+        }
+        return List.copyOf(results);
+    }
+
+    private List<PersonaRunResult> runPersonaRequestsConcurrently(List<PersonaRunRequest> requests) {
+        int poolSize = Math.min(personaConcurrency, requests.size());
+        try (ExecutorService executor = Executors.newFixedThreadPool(poolSize)) {
+            List<Future<PersonaRunResult>> futures = new ArrayList<>(requests.size());
+            for (PersonaRunRequest request : requests) {
+                futures.add(executor.submit(() -> {
+                    List<String> args = new ArrayList<>(request.args());
+                    args.add("--jobs-output-dir=" + request.jobsOutputDir());
+                    int exitCode = new CommandLine(new PipelineRunCommand()).execute(args.toArray(String[]::new));
+                    return new PersonaRunResult(request.personaId(), request.jobsOutputDir(), exitCode);
+                }));
+            }
+
+            List<PersonaRunResult> results = new ArrayList<>(requests.size());
+            for (int i = 0; i < futures.size(); i++) {
+                try {
+                    results.add(futures.get(i).get());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while waiting for persona runs.", e);
+                } catch (ExecutionException e) {
+                    throw new IllegalStateException(
+                            "Failed to execute persona run '" + requests.get(i).personaId() + "'.",
+                            e.getCause()
+                    );
+                }
+            }
+            return List.copyOf(results);
+        }
+    }
+
+    private record PersonaRunRequest(
+            String personaId,
+            Path jobsOutputDir,
+            List<String> args
+    ) {
+    }
+
+    private record PersonaRunResult(
+            String personaId,
+            Path jobsOutputDir,
+            int exitCode
+    ) {
     }
 }

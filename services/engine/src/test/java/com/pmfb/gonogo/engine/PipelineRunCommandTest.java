@@ -3,6 +3,10 @@ package com.pmfb.gonogo.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
+import com.pmfb.gonogo.engine.decision.EvaluationResult;
+import com.pmfb.gonogo.engine.decision.Verdict;
+import com.pmfb.gonogo.engine.job.CareerPageFetchService;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -301,8 +305,115 @@ final class PipelineRunCommandTest {
         assertTrue(Files.readString(weeklyPath).contains("candidate_profile: pmfb"));
     }
 
+    @Test
+    void keepsBatchItemOrderStableWhenEvaluationRunsInParallel() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-pipeline-eval-order-test");
+        Path configDir = tempDir.resolve("config");
+        Path rawDir = tempDir.resolve("raw");
+        Path jobsDir = tempDir.resolve("output/jobs");
+        Path outputDir = tempDir.resolve("output");
+        Path weeklyPath = outputDir.resolve("weekly.md");
+
+        writeConfig(configDir);
+        Files.createDirectories(rawDir);
+        Files.writeString(
+                rawDir.resolve("a.txt"),
+                """
+                        Company: Money Forward
+                        Title: Slow Job
+                        Location: Tokyo
+                        Salary: JPY 9,000,000 - 12,000,000
+                        Work style: Hybrid
+                        English-first team.
+                        """,
+                StandardCharsets.UTF_8
+        );
+        Files.writeString(
+                rawDir.resolve("b.txt"),
+                """
+                        Company: Money Forward
+                        Title: Fast Job
+                        Location: Tokyo
+                        Salary: JPY 9,000,000 - 12,000,000
+                        Work style: Hybrid
+                        English-first team.
+                        """,
+                StandardCharsets.UTF_8
+        );
+        Files.writeString(
+                rawDir.resolve("c.txt"),
+                """
+                        Company: Money Forward
+                        Title: Medium Job
+                        Location: Tokyo
+                        Salary: JPY 9,000,000 - 12,000,000
+                        Work style: Hybrid
+                        English-first team.
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        PipelineRunCommand.JobEvaluationService evaluator = (job, persona, candidateProfile, config, externalContext) -> {
+            sleepForTitle(job.title());
+            return new EvaluationResult(
+                    Verdict.GO,
+                    80,
+                    10,
+                    -20,
+                    20,
+                    0,
+                    50,
+                    java.util.List.of(),
+                    java.util.List.of("english_environment"),
+                    java.util.List.of(),
+                    java.util.List.of(job.title())
+            );
+        };
+
+        int exitCode = new CommandLine(new PipelineRunCommand(
+                new DecisionEngineV1(),
+                new CareerPageFetchService(),
+                evaluator
+        )).execute(
+                "--persona", "product_expat_engineer",
+                "--raw-input-dir", rawDir.toString(),
+                "--raw-pattern", "*.txt",
+                "--config-dir", configDir.toString(),
+                "--jobs-output-dir", jobsDir.toString(),
+                "--batch-output-dir", outputDir.toString(),
+                "--weekly-output-file", weeklyPath.toString(),
+                "--disable-change-detection",
+                "--evaluate-max-concurrency", "3"
+        );
+
+        assertEquals(0, exitCode);
+
+        String json = Files.readString(outputDir.resolve("batch-evaluation-product_expat_engineer.json"));
+        int first = json.indexOf("\"source_file\": \"a.generated.yaml\"");
+        int second = json.indexOf("\"source_file\": \"b.generated.yaml\"");
+        int third = json.indexOf("\"source_file\": \"c.generated.yaml\"");
+
+        assertTrue(first >= 0);
+        assertTrue(second > first);
+        assertTrue(third > second);
+    }
+
     private void writeConfig(Path configDir) throws IOException {
         writeConfig(configDir, "https://corp.moneyforward.com/recruit/");
+    }
+
+    private static void sleepForTitle(String title) {
+        long delayMillis = switch (title) {
+            case "Slow Job" -> 200L;
+            case "Medium Job" -> 100L;
+            default -> 10L;
+        };
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while simulating evaluation latency.", e);
+        }
     }
 
     private void writeConfig(Path configDir, String careerUrl) throws IOException {

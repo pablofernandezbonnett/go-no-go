@@ -34,6 +34,7 @@ public final class ConfigValidator {
         validatePersonas(config.personas(), errors);
         validateBlacklist(config.blacklistedCompanies(), errors);
         validateCandidateProfiles(config.candidateProfiles(), errors);
+        validateRuntimeSettings(config.runtimeSettings(), errors);
         return errors;
     }
 
@@ -180,6 +181,58 @@ public final class ConfigValidator {
             checkDuplicates(profile.strongDomains(), context + ".strong_domains", errors);
             checkDuplicates(profile.moderateDomains(), context + ".moderate_domains", errors);
             checkDuplicates(profile.limitedDomains(), context + ".limited_domains", errors);
+        }
+    }
+
+    private void validateRuntimeSettings(
+            RuntimeSettingsConfig runtimeSettings,
+            List<String> errors
+    ) {
+        if (runtimeSettings == null) {
+            return;
+        }
+
+        FetchWebRuntimeConfig fetchWeb = runtimeSettings.fetchWeb();
+        if (fetchWeb == null) {
+            errors.add("runtime.fetch_web must be defined");
+            return;
+        }
+
+        if (fetchWeb.timeoutSeconds() < 5) {
+            errors.add("runtime.fetch_web.timeout_seconds must be at least 5");
+        }
+        if (fetchWeb.userAgent().isBlank()) {
+            errors.add("runtime.fetch_web.user_agent cannot be blank");
+        }
+        if (fetchWeb.retries() < 0) {
+            errors.add("runtime.fetch_web.retries must be non-negative");
+        }
+        if (fetchWeb.backoffMillis() < 0) {
+            errors.add("runtime.fetch_web.backoff_millis must be non-negative");
+        }
+        if (fetchWeb.requestDelayMillis() < 0) {
+            errors.add("runtime.fetch_web.request_delay_millis must be non-negative");
+        }
+        if (fetchWeb.maxConcurrency() < 1) {
+            errors.add("runtime.fetch_web.max_concurrency must be at least 1");
+        }
+        if (fetchWeb.maxConcurrencyPerHost() < 1) {
+            errors.add("runtime.fetch_web.max_concurrency_per_host must be at least 1");
+        }
+        if (!Set.of("strict", "warn", "off").contains(normalize(fetchWeb.robotsMode()))) {
+            errors.add("runtime.fetch_web.robots_mode must be one of: strict, warn, off");
+        }
+        if (fetchWeb.cacheTtlMinutes() < 1) {
+            errors.add("runtime.fetch_web.cache_ttl_minutes must be at least 1");
+        }
+
+        EvaluationRuntimeConfig evaluation = runtimeSettings.evaluation();
+        if (evaluation == null) {
+            errors.add("runtime.evaluation must be defined");
+            return;
+        }
+        if (evaluation.maxConcurrency() < 1) {
+            errors.add("runtime.evaluation.max_concurrency must be at least 1");
         }
     }
 
