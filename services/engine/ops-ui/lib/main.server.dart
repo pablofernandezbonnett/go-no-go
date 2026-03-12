@@ -50,6 +50,24 @@ void main() async {
     }
   });
 
+  router.get('/api/config/candidate-profiles/<id>', (request, String id) async {
+    try {
+      final detail = await configRepository.loadCandidateProfileDetail(id);
+      if (detail == null) {
+        return _jsonResponse(
+          {'error': 'candidate_profile_not_found', 'id': id},
+          statusCode: HttpStatus.notFound,
+        );
+      }
+      return _jsonResponse(detail.toJson());
+    } catch (error) {
+      return _jsonResponse(
+        {'error': 'candidate_profile_load_failed', 'message': error.toString()},
+        statusCode: HttpStatus.internalServerError,
+      );
+    }
+  });
+
   router.put('/api/config/personas/<id>/tuning', (request, String id) async {
     try {
       final body = await request.readAsString();
@@ -64,16 +82,20 @@ void main() async {
       Map<String, int> parseWeights(dynamic raw) {
         if (raw is! Map) return const {};
         return Map.fromEntries(
-          raw.entries
-              .where((e) => e.value is num)
-              .map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
+          raw.entries.where((e) => e.value is num).map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
         );
       }
 
       final weights = parseWeights(decoded['signalWeights']);
       final strategy = decoded['rankingStrategy']?.toString() ?? '';
+      final minimumSalaryYen = _parseOptionalInt(decoded['minimumSalaryYen']);
 
-      final updated = await configRepository.updatePersonaTuning(id, weights, strategy);
+      final updated = await configRepository.updatePersonaTuning(
+        id,
+        weights,
+        strategy,
+        minimumSalaryYen,
+      );
       return _jsonResponse(updated.toJson());
     } on StateError catch (error) {
       final msg = error.message;
@@ -208,9 +230,7 @@ void main() async {
       Map<String, int> parseWeights(dynamic raw) {
         if (raw is! Map) return const {};
         return Map.fromEntries(
-          raw.entries
-              .where((e) => e.value is num)
-              .map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
+          raw.entries.where((e) => e.value is num).map((e) => MapEntry(e.key.toString(), (e.value as num).toInt())),
         );
       }
 
@@ -223,6 +243,7 @@ void main() async {
           acceptableIf: parseList('acceptableIf'),
           signalWeights: parseWeights(decoded['signalWeights']),
           rankingStrategy: decoded['rankingStrategy']?.toString() ?? '',
+          minimumSalaryYen: _parseOptionalInt(decoded['minimumSalaryYen']),
         ),
       );
       return _jsonResponse(
@@ -314,28 +335,31 @@ void main() async {
     }
   });
 
-  router.mount('/', serveApp((request, render) {
-    return render(
-      Document(
-        title: 'Go/No-Go Engine Operations UI',
-        viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
-        styles: [
-          css.import('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap'),
-          css('html, body').styles(
-            width: 100.percent,
-            minHeight: 100.vh,
-            padding: .zero,
-            margin: .zero,
-            color: const Color('#1f2a2e'),
-            fontFamily: const .list([FontFamily('Space Grotesk'), FontFamilies.sansSerif]),
-            backgroundColor: const Color('#f5f3ef'),
-          ),
-          css('*').styles(boxSizing: .borderBox),
-        ],
-        body: const App(),
-      ),
-    );
-  }));
+  router.mount(
+    '/',
+    serveApp((request, render) {
+      return render(
+        Document(
+          title: 'Go/No-Go Engine Operations UI',
+          viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
+          styles: [
+            css.import('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap'),
+            css('html, body').styles(
+              width: 100.percent,
+              minHeight: 100.vh,
+              padding: .zero,
+              margin: .zero,
+              color: const Color('#101828'),
+              fontFamily: const .list([FontFamily('Space Grotesk'), FontFamilies.sansSerif]),
+              backgroundColor: const Color('#eef2f7'),
+            ),
+            css('*').styles(boxSizing: .borderBox),
+          ],
+          body: const App(),
+        ),
+      );
+    }),
+  );
 
   final handler = const Pipeline().addMiddleware(logRequests()).addHandler(router.call);
 
@@ -377,7 +401,7 @@ String _resolveGradlew(Map<String, String> environment) {
 
 int _resolvePort(Map<String, String> environment) {
   const fallbackPort = 8791;
-  final candidates = [environment['PORT'], environment['OPS_UI_PORT']];
+  final candidates = [environment['OPS_UI_PORT'], environment['PORT']];
   for (final candidate in candidates) {
     final parsed = int.tryParse(candidate?.trim() ?? '');
     if (parsed != null && parsed > 0 && parsed <= 65535) {
@@ -387,45 +411,111 @@ int _resolvePort(Map<String, String> environment) {
   return fallbackPort;
 }
 
-// Static signal catalog mirroring SignalRegistry.java (35 signals).
+int? _parseOptionalInt(Object? raw) {
+  if (raw is num) {
+    return raw.toInt();
+  }
+  final text = raw?.toString().trim() ?? '';
+  if (text.isEmpty) {
+    return null;
+  }
+  return int.tryParse(text.replaceAll(',', ''));
+}
+
+// Static signal catalog mirroring SignalRegistry.java (55 signals).
 const List<Map<String, Object>> _kSignalCatalog = [
   // Positive signals
-  {'name': 'salary_transparency',                'type': 'positive', 'priority_group': 'salary',               'default_weight': 2},
-  {'name': 'hybrid_work',                        'type': 'positive', 'priority_group': 'hybrid_work',          'default_weight': 2},
-  {'name': 'remote_friendly',                    'type': 'positive', 'priority_group': 'hybrid_work',          'default_weight': 2},
-  {'name': 'english_environment',                'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
-  {'name': 'product_company',                    'type': 'positive', 'priority_group': 'product_company',      'default_weight': 2},
-  {'name': 'engineering_culture',                'type': 'positive', 'priority_group': 'engineering_culture',  'default_weight': 2},
-  {'name': 'engineering_environment',            'type': 'positive', 'priority_group': 'engineering_culture',  'default_weight': 2},
-  {'name': 'inhouse_product_engineering',        'type': 'positive', 'priority_group': 'product_company',      'default_weight': 2},
-  {'name': 'global_team_collaboration',          'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
-  {'name': 'english_support_environment',        'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
-  {'name': 'visa_sponsorship_support',           'type': 'positive', 'priority_group': 'english_environment',  'default_weight': 2},
-  {'name': 'work_life_balance',                  'type': 'positive', 'priority_group': 'work_life_balance',    'default_weight': 2},
-  {'name': 'stability',                          'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
-  {'name': 'company_reputation_positive',        'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
-  {'name': 'company_reputation_positive_strong', 'type': 'positive', 'priority_group': 'stability',            'default_weight': 2},
+  {'name': 'salary_transparency', 'type': 'positive', 'priority_group': 'salary', 'default_weight': 2},
+  {'name': 'hybrid_work', 'type': 'positive', 'priority_group': 'hybrid_work', 'default_weight': 2},
+  {'name': 'remote_friendly', 'type': 'positive', 'priority_group': 'hybrid_work', 'default_weight': 2},
+  {'name': 'english_environment', 'type': 'positive', 'priority_group': 'english_environment', 'default_weight': 2},
+  {'name': 'product_company', 'type': 'positive', 'priority_group': 'product_company', 'default_weight': 2},
+  {'name': 'engineering_culture', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'engineering_environment', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'inhouse_product_engineering', 'type': 'positive', 'priority_group': 'product_company', 'default_weight': 2},
+  {
+    'name': 'global_team_collaboration',
+    'type': 'positive',
+    'priority_group': 'english_environment',
+    'default_weight': 2,
+  },
+  {
+    'name': 'english_support_environment',
+    'type': 'positive',
+    'priority_group': 'english_environment',
+    'default_weight': 2,
+  },
+  {
+    'name': 'visa_sponsorship_support',
+    'type': 'positive',
+    'priority_group': 'english_environment',
+    'default_weight': 2,
+  },
+  {'name': 'work_life_balance', 'type': 'positive', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {'name': 'stability', 'type': 'positive', 'priority_group': 'stability', 'default_weight': 2},
+  {'name': 'company_reputation_positive', 'type': 'positive', 'priority_group': 'stability', 'default_weight': 2},
+  {
+    'name': 'company_reputation_positive_strong',
+    'type': 'positive',
+    'priority_group': 'stability',
+    'default_weight': 2,
+  },
+  {'name': 'candidate_stack_fit', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'candidate_domain_fit', 'type': 'positive', 'priority_group': 'product_company', 'default_weight': 2},
+  {'name': 'candidate_seniority_fit', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'product_pm_collaboration', 'type': 'positive', 'priority_group': 'product_company', 'default_weight': 2},
+  {'name': 'engineering_maturity', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'casual_interview', 'type': 'positive', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'async_communication', 'type': 'positive', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {'name': 'real_flextime', 'type': 'positive', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {'name': 'low_overtime_disclosed', 'type': 'positive', 'priority_group': 'work_life_balance', 'default_weight': 2},
   // Risk signals
-  {'name': 'salary_low_confidence',              'type': 'risk',     'priority_group': 'salary',               'default_weight': 2},
-  {'name': 'onsite_bias',                        'type': 'risk',     'priority_group': 'hybrid_work',          'default_weight': 2},
-  {'name': 'language_friction',                  'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 3},
-  {'name': 'language_friction_critical',         'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 7},
-  {'name': 'consulting_risk',                    'type': 'risk',     'priority_group': 'product_company',      'default_weight': 3},
-  {'name': 'overtime_risk',                      'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 3},
-  {'name': 'engineering_environment_risk',       'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 2},
-  {'name': 'startup_risk',                       'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
-  {'name': 'role_mismatch_manager_vs_ic_title',  'type': 'risk',     'priority_group': 'engineering_culture',  'default_weight': 5},
-  {'name': 'inclusion_contradiction',            'type': 'risk',     'priority_group': 'english_environment',  'default_weight': 5},
-  {'name': 'pre_ipo_risk',                       'type': 'risk',     'priority_group': 'stability',            'default_weight': 4},
-  {'name': 'manager_scope_salary_misaligned',    'type': 'risk',     'priority_group': 'salary',               'default_weight': 5},
-  {'name': 'workload_policy_risk',               'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 6},
-  {'name': 'holiday_policy_risk',                'type': 'risk',     'priority_group': 'work_life_balance',    'default_weight': 5},
-  {'name': 'location_mobility_risk',             'type': 'risk',     'priority_group': 'hybrid_work',          'default_weight': 4},
-  {'name': 'salary_range_anomaly',               'type': 'risk',     'priority_group': 'salary',               'default_weight': 6},
-  {'name': 'debt_first_culture_risk',            'type': 'risk',     'priority_group': 'engineering_culture',  'default_weight': 6},
-  {'name': 'hypergrowth_execution_risk',         'type': 'risk',     'priority_group': 'stability',            'default_weight': 5},
-  {'name': 'company_reputation_risk',            'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
-  {'name': 'company_reputation_risk_high',       'type': 'risk',     'priority_group': 'stability',            'default_weight': 3},
+  {'name': 'salary_low_confidence', 'type': 'risk', 'priority_group': 'salary', 'default_weight': 2},
+  {'name': 'salary_below_persona_floor', 'type': 'risk', 'priority_group': 'salary', 'default_weight': 3},
+  {'name': 'onsite_bias', 'type': 'risk', 'priority_group': 'hybrid_work', 'default_weight': 2},
+  {'name': 'language_friction', 'type': 'risk', 'priority_group': 'english_environment', 'default_weight': 3},
+  {'name': 'language_friction_critical', 'type': 'risk', 'priority_group': 'english_environment', 'default_weight': 7},
+  {'name': 'consulting_risk', 'type': 'risk', 'priority_group': 'product_company', 'default_weight': 3},
+  {'name': 'overtime_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 3},
+  {'name': 'engineering_environment_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {'name': 'startup_risk', 'type': 'risk', 'priority_group': 'stability', 'default_weight': 3},
+  {
+    'name': 'role_mismatch_manager_vs_ic_title',
+    'type': 'risk',
+    'priority_group': 'engineering_culture',
+    'default_weight': 5,
+  },
+  {'name': 'role_identity_mismatch', 'type': 'risk', 'priority_group': 'engineering_culture', 'default_weight': 6},
+  {'name': 'intermediary_contract_risk', 'type': 'risk', 'priority_group': 'product_company', 'default_weight': 5},
+  {'name': 'inclusion_contradiction', 'type': 'risk', 'priority_group': 'english_environment', 'default_weight': 5},
+  {'name': 'pre_ipo_risk', 'type': 'risk', 'priority_group': 'stability', 'default_weight': 4},
+  {'name': 'manager_scope_salary_misaligned', 'type': 'risk', 'priority_group': 'salary', 'default_weight': 5},
+  {'name': 'workload_policy_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 6},
+  {'name': 'holiday_policy_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 5},
+  {'name': 'location_mobility_risk', 'type': 'risk', 'priority_group': 'hybrid_work', 'default_weight': 4},
+  {'name': 'salary_range_anomaly', 'type': 'risk', 'priority_group': 'salary', 'default_weight': 6},
+  {'name': 'debt_first_culture_risk', 'type': 'risk', 'priority_group': 'engineering_culture', 'default_weight': 6},
+  {'name': 'hypergrowth_execution_risk', 'type': 'risk', 'priority_group': 'stability', 'default_weight': 5},
+  {'name': 'company_reputation_risk', 'type': 'risk', 'priority_group': 'stability', 'default_weight': 3},
+  {'name': 'company_reputation_risk_high', 'type': 'risk', 'priority_group': 'stability', 'default_weight': 3},
+  {'name': 'candidate_stack_gap', 'type': 'risk', 'priority_group': 'engineering_culture', 'default_weight': 3},
+  {'name': 'candidate_domain_gap', 'type': 'risk', 'priority_group': 'product_company', 'default_weight': 3},
+  {
+    'name': 'candidate_seniority_mismatch',
+    'type': 'risk',
+    'priority_group': 'engineering_culture',
+    'default_weight': 4,
+  },
+  {'name': 'algorithmic_interview_risk', 'type': 'risk', 'priority_group': 'engineering_culture', 'default_weight': 2},
+  {'name': 'pressure_culture_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {'name': 'fake_flextime_risk', 'type': 'risk', 'priority_group': 'work_life_balance', 'default_weight': 2},
+  {
+    'name': 'traditional_corporate_process_risk',
+    'type': 'risk',
+    'priority_group': 'english_environment',
+    'default_weight': 2,
+  },
+  {'name': 'customer_site_risk', 'type': 'risk', 'priority_group': 'product_company', 'default_weight': 2},
 ];
 
 Response _jsonResponse(Object payload, {int statusCode = HttpStatus.ok}) {

@@ -6,15 +6,18 @@ import 'package:yaml/yaml.dart';
 class EngineConfigCatalog {
   const EngineConfigCatalog({
     required this.personaIds,
+    required this.candidateProfileIds,
     required this.companies,
   });
 
   final List<String> personaIds;
+  final List<String> candidateProfileIds;
   final List<CompanyOption> companies;
 
   Map<String, Object?> toJson() {
     return {
       'personaIds': personaIds,
+      'candidateProfileIds': candidateProfileIds,
       'companies': companies.map((item) => item.toJson()).toList(),
     };
   }
@@ -46,6 +49,7 @@ class PersonaDetail {
     required this.acceptableIf,
     required this.signalWeights,
     required this.rankingStrategy,
+    required this.minimumSalaryYen,
   });
 
   final String id;
@@ -55,6 +59,7 @@ class PersonaDetail {
   final List<String> hardNo;
   final List<String> acceptableIf;
   final Map<String, int> signalWeights;
+  final int? minimumSalaryYen;
 
   Map<String, Object?> toJson() {
     return {
@@ -65,6 +70,57 @@ class PersonaDetail {
       'acceptable_if': acceptableIf,
       'signal_weights': signalWeights,
       'ranking_strategy': rankingStrategy,
+      'minimum_salary_yen': minimumSalaryYen,
+    };
+  }
+}
+
+class CandidateProfileDetail {
+  const CandidateProfileDetail({
+    required this.id,
+    required this.name,
+    required this.title,
+    required this.location,
+    required this.totalExperienceYears,
+    required this.productionSkills,
+    required this.learningSkills,
+    required this.gapSkills,
+    required this.strongDomains,
+    required this.moderateDomains,
+    required this.limitedDomains,
+    required this.content,
+    required this.rawYaml,
+  });
+
+  final String id;
+  final String name;
+  final String title;
+  final String location;
+  final int totalExperienceYears;
+  final List<String> productionSkills;
+  final List<String> learningSkills;
+  final List<String> gapSkills;
+  final List<String> strongDomains;
+  final List<String> moderateDomains;
+  final List<String> limitedDomains;
+  final Map<String, Object?> content;
+  final String rawYaml;
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'title': title,
+      'location': location,
+      'total_experience_years': totalExperienceYears,
+      'production_skills': productionSkills,
+      'learning_skills': learningSkills,
+      'gap_skills': gapSkills,
+      'strong_domains': strongDomains,
+      'moderate_domains': moderateDomains,
+      'limited_domains': limitedDomains,
+      'content': content,
+      'raw_yaml': rawYaml,
     };
   }
 }
@@ -77,6 +133,7 @@ class EngineConfigRepository {
   static const String _personasFile = 'personas.yaml';
   static const String _companiesFile = 'companies.yaml';
   static const String _configFolder = 'config';
+  static const String _candidateProfilesFolder = 'candidate-profiles';
   static const String _personasKey = 'personas';
   static const String _companiesKey = 'companies';
   static const String _idKey = 'id';
@@ -87,18 +144,40 @@ class EngineConfigRepository {
   static const String _acceptableIfKey = 'acceptable_if';
   static const String _rankingStrategyKey = 'ranking_strategy';
   static const String _signalWeightsKey = 'signal_weights';
+  static const String _minimumSalaryYenKey = 'minimum_salary_yen';
+  static const String _candidateKey = 'candidate';
+  static const String _stackKey = 'stack';
+  static const String _productionProvenKey = 'production_proven';
+  static const String _activelyLearningKey = 'actively_learning';
+  static const String _gapsHonestKey = 'gaps_honest';
+  static const String _domainExpertiseKey = 'domain_expertise';
+  static const String _strongKey = 'strong';
+  static const String _moderateKey = 'moderate';
+  static const String _limitedKey = 'limited';
+  static const String _titleKey = 'title';
+  static const String _locationKey = 'location';
+  static const String _totalExperienceYearsKey = 'total_experience_years';
 
   final Directory engineRoot;
 
   Future<EngineConfigCatalog> loadCatalog() async {
     final personasPath = p.join(engineRoot.path, _configFolder, _personasFile);
     final companiesPath = p.join(engineRoot.path, _configFolder, _companiesFile);
+    final candidateProfilesPath = p.join(
+      engineRoot.path,
+      _configFolder,
+      _candidateProfilesFolder,
+    );
 
     final personaIds = await _loadPersonaIds(File(personasPath));
     final companies = await _loadCompanies(File(companiesPath));
+    final candidateProfileIds = await _loadCandidateProfileIds(
+      Directory(candidateProfilesPath),
+    );
 
     return EngineConfigCatalog(
       personaIds: personaIds,
+      candidateProfileIds: candidateProfileIds,
       companies: companies,
     );
   }
@@ -171,15 +250,12 @@ class EngineConfigRepository {
 
       final description = entry[_descriptionKey]?.toString().trim() ?? '';
       final rankingStrategy = entry[_rankingStrategyKey]?.toString().trim() ?? 'by_score';
+      final minimumSalaryYen = _parseOptionalInt(entry[_minimumSalaryYenKey]);
 
       List<String> parseStringList(String key) {
         final raw = entry[key];
         if (raw is! YamlList) return const [];
-        return raw
-            .whereType<String>()
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+        return raw.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
       }
 
       Map<String, int> parseWeights() {
@@ -203,6 +279,57 @@ class EngineConfigRepository {
         acceptableIf: parseStringList(_acceptableIfKey),
         signalWeights: parseWeights(),
         rankingStrategy: rankingStrategy.isEmpty ? 'by_score' : rankingStrategy,
+        minimumSalaryYen: minimumSalaryYen,
+      );
+    }
+
+    return null;
+  }
+
+  Future<CandidateProfileDetail?> loadCandidateProfileDetail(String id) async {
+    final candidateProfilesDir = Directory(
+      p.join(engineRoot.path, _configFolder, _candidateProfilesFolder),
+    );
+    if (!await candidateProfilesDir.exists()) {
+      return null;
+    }
+
+    final normalizedTarget = id.trim().toLowerCase();
+    await for (final entity in candidateProfilesDir.list(followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.yaml')) {
+        continue;
+      }
+
+      final fileId = p.basenameWithoutExtension(entity.path).trim();
+      if (fileId.toLowerCase() != normalizedTarget) {
+        continue;
+      }
+
+      final rawYaml = await entity.readAsString();
+      final decoded = loadYaml(rawYaml);
+      if (decoded is! YamlMap) {
+        return null;
+      }
+
+      final candidate = _readYamlMap(decoded, _candidateKey);
+      final stack = _readYamlMap(decoded, _stackKey);
+      final production = _readYamlMap(stack, _productionProvenKey);
+      final domainExpertise = _readYamlMap(decoded, _domainExpertiseKey);
+
+      return CandidateProfileDetail(
+        id: fileId,
+        name: candidate[_nameKey]?.toString().trim() ?? fileId,
+        title: candidate[_titleKey]?.toString().trim() ?? '',
+        location: candidate[_locationKey]?.toString().trim() ?? '',
+        totalExperienceYears: _parseRequiredInt(candidate[_totalExperienceYearsKey]),
+        productionSkills: _flattenNestedStringLists(production),
+        learningSkills: _readYamlStringList(stack, _activelyLearningKey),
+        gapSkills: _readYamlStringList(stack, _gapsHonestKey),
+        strongDomains: _readYamlStringList(domainExpertise, _strongKey),
+        moderateDomains: _readYamlStringList(domainExpertise, _moderateKey),
+        limitedDomains: _readYamlStringList(domainExpertise, _limitedKey),
+        content: _toJsonCompatibleMap(decoded),
+        rawYaml: rawYaml,
       );
     }
 
@@ -213,6 +340,7 @@ class EngineConfigRepository {
     String id,
     Map<String, int> weights,
     String strategy,
+    int? minimumSalaryYen,
   ) async {
     final existing = await loadPersonaDetail(id);
     if (existing == null) {
@@ -245,11 +373,7 @@ class EngineConfigRepository {
       List<String> parseStringList(String key) {
         final raw = entry[key];
         if (raw is! YamlList) return const [];
-        return raw
-            .whereType<String>()
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
+        return raw.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
       }
 
       Map<String, int> parseWeights() {
@@ -269,25 +393,31 @@ class EngineConfigRepository {
       final entryStrategy = entry[_rankingStrategyKey]?.toString().trim() ?? 'by_score';
 
       if (entryId == id) {
-        allDetails.add(PersonaDetail(
-          id: entryId,
-          description: entryDescription,
-          priorities: parseStringList(_prioritiesKey),
-          hardNo: parseStringList(_hardNoKey),
-          acceptableIf: parseStringList(_acceptableIfKey),
-          signalWeights: weights,
-          rankingStrategy: normalizedStrategy,
-        ));
+        allDetails.add(
+          PersonaDetail(
+            id: entryId,
+            description: entryDescription,
+            priorities: parseStringList(_prioritiesKey),
+            hardNo: parseStringList(_hardNoKey),
+            acceptableIf: parseStringList(_acceptableIfKey),
+            signalWeights: weights,
+            rankingStrategy: normalizedStrategy,
+            minimumSalaryYen: minimumSalaryYen,
+          ),
+        );
       } else {
-        allDetails.add(PersonaDetail(
-          id: entryId,
-          description: entryDescription,
-          priorities: parseStringList(_prioritiesKey),
-          hardNo: parseStringList(_hardNoKey),
-          acceptableIf: parseStringList(_acceptableIfKey),
-          signalWeights: parseWeights(),
-          rankingStrategy: entryStrategy.isEmpty ? 'by_score' : entryStrategy,
-        ));
+        allDetails.add(
+          PersonaDetail(
+            id: entryId,
+            description: entryDescription,
+            priorities: parseStringList(_prioritiesKey),
+            hardNo: parseStringList(_hardNoKey),
+            acceptableIf: parseStringList(_acceptableIfKey),
+            signalWeights: parseWeights(),
+            rankingStrategy: entryStrategy.isEmpty ? 'by_score' : entryStrategy,
+            minimumSalaryYen: _parseOptionalInt(entry[_minimumSalaryYenKey]),
+          ),
+        );
       }
     }
 
@@ -317,6 +447,7 @@ class EngineConfigRepository {
         acceptableIf: detail.acceptableIf,
         signalWeights: detail.signalWeights,
         rankingStrategy: detail.rankingStrategy,
+        minimumSalaryYen: detail.minimumSalaryYen,
       );
       if (i > 0) buffer.writeln();
       buffer.write(_buildPersonaEntry(input));
@@ -332,6 +463,7 @@ class EngineConfigRepository {
       acceptableIf: existing.acceptableIf,
       signalWeights: weights,
       rankingStrategy: normalizedStrategy,
+      minimumSalaryYen: minimumSalaryYen,
     );
   }
 
@@ -392,6 +524,10 @@ class EngineConfigRepository {
     buffer.writeln('    $_acceptableIfKey:');
     for (final item in input.acceptableIf) {
       buffer.writeln('      - ${_yamlValue(item)}');
+    }
+    if (input.minimumSalaryYen != null) {
+      buffer.writeln();
+      buffer.writeln('    $_minimumSalaryYenKey: ${input.minimumSalaryYen}');
     }
     // ranking_strategy (only write if non-default)
     if (input.rankingStrategy != 'by_score') {
@@ -479,6 +615,117 @@ class EngineConfigRepository {
     values.sort((left, right) => left.id.compareTo(right.id));
     return values;
   }
+
+  Future<List<String>> _loadCandidateProfileIds(Directory profilesDir) async {
+    if (!await profilesDir.exists()) {
+      return const [];
+    }
+
+    final values = <String>[];
+    await for (final entity in profilesDir.list(followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.yaml')) {
+        continue;
+      }
+
+      final decoded = loadYaml(await entity.readAsString());
+      if (decoded is YamlMap) {
+        final id = decoded[_idKey]?.toString().trim() ?? '';
+        if (id.isNotEmpty) {
+          values.add(id);
+          continue;
+        }
+      }
+
+      values.add(p.basenameWithoutExtension(entity.path));
+    }
+
+    values.sort();
+    return values.toSet().toList();
+  }
+
+  int? _parseOptionalInt(Object? raw) {
+    if (raw is num) {
+      return raw.toInt();
+    }
+    final text = raw?.toString().trim() ?? '';
+    if (text.isEmpty) {
+      return null;
+    }
+    return int.tryParse(text.replaceAll(',', ''));
+  }
+
+  int _parseRequiredInt(Object? raw) {
+    if (raw is num) {
+      return raw.toInt();
+    }
+    return int.tryParse(raw?.toString().trim() ?? '') ?? 0;
+  }
+
+  Map<dynamic, dynamic> _readYamlMap(Object? raw, String key) {
+    if (raw is Map) {
+      final nested = raw[key];
+      if (nested is Map) {
+        return nested;
+      }
+    }
+    return const {};
+  }
+
+  List<String> _readYamlStringList(Map<dynamic, dynamic> map, String key) {
+    final raw = map[key];
+    if (raw is! YamlList) {
+      return const [];
+    }
+    final values = <String>[];
+    for (final item in raw) {
+      final value = item?.toString().trim() ?? '';
+      if (value.isNotEmpty) {
+        values.add(value);
+      }
+    }
+    return values;
+  }
+
+  List<String> _flattenNestedStringLists(Map<dynamic, dynamic> map) {
+    final values = <String>[];
+    for (final entry in map.entries) {
+      final rawValue = entry.value;
+      if (rawValue is YamlList) {
+        for (final item in rawValue) {
+          final value = item?.toString().trim() ?? '';
+          if (value.isNotEmpty) {
+            values.add(value);
+          }
+        }
+        continue;
+      }
+      if (rawValue is Map) {
+        values.addAll(_flattenNestedStringLists(rawValue));
+      }
+    }
+    return values;
+  }
+
+  Map<String, Object?> _toJsonCompatibleMap(Map<dynamic, dynamic> map) {
+    final result = <String, Object?>{};
+    for (final entry in map.entries) {
+      result[entry.key.toString()] = _toJsonCompatibleValue(entry.value);
+    }
+    return result;
+  }
+
+  Object? _toJsonCompatibleValue(Object? raw) {
+    if (raw is Map) {
+      return _toJsonCompatibleMap(raw);
+    }
+    if (raw is List) {
+      return raw.map(_toJsonCompatibleValue).toList();
+    }
+    if (raw == null || raw is String || raw is num || raw is bool) {
+      return raw;
+    }
+    return raw.toString();
+  }
 }
 
 class CompanyCreateInput {
@@ -541,6 +788,7 @@ class PersonaCreateInput {
     required this.acceptableIf,
     this.signalWeights = const {},
     this.rankingStrategy = '',
+    this.minimumSalaryYen,
   });
 
   static const String _defaultDescription = 'Added from Operations UI.';
@@ -566,6 +814,7 @@ class PersonaCreateInput {
   final List<String> acceptableIf;
   final Map<String, int> signalWeights;
   final String rankingStrategy;
+  final int? minimumSalaryYen;
 
   PersonaCreateInput normalized() {
     return PersonaCreateInput(
@@ -575,15 +824,17 @@ class PersonaCreateInput {
       hardNo: _normalizeList(hardNo, _defaultHardNo),
       acceptableIf: _normalizeList(acceptableIf, _defaultAcceptableIf),
       signalWeights: signalWeights,
-      rankingStrategy: rankingStrategy.trim().isEmpty
-          ? 'by_score'
-          : rankingStrategy.trim().toLowerCase(),
+      rankingStrategy: rankingStrategy.trim().isEmpty ? 'by_score' : rankingStrategy.trim().toLowerCase(),
+      minimumSalaryYen: minimumSalaryYen,
     );
   }
 
   void validate() {
     if (id.isEmpty) {
       throw const FormatException('Field "id" is required.');
+    }
+    if (minimumSalaryYen != null && minimumSalaryYen! <= 0) {
+      throw const FormatException('Field "minimumSalaryYen" must be positive when provided.');
     }
   }
 

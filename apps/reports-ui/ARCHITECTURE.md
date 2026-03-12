@@ -23,7 +23,7 @@ Jaspr server-mode app with filesystem-backed report loading.
 
 High-level flow:
 
-1. Engine run writes artifacts into a reports root (default: `output/`).
+1. Engine run writes artifacts into a reports root (engine default in this monorepo: `services/engine/output/`).
 2. UI reads available artifacts from configured root.
 3. UI maps artifacts into view models.
 4. UI renders report pages (runs, batch, weekly, context, trends).
@@ -56,6 +56,11 @@ Planned runtime config:
 
 - `REPORTS_ROOT` (path to engine output)
 - Optional `PUBLIC_BASE_URL` for deployed links
+
+Current local default behavior:
+
+- prefer `../../services/engine/output` when running from `apps/reports-ui` inside this monorepo
+- otherwise fall back to local `output/`
 
 ## Non-Goals (Current Phase)
 

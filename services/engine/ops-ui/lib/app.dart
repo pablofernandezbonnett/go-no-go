@@ -11,6 +11,7 @@ enum OpsScreen {
   runs,
   company,
   persona,
+  candidateProfile,
   settings,
 }
 
@@ -35,6 +36,7 @@ class AppState extends State<App> {
   static const String _robotsStrict = 'strict';
   static const String _robotsWarn = 'warn';
   static const String _robotsOff = 'off';
+  static const String _candidateProfileNone = 'none';
   static const List<String> _rankingStrategyOptions = [
     'by_score',
     'by_language_ease',
@@ -49,15 +51,18 @@ class AppState extends State<App> {
   List<RunPayload> _runs = const [];
 
   String? _selectedRunId;
+  String _selectedCandidateProfileViewId = '';
   bool _isLoading = true;
   bool _isSubmittingRun = false;
   bool _isSubmittingCompany = false;
   bool _isSubmittingPersona = false;
+  bool _isLoadingCandidateProfileDetail = false;
 
   String? _errorMessage;
   String? _successMessage;
 
   String _selectedPersonaId = '';
+  String _selectedCandidateProfileId = '';
   final Set<String> _selectedCompanyIds = <String>{};
   bool _fetchWebFirst = true;
   String _robotsMode = _robotsStrict;
@@ -82,6 +87,7 @@ class AppState extends State<App> {
   String _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
   String _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
   String _newPersonaRankingStrategy = 'by_score';
+  String _newPersonaMinimumSalaryYen = '';
   // Each entry: (signalName, weightString)
   final List<(String, String)> _newPersonaSignalWeights = [];
 
@@ -93,7 +99,10 @@ class AppState extends State<App> {
   bool _isLoadingTuning = false;
   bool _isSavingTuning = false;
   String _tuningRankingStrategy = 'by_score';
+  String _tuningMinimumSalaryYen = '';
   final List<(String, String)> _tuningSignalWeights = [];
+
+  CandidateProfileDetailPayload? _candidateProfileDetail;
 
   bool _autoRefreshRuns = true;
   int _pollIntervalSeconds = 3;
@@ -143,11 +152,19 @@ class AppState extends State<App> {
         if (_selectedPersonaId.isEmpty) {
           _selectedPersonaId = config.personaIds.isEmpty ? '' : config.personaIds.first;
         }
+        _selectedCandidateProfileId = _normalizeCandidateProfileSelection(
+          _selectedCandidateProfileId,
+          config,
+        );
+        if (_selectedCandidateProfileViewId.isEmpty && config.candidateProfileIds.isNotEmpty) {
+          _selectedCandidateProfileViewId = config.candidateProfileIds.first;
+        }
         _selectedRunId = _selectedRunId ?? (runs.isEmpty ? null : runs.first.runId);
         _isLoading = false;
       });
 
       await _refreshSelectedRunDetails();
+      await _ensureCandidateProfileDetailLoaded();
     } catch (error) {
       setState(() {
         _isLoading = false;
@@ -215,7 +232,16 @@ class AppState extends State<App> {
         if (_selectedPersonaId.isEmpty && config.personaIds.isNotEmpty) {
           _selectedPersonaId = config.personaIds.first;
         }
+        _selectedCandidateProfileId = _normalizeCandidateProfileSelection(
+          _selectedCandidateProfileId,
+          config,
+        );
+        if (!config.candidateProfileIds.contains(_selectedCandidateProfileViewId)) {
+          _selectedCandidateProfileViewId = config.candidateProfileIds.isEmpty ? '' : config.candidateProfileIds.first;
+          _candidateProfileDetail = null;
+        }
       });
+      await _ensureCandidateProfileDetailLoaded();
     } catch (error) {
       setState(() {
         _errorMessage = error.toString();
@@ -264,6 +290,7 @@ class AppState extends State<App> {
     try {
       final created = await _api.createRun({
         'personaId': _selectedPersonaId,
+        'candidateProfileId': _selectedCandidateProfileId,
         'companyIds': _selectedCompanyIds.toList()..sort(),
         'fetchWebFirst': _fetchWebFirst,
         'robotsMode': _robotsMode,
@@ -361,6 +388,7 @@ class AppState extends State<App> {
         'hardNo': _csvToList(_newPersonaHardNo),
         'acceptableIf': _csvToList(_newPersonaAcceptableIf),
         'rankingStrategy': _newPersonaRankingStrategy,
+        'minimumSalaryYen': _parseOptionalInt(_newPersonaMinimumSalaryYen),
         'signalWeights': weights,
       });
 
@@ -372,6 +400,7 @@ class AppState extends State<App> {
         _newPersonaHardNo = 'consulting_company,onsite_only,salary_missing';
         _newPersonaAcceptableIf = 'hybrid_partial,japanese_not_blocking';
         _newPersonaRankingStrategy = 'by_score';
+        _newPersonaMinimumSalaryYen = '';
         _newPersonaSignalWeights.clear();
         _successMessage = 'Persona added: $createdId';
       });
@@ -405,6 +434,7 @@ class AppState extends State<App> {
       }
       setState(() {
         _tuningRankingStrategy = detail['ranking_strategy']?.toString() ?? 'by_score';
+        _tuningMinimumSalaryYen = detail['minimum_salary_yen']?.toString() ?? '';
         _tuningSignalWeights
           ..clear()
           ..addAll(loadedWeights);
@@ -421,6 +451,7 @@ class AppState extends State<App> {
   void _closeTuning() {
     setState(() {
       _tuningPersonaId = null;
+      _tuningMinimumSalaryYen = '';
       _tuningSignalWeights.clear();
     });
   }
@@ -440,7 +471,12 @@ class AppState extends State<App> {
             .where((e) => e.$1.isNotEmpty && int.tryParse(e.$2) != null)
             .map((e) => MapEntry(e.$1, int.parse(e.$2))),
       );
-      await _api.updatePersonaTuning(id, weights, _tuningRankingStrategy);
+      await _api.updatePersonaTuning(
+        id,
+        weights,
+        _tuningRankingStrategy,
+        _parseOptionalInt(_tuningMinimumSalaryYen),
+      );
       setState(() {
         _successMessage = 'Tuning saved for persona: $id';
         _isSavingTuning = false;
@@ -454,11 +490,72 @@ class AppState extends State<App> {
   }
 
   List<String> _csvToList(String raw) {
-    return raw
-        .split(',')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    return raw.split(',').map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+  }
+
+  int? _parseOptionalInt(String raw) {
+    final normalized = raw.trim().replaceAll(',', '');
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return int.tryParse(normalized);
+  }
+
+  String _normalizeCandidateProfileSelection(String current, OpsConfigPayload config) {
+    if (current.isEmpty || current == _candidateProfileNone) {
+      return current;
+    }
+    return config.candidateProfileIds.contains(current) ? current : '';
+  }
+
+  String _candidateProfileLabel(String value) {
+    if (value.isEmpty) {
+      return 'Auto';
+    }
+    if (value == _candidateProfileNone) {
+      return 'None';
+    }
+    return value;
+  }
+
+  Future<void> _ensureCandidateProfileDetailLoaded() async {
+    final config = _config;
+    if (config == null || config.candidateProfileIds.isEmpty) {
+      return;
+    }
+    final selectedId = _selectedCandidateProfileViewId.isEmpty
+        ? config.candidateProfileIds.first
+        : _selectedCandidateProfileViewId;
+    if (_candidateProfileDetail?.id == selectedId) {
+      return;
+    }
+    await _loadCandidateProfileDetail(selectedId);
+  }
+
+  Future<void> _loadCandidateProfileDetail(String id) async {
+    if (id.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _selectedCandidateProfileViewId = id;
+      _isLoadingCandidateProfileDetail = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final detail = await _api.fetchCandidateProfileDetail(id);
+      setState(() {
+        _candidateProfileDetail = detail;
+        _isLoadingCandidateProfileDetail = false;
+      });
+    } catch (error) {
+      setState(() {
+        _candidateProfileDetail = null;
+        _isLoadingCandidateProfileDetail = false;
+        _errorMessage = error.toString();
+      });
+    }
   }
 
   RunPayload? _findRun(String? runId) {
@@ -479,6 +576,9 @@ class AppState extends State<App> {
       _errorMessage = null;
       _successMessage = null;
     });
+    if (screen == OpsScreen.candidateProfile) {
+      _ensureCandidateProfileDetailLoaded();
+    }
   }
 
   @override
@@ -507,7 +607,7 @@ class AppState extends State<App> {
     }
 
     return div(classes: 'shell', [
-      aside(classes: 'sidebar panel', [
+      aside(classes: 'sidebar', [
         h1(classes: 'brand-title', [.text('Go/No-Go Engine Operations')]),
         p(classes: 'brand-caption', [.text('CLI companion UI')]),
         nav(classes: 'menu', [
@@ -515,11 +615,13 @@ class AppState extends State<App> {
           _menuButton(OpsScreen.runs, 'Runs'),
           _menuButton(OpsScreen.company, 'Company'),
           _menuButton(OpsScreen.persona, 'Persona'),
+          _menuButton(OpsScreen.candidateProfile, 'Candidate Profile'),
           _menuButton(OpsScreen.settings, 'Settings'),
         ]),
         div(classes: 'sidebar-meta', [
           p([.text('Companies: ${config.companies.length}')]),
           p([.text('Personas: ${config.personaIds.length}')]),
+          p([.text('Candidate profiles: ${config.candidateProfileIds.length}')]),
           p([.text('Runs: ${_runs.length}')]),
         ]),
       ]),
@@ -550,6 +652,8 @@ class AppState extends State<App> {
         return _buildCompanyScreen(config);
       case OpsScreen.persona:
         return _buildPersonaScreen(config);
+      case OpsScreen.candidateProfile:
+        return _buildCandidateProfileScreen(config);
       case OpsScreen.settings:
         return _buildSettingsScreen(config);
     }
@@ -575,6 +679,31 @@ class AppState extends State<App> {
               [
                 for (final personaId in config.personaIds)
                   option(value: personaId, selected: _selectedPersonaId == personaId, [.text(personaId)]),
+              ],
+            ),
+          ]),
+          label([
+            .text('Candidate profile'),
+            select(
+              value: _selectedCandidateProfileId,
+              onChange: (values) {
+                setState(() {
+                  _selectedCandidateProfileId = values.isEmpty ? '' : values.first;
+                });
+              },
+              [
+                option(value: '', selected: _selectedCandidateProfileId.isEmpty, [.text('Auto')]),
+                option(
+                  value: _candidateProfileNone,
+                  selected: _selectedCandidateProfileId == _candidateProfileNone,
+                  [.text('None')],
+                ),
+                for (final profileId in config.candidateProfileIds)
+                  option(
+                    value: profileId,
+                    selected: _selectedCandidateProfileId == profileId,
+                    [.text(profileId)],
+                  ),
               ],
             ),
           ]),
@@ -646,6 +775,8 @@ class AppState extends State<App> {
             onSelected: (value) => setState(() => _topPerSection = value),
           ),
         ]),
+        if (config.candidateProfileIds.isEmpty)
+          p([.text('No candidate profiles are configured. Runs will use persona-only evaluation.')]),
         div(classes: 'panel-header-inline', [
           h3([.text('Companies')]),
           button(onClick: _toggleSelectAllCompanies, [.text(allSelected ? 'Clear all' : 'Select all')]),
@@ -694,6 +825,7 @@ class AppState extends State<App> {
                 th([.text('Run id')]),
                 th([.text('Status')]),
                 th([.text('Persona')]),
+                th([.text('Candidate')]),
                 th([.text('Companies')]),
                 th([.text('Created')]),
               ]),
@@ -704,8 +836,11 @@ class AppState extends State<App> {
                   td([
                     button(onClick: () => setState(() => _selectedRunId = run.runId), [.text(run.runId)]),
                   ]),
-                  td([span(classes: 'status ${run.status}', [.text(run.status)])]),
+                  td([
+                    span(classes: 'status ${run.status}', [.text(run.status)]),
+                  ]),
                   td([.text(run.request.personaId)]),
+                  td([.text(_candidateProfileLabel(run.request.candidateProfileId))]),
                   td([.text(run.request.companyIds.isEmpty ? 'ALL' : run.request.companyIds.join(', '))]),
                   td([.text(run.createdAt)]),
                 ]),
@@ -726,6 +861,7 @@ class AppState extends State<App> {
             code([.text('${selectedRun.command} ${selectedRun.arguments.join(' ')}')]),
           ]),
           p([.text('Exit code: ${selectedRun.exitCode?.toString() ?? '-'}')]),
+          p([.text('Candidate profile: ${_candidateProfileLabel(selectedRun.request.candidateProfileId)}')]),
           pre(classes: 'logs', [
             .text(selectedRun.logs.isEmpty ? 'No logs yet.' : selectedRun.logs.join('\n')),
           ]),
@@ -806,7 +942,10 @@ class AppState extends State<App> {
   }
 
   Component _buildPersonaScreen(OpsConfigPayload config) {
-    final signalNames = _signalCatalog.map((entry) => entry['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+    final signalNames = _signalCatalog
+        .map((entry) => entry['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
 
     return div(classes: 'screen-stack', [
       section(classes: 'panel', [
@@ -842,6 +981,12 @@ class AppState extends State<App> {
             value: _newPersonaAcceptableIf,
             placeholder: 'hybrid_partial,japanese_not_blocking',
             onChanged: (value) => setState(() => _newPersonaAcceptableIf = value),
+          ),
+          _textField(
+            labelText: 'Minimum salary yen (optional)',
+            value: _newPersonaMinimumSalaryYen,
+            placeholder: '8000000',
+            onChanged: (value) => setState(() => _newPersonaMinimumSalaryYen = value),
           ),
           _dropdownField(
             labelText: 'Ranking strategy',
@@ -882,8 +1027,7 @@ class AppState extends State<App> {
                 [.text(_tuningPersonaId == personaId ? 'Close' : 'Tune')],
               ),
             ]),
-            if (_tuningPersonaId == personaId)
-              _buildTuningPanel(personaId, signalNames),
+            if (_tuningPersonaId == personaId) _buildTuningPanel(personaId, signalNames),
           ],
         ]),
       ]),
@@ -892,7 +1036,9 @@ class AppState extends State<App> {
 
   Component _buildTuningPanel(String personaId, List<String> signalNames) {
     if (_isLoadingTuning) {
-      return div(classes: 'tuning-panel', [p([.text('Loading persona detail...')])]);
+      return div(classes: 'tuning-panel', [
+        p([.text('Loading persona detail...')]),
+      ]);
     }
 
     return div(classes: 'tuning-panel', [
@@ -903,6 +1049,12 @@ class AppState extends State<App> {
           value: _tuningRankingStrategy,
           options: _rankingStrategyOptions,
           onChanged: (v) => setState(() => _tuningRankingStrategy = v),
+        ),
+        _textField(
+          labelText: 'Minimum salary yen (optional)',
+          value: _tuningMinimumSalaryYen,
+          placeholder: '8000000',
+          onChanged: (value) => setState(() => _tuningMinimumSalaryYen = value),
         ),
       ]),
       _buildSignalWeightsEditor(
@@ -928,6 +1080,297 @@ class AppState extends State<App> {
     ]);
   }
 
+  Component _buildCandidateProfileScreen(OpsConfigPayload config) {
+    if (config.candidateProfileIds.isEmpty) {
+      return div(classes: 'screen-stack', [
+        section(classes: 'panel', [
+          h2([.text('Candidate Profile')]),
+          p([.text('No candidate profiles are configured yet.')]),
+        ]),
+      ]);
+    }
+
+    final detail = _candidateProfileDetail;
+
+    return div(classes: 'screen-stack', [
+      section(classes: 'panel', [
+        div(classes: 'panel-header-inline', [
+          div([
+            h2([.text('Candidate Profile')]),
+            p([.text('Read-only view of full candidate profiles loaded from YAML.')]),
+          ]),
+          button(
+            onClick: _isLoadingCandidateProfileDetail
+                ? null
+                : () => _loadCandidateProfileDetail(_selectedCandidateProfileViewId),
+            [.text('Refresh profile')],
+          ),
+        ]),
+        div(classes: 'candidate-profile-shell', [
+          div(classes: 'candidate-profile-list', [
+            p(classes: 'list-heading', [.text('Available profiles')]),
+            for (final profileId in config.candidateProfileIds)
+              button(
+                classes: profileId == _selectedCandidateProfileViewId ? 'profile-link selected' : 'profile-link',
+                onClick: () => _loadCandidateProfileDetail(profileId),
+                [.text(profileId)],
+              ),
+          ]),
+          div(classes: 'candidate-profile-detail', [
+            if (_isLoadingCandidateProfileDetail)
+              p([.text('Loading candidate profile...')])
+            else if (detail == null)
+              p([.text('Select a candidate profile to inspect its full content.')])
+            else ...[
+              div(classes: 'candidate-hero', [
+                div([
+                  h3([.text(detail.name.isEmpty ? detail.id : detail.name)]),
+                  if (detail.title.isNotEmpty) p([.text(detail.title)]),
+                  if (detail.location.isNotEmpty) p([.text(detail.location)]),
+                ]),
+                div(classes: 'candidate-metrics', [
+                  _profileStat('Profile id', detail.id),
+                  _profileStat('Experience', '${detail.totalExperienceYears} years'),
+                  _profileStat('Production skills', '${detail.productionSkills.length}'),
+                  _profileStat(
+                    'Domain signals',
+                    '${detail.strongDomains.length + detail.moderateDomains.length + detail.limitedDomains.length}',
+                  ),
+                ]),
+              ]),
+              div(classes: 'profile-section-grid', [
+                _profileTagSection(
+                  'Production-proven',
+                  detail.productionSkills,
+                  tone: 'positive',
+                ),
+                _profileTagSection(
+                  'Actively learning',
+                  detail.learningSkills,
+                  tone: 'neutral',
+                ),
+                _profileTagSection(
+                  'Honest gaps',
+                  detail.gapSkills,
+                  tone: 'risk',
+                ),
+                _profileTagSection(
+                  'Strong domains',
+                  detail.strongDomains,
+                  tone: 'positive',
+                ),
+                _profileTagSection(
+                  'Moderate domains',
+                  detail.moderateDomains,
+                  tone: 'neutral',
+                ),
+                _profileTagSection(
+                  'Limited domains',
+                  detail.limitedDomains,
+                  tone: 'risk',
+                ),
+              ]),
+              div(classes: 'profile-content-section', [
+                div(classes: 'panel-header-inline', [
+                  h3([.text('Full Profile Content')]),
+                  code([.text('config/candidate-profiles/${detail.id}.yaml')]),
+                ]),
+                _buildProfileContent(detail.content),
+              ]),
+              div(classes: 'yaml-preview', [
+                div(classes: 'panel-header-inline', [
+                  h3([.text('Source YAML')]),
+                  code([.text('config/candidate-profiles/${detail.id}.yaml')]),
+                ]),
+                pre(classes: 'logs yaml-raw', [
+                  .text(detail.rawYaml.isEmpty ? 'No YAML content loaded.' : detail.rawYaml),
+                ]),
+              ]),
+            ],
+          ]),
+        ]),
+      ]),
+    ]);
+  }
+
+  Component _profileStat(String labelText, String valueText) {
+    return div(classes: 'profile-stat', [
+      span(classes: 'profile-stat-label', [.text(labelText)]),
+      span(classes: 'profile-stat-value', [.text(valueText)]),
+    ]);
+  }
+
+  Component _profileTagSection(String title, List<String> values, {required String tone}) {
+    return div(classes: 'tag-group', [
+      h4([.text(title)]),
+      if (values.isEmpty)
+        p(classes: 'muted-copy', [.text('No values defined.')])
+      else
+        div(classes: 'tag-list', [
+          for (final value in values)
+            span(classes: 'tag $tone', [
+              .text(value),
+            ]),
+        ]),
+    ]);
+  }
+
+  Component _buildProfileContent(Map<String, Object?> content) {
+    if (content.isEmpty) {
+      return p(classes: 'muted-copy', [.text('No structured profile content is available.')]);
+    }
+
+    return div(classes: 'profile-content-root', [
+      for (final entry in content.entries)
+        _buildProfileNode(
+          _formatProfileKey(entry.key),
+          entry.value,
+          depth: 0,
+        ),
+    ]);
+  }
+
+  Component _buildProfileNode(String label, Object? value, {required int depth}) {
+    final mapValue = _asProfileMap(value);
+    final listValue = _asProfileList(value);
+    final classes = depth == 0 ? 'profile-node' : 'profile-node nested';
+
+    if (mapValue != null) {
+      return div(classes: classes, [
+        div(classes: 'profile-node-header', [
+          span(classes: 'profile-node-label', [.text(label)]),
+        ]),
+        if (mapValue.isEmpty)
+          p(classes: 'muted-copy', [.text('No values defined.')])
+        else
+          div(classes: 'profile-node-children', [
+            for (final entry in mapValue.entries)
+              _buildProfileNode(
+                _formatProfileKey(entry.key),
+                entry.value,
+                depth: depth + 1,
+              ),
+          ]),
+      ]);
+    }
+
+    if (listValue != null) {
+      return div(classes: classes, [
+        div(classes: 'profile-node-header', [
+          span(classes: 'profile-node-label', [.text(label)]),
+        ]),
+        if (listValue.isEmpty)
+          p(classes: 'muted-copy', [.text('No values defined.')])
+        else if (_isScalarList(listValue))
+          div(classes: 'profile-value-list', [
+            for (final item in listValue)
+              div(classes: 'profile-value-item', [
+                .text(_profileScalarText(item)),
+              ]),
+          ])
+        else
+          div(classes: 'profile-node-children', [
+            for (int idx = 0; idx < listValue.length; idx++)
+              _buildProfileNode(
+                _profileListEntryLabel(listValue[idx], idx),
+                listValue[idx],
+                depth: depth + 1,
+              ),
+          ]),
+      ]);
+    }
+
+    return div(classes: classes, [
+      div(classes: 'profile-node-header', [
+        span(classes: 'profile-node-label', [.text(label)]),
+      ]),
+      div(classes: 'profile-scalar', [
+        .text(_profileScalarText(value)),
+      ]),
+    ]);
+  }
+
+  Map<String, Object?>? _asProfileMap(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return {
+        for (final entry in value.entries) entry.key.toString(): entry.value,
+      };
+    }
+    return null;
+  }
+
+  List<Object?>? _asProfileList(Object? value) {
+    if (value is List<Object?>) {
+      return value;
+    }
+    if (value is List) {
+      return value.cast<Object?>();
+    }
+    return null;
+  }
+
+  bool _isScalarList(List<Object?> values) {
+    for (final value in values) {
+      if (_asProfileMap(value) != null || _asProfileList(value) != null) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _profileListEntryLabel(Object? value, int index) {
+    final mapValue = _asProfileMap(value);
+    if (mapValue == null) {
+      return 'Entry ${index + 1}';
+    }
+
+    final role = _firstProfileString(mapValue, const ['role', 'name', 'degree', 'id', 'title']);
+    final context = _firstProfileString(mapValue, const ['company', 'institution', 'domain']);
+    if (role.isNotEmpty && context.isNotEmpty && role != context) {
+      return '$role - $context';
+    }
+    if (role.isNotEmpty) {
+      return role;
+    }
+    if (context.isNotEmpty) {
+      return context;
+    }
+    return 'Entry ${index + 1}';
+  }
+
+  String _firstProfileString(Map<String, Object?> values, List<String> keys) {
+    for (final key in keys) {
+      final raw = values[key];
+      final text = raw?.toString().trim() ?? '';
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  String _profileScalarText(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? '-' : text;
+  }
+
+  String _formatProfileKey(String key) {
+    final normalized = key.trim();
+    if (normalized.isEmpty) {
+      return 'Value';
+    }
+
+    final parts = normalized
+        .split(RegExp(r'[_\-\s]+'))
+        .where((part) => part.trim().isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .toList();
+    return parts.isEmpty ? normalized : parts.join(' ');
+  }
+
   Component _buildSignalWeightsEditor({
     required List<(String, String)> weights,
     required List<String> signalNames,
@@ -948,8 +1391,7 @@ class AppState extends State<App> {
             onChange: (values) => onSignalChanged(idx, values.isEmpty ? '' : values.first),
             [
               option(value: '', selected: weights[idx].$1.isEmpty, [.text('— select signal —')]),
-              for (final name in signalNames)
-                option(value: name, selected: weights[idx].$1 == name, [.text(name)]),
+              for (final name in signalNames) option(value: name, selected: weights[idx].$1 == name, [.text(name)]),
             ],
           ),
           input<String>(
@@ -1011,8 +1453,11 @@ class AppState extends State<App> {
           code([.text(_health?.engineRoot ?? '-')]),
         ]),
         p([.text('Known personas: ${config.personaIds.length}')]),
+        p([.text('Known candidate profiles: ${config.candidateProfileIds.length}')]),
         p([.text('Known companies: ${config.companies.length}')]),
         p([.text('Signal catalog: ${_signalCatalog.length} signals loaded')]),
+        if (config.candidateProfileIds.isNotEmpty)
+          p([.text('Candidate profiles: ${config.candidateProfileIds.join(', ')}')]),
       ]),
     ]);
   }
@@ -1046,8 +1491,7 @@ class AppState extends State<App> {
         value: value,
         onChange: (values) => onChanged(values.isEmpty ? options.first : values.first),
         [
-          for (final opt in options)
-            option(value: opt, selected: opt == value, [.text(opt)]),
+          for (final opt in options) option(value: opt, selected: opt == value, [.text(opt)]),
         ],
       ),
     ]);
@@ -1083,275 +1527,474 @@ class AppState extends State<App> {
 
   @css
   static List<StyleRule> get styles => [
-        css('.shell').styles(
-          raw: const {
-            'max-width': '1320px',
-            'margin': '1rem auto',
-            'padding': '0 .8rem 1rem .8rem',
-            'display': 'grid',
-            'grid-template-columns': '300px 1fr',
-            'gap': '1rem',
-          },
-        ),
-        css('.panel').styles(
-          raw: const {
-            'background': '#ffffff',
-            'border-radius': '16px',
-            'padding': '1.1rem',
-            'box-shadow': '0 6px 16px rgba(27, 46, 36, 0.10)',
-          },
-        ),
-        css('.sidebar').styles(
-          raw: const {
-            'height': 'fit-content',
-            'position': 'sticky',
-            'top': '.8rem',
-            'display': 'flex',
-            'flex-direction': 'column',
-            'gap': '.8rem',
-            'align-self': 'start',
-          },
-        ),
-        css('.brand-title').styles(
-          raw: const {
-            'margin': '0',
-            'font-size': '1.35rem',
-            'line-height': '1.25',
-          },
-        ),
-        css('.brand-caption').styles(raw: const {'margin': '0', 'opacity': '.72'}),
-        css('.menu').styles(raw: const {'display': 'grid', 'gap': '.45rem'}),
-        css('.menu-item').styles(
-          raw: const {
-            'text-align': 'left',
-            'border-radius': '10px',
-            'border': '1px solid #c9d5cd',
-            'background': '#f5faf7',
-            'padding': '.52rem .62rem',
-          },
-        ),
-        css('.menu-item.selected').styles(
-          raw: const {
-            'background': '#d8f3e5',
-            'border-color': '#1f6e4e',
-            'font-weight': '700',
-          },
-        ),
-        css('.sidebar-meta').styles(
-          raw: const {
-            'margin-top': '.2rem',
-            'padding-top': '.7rem',
-            'border-top': '1px solid #e2ebe5',
-            'font-size': '.92rem',
-          },
-        ),
-        css('.main-content').styles(raw: const {'display': 'grid', 'gap': '.9rem'}),
-        css('.screen-stack').styles(raw: const {'display': 'grid', 'gap': '.9rem'}),
-        css('.error-banner').styles(
-          raw: const {
-            'background': '#ffe6df',
-            'color': '#8f2e20',
-            'border-radius': '10px',
-            'padding': '.7rem .9rem',
-            'font-weight': '600',
-          },
-        ),
-        css('.success-banner').styles(
-          raw: const {
-            'background': '#dcf6e8',
-            'color': '#1d5b3d',
-            'border-radius': '10px',
-            'padding': '.7rem .9rem',
-            'font-weight': '600',
-          },
-        ),
-        css('.form-grid').styles(
-          raw: const {
-            'display': 'grid',
-            'grid-template-columns': 'repeat(2, minmax(220px, 1fr))',
-            'gap': '.75rem',
-          },
-        ),
-        css('.span-2').styles(raw: const {'grid-column': 'span 2'}),
-        css('.panel-header-inline').styles(
-          raw: const {
-            'display': 'flex',
-            'justify-content': 'space-between',
-            'align-items': 'center',
-            'gap': '.6rem',
-          },
-        ),
-        css('label').styles(
-          raw: const {
-            'display': 'flex',
-            'flex-direction': 'column',
-            'gap': '.28rem',
-          },
-        ),
-        css('select, input, textarea').styles(
-          raw: const {
-            'padding': '.45rem .55rem',
-            'border-radius': '8px',
-            'border': '1px solid #c3d0c7',
-            'background': '#ffffff',
-            'font': 'inherit',
-            'color': 'inherit',
-          },
-        ),
-        css('textarea').styles(raw: const {'resize': 'vertical', 'min-height': '84px'}),
-        css('.company-grid').styles(
-          raw: const {
-            'display': 'grid',
-            'grid-template-columns': 'repeat(2, minmax(240px, 1fr))',
-            'gap': '.5rem',
-          },
-        ),
-        css('.chip').styles(
-          raw: const {
-            'text-align': 'left',
-            'border-radius': '999px',
-            'border': '1px solid #b7c5bc',
-            'background': '#f7fbf8',
-            'color': '#1f2a2e',
-            'padding': '.5rem .75rem',
-          },
-        ),
-        css('.chip.selected').styles(
-          raw: const {
-            'border-color': '#1f6e4e',
-            'background': '#d8f3e5',
-            'color': '#124735',
-            'font-weight': '600',
-          },
-        ),
-        css('.actions').styles(
-          raw: const {
-            'display': 'flex',
-            'flex-wrap': 'wrap',
-            'gap': '.6rem',
-            'margin-top': '.7rem',
-          },
-        ),
-        css('button').styles(
-          raw: const {
-            'border-radius': '10px',
-            'border': '1px solid #b6c4bc',
-            'background': '#ffffff',
-            'padding': '.5rem .75rem',
-            'cursor': 'pointer',
-            'font': 'inherit',
-          },
-        ),
-        css('button.primary').styles(
-          raw: const {
-            'background': '#1f6e4e',
-            'border-color': '#1f6e4e',
-            'color': '#ffffff',
-            'font-weight': '700',
-          },
-        ),
-        css('button:disabled').styles(raw: const {'opacity': '.65', 'cursor': 'default'}),
-        css('.runs-table').styles(raw: const {'width': '100%', 'border-collapse': 'collapse'}),
-        css('.runs-table th, .runs-table td').styles(
-          raw: const {
-            'border-bottom': '1px solid #e2ebe5',
-            'padding': '.48rem .45rem',
-            'vertical-align': 'top',
-            'text-align': 'left',
-          },
-        ),
-        css('.selected-row').styles(raw: const {'background': '#eff8f3'}),
-        css('.status').styles(
-          raw: const {
-            'display': 'inline-block',
-            'padding': '.18rem .48rem',
-            'border-radius': '999px',
-            'font-size': '.78rem',
-            'text-transform': 'uppercase',
-            'letter-spacing': '.02rem',
-          },
-        ),
-        css('.status.queued').styles(raw: const {'background': '#ece9ff', 'color': '#4f3b8f'}),
-        css('.status.running').styles(raw: const {'background': '#fff5df', 'color': '#7b5a1a'}),
-        css('.status.succeeded').styles(raw: const {'background': '#dcf6e8', 'color': '#1d5b3d'}),
-        css('.status.failed').styles(raw: const {'background': '#ffe6df', 'color': '#8f2e20'}),
-        css('.logs').styles(
-          raw: const {
-            'max-height': '420px',
-            'overflow': 'auto',
-            'background': '#11191c',
-            'color': '#d6efe0',
-            'padding': '.9rem',
-            'border-radius': '10px',
-            'white-space': 'pre-wrap',
-          },
-        ),
-        css('.company-list').styles(raw: const {'display': 'grid', 'gap': '.4rem'}),
-        css('.company-item').styles(
-          raw: const {
-            'display': 'flex',
-            'justify-content': 'space-between',
-            'align-items': 'center',
-            'gap': '.8rem',
-            'padding': '.45rem .55rem',
-            'border': '1px solid #e2ebe5',
-            'border-radius': '9px',
-            'background': '#fbfdfb',
-          },
-        ),
-        css('.company-name').styles(raw: const {'font-weight': '600'}),
-        css('.tuning-panel').styles(
-          raw: const {
-            'padding': '.8rem 1rem',
-            'background': '#f3f9f5',
-            'border': '1px solid #c3d9ca',
-            'border-radius': '10px',
-            'display': 'grid',
-            'gap': '.6rem',
-          },
-        ),
-        css('.signal-weights-editor').styles(
-          raw: const {
-            'display': 'grid',
-            'gap': '.45rem',
-            'margin-top': '.5rem',
-          },
-        ),
-        css('.signal-weights-label').styles(raw: const {'margin': '0', 'font-weight': '600'}),
-        css('.signal-weight-row').styles(
-          raw: const {
-            'display': 'flex',
-            'align-items': 'center',
-            'gap': '.4rem',
-            'flex-wrap': 'wrap',
-          },
-        ),
-        css('.signal-weight-row select').styles(raw: const {'flex': '1', 'min-width': '180px'}),
-        css.media(const MediaQuery.raw('(max-width: 1040px)'), [
-          css('.shell').styles(raw: const {'grid-template-columns': '1fr'}),
-          css('.sidebar').styles(
-            raw: const {
-              'position': 'static',
-            },
-          ),
-          css('.menu').styles(
-            raw: const {
-              'grid-template-columns': 'repeat(5, minmax(110px, 1fr))',
-            },
-          ),
-        ]),
-        css.media(const MediaQuery.raw('(max-width: 920px)'), [
-          css('.form-grid').styles(raw: const {'grid-template-columns': '1fr'}),
-          css('.span-2').styles(raw: const {'grid-column': 'span 1'}),
-          css('.company-grid').styles(raw: const {'grid-template-columns': '1fr'}),
-          css('.runs-table').styles(raw: const {'display': 'block', 'overflow': 'auto', 'white-space': 'nowrap'}),
-        ]),
-        css.media(const MediaQuery.raw('(max-width: 720px)'), [
-          css('.menu').styles(raw: const {'grid-template-columns': '1fr 1fr'}),
-          css('.panel').styles(raw: const {'padding': '.8rem'}),
-          css('.actions').styles(raw: const {'flex-direction': 'column'}),
-          css('.actions button').styles(raw: const {'width': '100%'}),
-          css('.panel-header-inline').styles(raw: const {'flex-direction': 'column', 'align-items': 'stretch'}),
-        ]),
-      ];
+    css('.shell').styles(
+      raw: const {
+        'min-height': '100vh',
+        'display': 'grid',
+        'grid-template-columns': '16rem 1fr',
+        'background': '#eef2f7',
+      },
+    ),
+    css('.panel').styles(
+      raw: const {
+        'background': '#ffffff',
+        'border': '1px solid #d9dfeb',
+        'border-radius': '12px',
+        'padding': '1.05rem',
+        'box-shadow': '0 4px 10px rgba(15, 23, 40, 0.08)',
+      },
+    ),
+    css('.sidebar').styles(
+      raw: const {
+        'width': '16rem',
+        'min-height': '100vh',
+        'box-sizing': 'border-box',
+        'padding': '1.2rem',
+        'background': '#0f1728',
+        'color': '#ffffff',
+        'position': 'sticky',
+        'top': '0',
+        'display': 'flex',
+        'flex-direction': 'column',
+        'gap': '1rem',
+        'align-self': 'start',
+      },
+    ),
+    css('.brand-title').styles(
+      raw: const {
+        'margin': '0',
+        'font-size': '1.15rem',
+        'line-height': '1.25',
+        'color': '#ffffff',
+      },
+    ),
+    css('.brand-caption').styles(
+      raw: const {
+        'margin': '0',
+        'color': '#b8c4d8',
+        'font-size': '.82rem',
+      },
+    ),
+    css('.menu').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.35rem',
+      },
+    ),
+    css('.menu-item').styles(
+      raw: const {
+        'text-align': 'left',
+        'border-radius': '8px',
+        'border': '1px solid transparent',
+        'background': 'transparent',
+        'color': '#dbe3f0',
+        'padding': '.55rem .7rem',
+        'font-weight': '600',
+      },
+    ),
+    css('.menu-item.selected').styles(
+      raw: const {
+        'background': '#01589B',
+        'border-color': '#01589B',
+        'color': '#ffffff',
+        'font-weight': '700',
+      },
+    ),
+    css('.menu-item:hover').styles(
+      raw: const {
+        'background': '#1f2c44',
+        'color': '#ffffff',
+      },
+    ),
+    css('.sidebar-meta').styles(
+      raw: const {
+        'margin-top': '.4rem',
+        'padding-top': '.8rem',
+        'border-top': '1px solid #233048',
+        'font-size': '.88rem',
+        'color': '#9fb0ca',
+      },
+    ),
+    css('.main-content').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.9rem',
+        'padding': '1.25rem',
+      },
+    ),
+    css('.screen-stack').styles(raw: const {'display': 'grid', 'gap': '.9rem'}),
+    css('.error-banner').styles(
+      raw: const {
+        'background': '#ffe6df',
+        'color': '#8f2e20',
+        'border-radius': '10px',
+        'padding': '.7rem .9rem',
+        'font-weight': '600',
+      },
+    ),
+    css('.success-banner').styles(
+      raw: const {
+        'background': '#dcf6e8',
+        'color': '#1d5b3d',
+        'border-radius': '10px',
+        'padding': '.7rem .9rem',
+        'font-weight': '600',
+      },
+    ),
+    css('.form-grid').styles(
+      raw: const {
+        'display': 'grid',
+        'grid-template-columns': 'repeat(2, minmax(220px, 1fr))',
+        'gap': '.75rem',
+      },
+    ),
+    css('.span-2').styles(raw: const {'grid-column': 'span 2'}),
+    css('.panel-header-inline').styles(
+      raw: const {
+        'display': 'flex',
+        'justify-content': 'space-between',
+        'align-items': 'center',
+        'gap': '.6rem',
+      },
+    ),
+    css('label').styles(
+      raw: const {
+        'display': 'flex',
+        'flex-direction': 'column',
+        'gap': '.28rem',
+        'color': '#334155',
+        'font-size': '.9rem',
+        'font-weight': '600',
+      },
+    ),
+    css('select, input, textarea').styles(
+      raw: const {
+        'padding': '.45rem .55rem',
+        'border-radius': '8px',
+        'border': '1px solid #c6ceda',
+        'background': '#ffffff',
+        'font': 'inherit',
+        'color': 'inherit',
+      },
+    ),
+    css('textarea').styles(raw: const {'resize': 'vertical', 'min-height': '84px'}),
+    css('.company-grid').styles(
+      raw: const {
+        'display': 'grid',
+        'grid-template-columns': 'repeat(2, minmax(240px, 1fr))',
+        'gap': '.5rem',
+      },
+    ),
+    css('.chip').styles(
+      raw: const {
+        'text-align': 'left',
+        'border-radius': '999px',
+        'border': '1px solid #c6ceda',
+        'background': '#ffffff',
+        'color': '#223041',
+        'padding': '.5rem .75rem',
+      },
+    ),
+    css('.chip.selected').styles(
+      raw: const {
+        'border-color': '#01589B',
+        'background': '#eaf2fb',
+        'color': '#01589B',
+        'font-weight': '600',
+      },
+    ),
+    css('.actions').styles(
+      raw: const {
+        'display': 'flex',
+        'flex-wrap': 'wrap',
+        'gap': '.6rem',
+        'margin-top': '.7rem',
+      },
+    ),
+    css('button').styles(
+      raw: const {
+        'border-radius': '8px',
+        'border': '1px solid #c6ceda',
+        'background': '#ffffff',
+        'padding': '.5rem .75rem',
+        'cursor': 'pointer',
+        'font': 'inherit',
+        'color': '#223041',
+      },
+    ),
+    css('button.primary').styles(
+      raw: const {
+        'background': '#01589B',
+        'border-color': '#01589B',
+        'color': '#ffffff',
+        'font-weight': '700',
+      },
+    ),
+    css('button:disabled').styles(raw: const {'opacity': '.65', 'cursor': 'default'}),
+    css('.runs-table').styles(raw: const {'width': '100%', 'border-collapse': 'collapse'}),
+    css('.runs-table th, .runs-table td').styles(
+      raw: const {
+        'border-bottom': '1px solid #d5dbe5',
+        'padding': '.48rem .45rem',
+        'vertical-align': 'top',
+        'text-align': 'left',
+      },
+    ),
+    css('.runs-table th').styles(raw: const {'background': '#edf3fb'}),
+    css('.selected-row').styles(raw: const {'background': '#f4f8ff'}),
+    css('.status').styles(
+      raw: const {
+        'display': 'inline-block',
+        'padding': '.18rem .48rem',
+        'border-radius': '999px',
+        'font-size': '.78rem',
+        'text-transform': 'uppercase',
+        'letter-spacing': '.02rem',
+      },
+    ),
+    css('.status.queued').styles(raw: const {'background': '#ece9ff', 'color': '#4f3b8f'}),
+    css('.status.running').styles(raw: const {'background': '#fff5df', 'color': '#7b5a1a'}),
+    css('.status.succeeded').styles(raw: const {'background': '#dcf6e8', 'color': '#1d5b3d'}),
+    css('.status.failed').styles(raw: const {'background': '#ffe6df', 'color': '#8f2e20'}),
+    css('.logs').styles(
+      raw: const {
+        'max-height': '420px',
+        'overflow': 'auto',
+        'background': '#11191c',
+        'color': '#d6efe0',
+        'padding': '.9rem',
+        'border-radius': '10px',
+        'white-space': 'pre-wrap',
+      },
+    ),
+    css('.company-list').styles(raw: const {'display': 'grid', 'gap': '.4rem'}),
+    css('.company-item').styles(
+      raw: const {
+        'display': 'flex',
+        'justify-content': 'space-between',
+        'align-items': 'center',
+        'gap': '.8rem',
+        'padding': '.45rem .55rem',
+        'border': '1px solid #d8dfeb',
+        'border-radius': '9px',
+        'background': '#ffffff',
+      },
+    ),
+    css('.company-name').styles(raw: const {'font-weight': '600'}),
+    css('.tuning-panel').styles(
+      raw: const {
+        'padding': '.8rem 1rem',
+        'background': '#f8fbff',
+        'border': '1px solid #d9dfeb',
+        'border-radius': '10px',
+        'display': 'grid',
+        'gap': '.6rem',
+      },
+    ),
+    css('.candidate-profile-shell').styles(
+      raw: const {
+        'display': 'grid',
+        'grid-template-columns': '240px 1fr',
+        'gap': '.9rem',
+        'margin-top': '.5rem',
+      },
+    ),
+    css('.candidate-profile-list').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.45rem',
+        'align-content': 'start',
+      },
+    ),
+    css('.candidate-profile-detail').styles(raw: const {'display': 'grid', 'gap': '.9rem'}),
+    css('.list-heading').styles(
+      raw: const {
+        'margin': '0 0 .15rem 0',
+        'font-weight': '700',
+        'color': '#0f1728',
+      },
+    ),
+    css('.profile-link').styles(
+      raw: const {
+        'text-align': 'left',
+        'border-radius': '8px',
+        'border': '1px solid #c6ceda',
+        'background': '#ffffff',
+        'padding': '.6rem .7rem',
+      },
+    ),
+    css('.profile-link.selected').styles(
+      raw: const {
+        'background': '#01589B',
+        'border-color': '#01589B',
+        'color': '#ffffff',
+      },
+    ),
+    css('.candidate-hero').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.9rem',
+      },
+    ),
+    css('.candidate-metrics').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.65rem',
+        'grid-template-columns': 'repeat(auto-fit, minmax(150px, 1fr))',
+      },
+    ),
+    css('.profile-stat').styles(
+      raw: const {
+        'border': '1px solid #d8dfeb',
+        'border-radius': '8px',
+        'padding': '.7rem',
+        'background': '#ffffff',
+        'display': 'grid',
+        'gap': '.2rem',
+      },
+    ),
+    css('.profile-stat-label').styles(raw: const {'color': '#667085', 'font-size': '.82rem'}),
+    css('.profile-stat-value').styles(raw: const {'font-weight': '700', 'color': '#0f172a'}),
+    css('.profile-section-grid').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.7rem',
+        'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))',
+      },
+    ),
+    css('.tag-group').styles(
+      raw: const {
+        'border': '1px solid #d9dfeb',
+        'border-radius': '10px',
+        'padding': '.8rem',
+        'background': '#fbfcfe',
+        'display': 'grid',
+        'gap': '.55rem',
+      },
+    ),
+    css('.tag-group h4').styles(raw: const {'margin': '0', 'color': '#0f1728'}),
+    css('.tag-list').styles(
+      raw: const {
+        'display': 'flex',
+        'flex-wrap': 'wrap',
+        'gap': '.45rem',
+      },
+    ),
+    css('.tag').styles(
+      raw: const {
+        'display': 'inline-block',
+        'padding': '.28rem .55rem',
+        'border-radius': '999px',
+        'font-size': '.85rem',
+        'font-weight': '600',
+      },
+    ),
+    css('.tag.positive').styles(raw: const {'background': '#dff7ea', 'color': '#165b3e'}),
+    css('.tag.neutral').styles(raw: const {'background': '#eff3fa', 'color': '#334155'}),
+    css('.tag.risk').styles(raw: const {'background': '#ffe8e2', 'color': '#8f2e20'}),
+    css('.muted-copy').styles(raw: const {'margin': '0', 'color': '#667085'}),
+    css('.yaml-preview').styles(raw: const {'display': 'grid', 'gap': '.5rem'}),
+    css('.yaml-raw').styles(raw: const {'margin': '0'}),
+    css('.profile-content-section').styles(raw: const {'display': 'grid', 'gap': '.6rem'}),
+    css('.profile-content-root').styles(raw: const {'display': 'grid', 'gap': '.7rem'}),
+    css('.profile-node').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.6rem',
+        'padding': '.85rem',
+        'border': '1px solid #d9dfeb',
+        'border-radius': '10px',
+        'background': '#ffffff',
+      },
+    ),
+    css('.profile-node.nested').styles(
+      raw: const {
+        'background': '#f8fbff',
+        'border-left': '3px solid #cfe0ff',
+      },
+    ),
+    css('.profile-node-header').styles(
+      raw: const {
+        'display': 'flex',
+        'align-items': 'center',
+        'gap': '.4rem',
+      },
+    ),
+    css('.profile-node-label').styles(
+      raw: const {
+        'font-weight': '700',
+        'color': '#0f172a',
+      },
+    ),
+    css('.profile-node-children').styles(raw: const {'display': 'grid', 'gap': '.6rem'}),
+    css('.profile-value-list').styles(raw: const {'display': 'grid', 'gap': '.45rem'}),
+    css('.profile-value-item').styles(
+      raw: const {
+        'padding': '.55rem .65rem',
+        'border': '1px solid #e1e7f0',
+        'border-radius': '8px',
+        'background': '#f8fafc',
+        'white-space': 'pre-wrap',
+        'line-height': '1.5',
+      },
+    ),
+    css('.profile-scalar').styles(
+      raw: const {
+        'padding': '.55rem .65rem',
+        'border': '1px solid #e1e7f0',
+        'border-radius': '8px',
+        'background': '#f8fafc',
+        'white-space': 'pre-wrap',
+        'line-height': '1.5',
+      },
+    ),
+    css('.signal-weights-editor').styles(
+      raw: const {
+        'display': 'grid',
+        'gap': '.45rem',
+        'margin-top': '.5rem',
+      },
+    ),
+    css('.signal-weights-label').styles(raw: const {'margin': '0', 'font-weight': '600'}),
+    css('.signal-weight-row').styles(
+      raw: const {
+        'display': 'flex',
+        'align-items': 'center',
+        'gap': '.4rem',
+        'flex-wrap': 'wrap',
+      },
+    ),
+    css('.signal-weight-row select').styles(raw: const {'flex': '1', 'min-width': '180px'}),
+    css.media(const MediaQuery.raw('(max-width: 1040px)'), [
+      css('.shell').styles(raw: const {'grid-template-columns': '1fr'}),
+      css('.sidebar').styles(
+        raw: const {
+          'position': 'static',
+          'width': '100%',
+          'min-height': '0',
+        },
+      ),
+      css('.menu').styles(
+        raw: const {
+          'grid-template-columns': 'repeat(3, minmax(120px, 1fr))',
+        },
+      ),
+      css('.main-content').styles(raw: const {'padding': '.8rem'}),
+    ]),
+    css.media(const MediaQuery.raw('(max-width: 920px)'), [
+      css('.form-grid').styles(raw: const {'grid-template-columns': '1fr'}),
+      css('.span-2').styles(raw: const {'grid-column': 'span 1'}),
+      css('.company-grid').styles(raw: const {'grid-template-columns': '1fr'}),
+      css('.candidate-profile-shell').styles(raw: const {'grid-template-columns': '1fr'}),
+      css('.runs-table').styles(raw: const {'display': 'block', 'overflow': 'auto', 'white-space': 'nowrap'}),
+    ]),
+    css.media(const MediaQuery.raw('(max-width: 720px)'), [
+      css('.menu').styles(raw: const {'grid-template-columns': '1fr 1fr'}),
+      css('.panel').styles(raw: const {'padding': '.8rem'}),
+      css('.actions').styles(raw: const {'flex-direction': 'column'}),
+      css('.actions button').styles(raw: const {'width': '100%'}),
+      css('.candidate-metrics').styles(raw: const {'grid-template-columns': '1fr'}),
+      css('.panel-header-inline').styles(raw: const {'flex-direction': 'column', 'align-items': 'stretch'}),
+    ]),
+  ];
 }

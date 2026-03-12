@@ -6,7 +6,9 @@ import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.ConfigSelections;
 import com.pmfb.gonogo.engine.config.EngineConfig;
+import com.pmfb.gonogo.engine.config.FetchWebRuntimeConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
+import com.pmfb.gonogo.engine.config.RuntimeOptionResolver;
 import com.pmfb.gonogo.engine.config.YamlConfigLoader;
 import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
@@ -46,29 +48,56 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 import org.yaml.snakeyaml.Yaml;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 @Command(
         name = "run",
         description = "Run full pipeline: raw text normalization, batch evaluation, and weekly digest."
 )
 public final class PipelineRunCommand implements Callable<Integer> {
-    private final DecisionEngineV1 engine;
     private final CareerPageFetchService fetchService;
+    private final JobEvaluationService jobEvaluationService;
 
     public PipelineRunCommand() {
         this(new DecisionEngineV1(), new CareerPageFetchService());
     }
 
     public PipelineRunCommand(DecisionEngineV1 engine, CareerPageFetchService fetchService) {
-        this.engine = engine;
+        this(
+                engine,
+                fetchService,
+                (job, persona, candidateProfile, config, externalContext) -> engine.evaluate(
+                        job,
+                        persona,
+                        candidateProfile,
+                        config,
+                        externalContext
+                )
+        );
+    }
+
+    PipelineRunCommand(
+            DecisionEngineV1 engine,
+            CareerPageFetchService fetchService,
+            JobEvaluationService jobEvaluationService
+    ) {
         this.fetchService = fetchService;
+        this.jobEvaluationService = jobEvaluationService;
     }
 
     private static final String DEFAULT_ALERT_SINKS = TrendAlertSinkFactory.SINK_NONE;
+
+    @Spec
+    private CommandSpec spec;
 
     @Option(
             names = {"--persona"},
@@ -276,6 +305,27 @@ public final class PipelineRunCommand implements Callable<Integer> {
     private long fetchWebRequestDelayMillis;
 
     @Option(
+            names = {"--fetch-web-max-concurrency"},
+            description = "Maximum number of companies to fetch in parallel during fetch-web stage.",
+            defaultValue = "4"
+    )
+    private int fetchWebMaxConcurrency;
+
+    @Option(
+            names = {"--fetch-web-max-concurrency-per-host"},
+            description = "Maximum number of in-flight requests allowed per host during fetch-web stage.",
+            defaultValue = "1"
+    )
+    private int fetchWebMaxConcurrencyPerHost;
+
+    @Option(
+            names = {"--evaluate-max-concurrency"},
+            description = "Maximum number of jobs to evaluate in parallel during the pipeline evaluation stage.",
+            defaultValue = "4"
+    )
+    private int evaluateMaxConcurrency;
+
+    @Option(
             names = {"--company-context-dir"},
             description = "Directory for company context files used in evaluation.",
             defaultValue = "output/company-context"
@@ -317,8 +367,17 @@ public final class PipelineRunCommand implements Callable<Integer> {
     )
     private boolean fetchWebDisableCache;
 
+    @Option(
+            names = {"--suppress-summary-output"},
+            description = "Internal: suppress pipeline summary output.",
+            hidden = true,
+            defaultValue = "false"
+    )
+    private boolean suppressSummaryOutput;
+
     @Override
     public Integer call() {
+        long pipelineStartedAtMillis = Instant.now().toEpochMilli();
         EngineConfig config;
         try {
             config = new YamlConfigLoader(configDir).load();
@@ -368,13 +427,17 @@ public final class PipelineRunCommand implements Callable<Integer> {
         }
 
         boolean effectiveFetchWebFirst = fetchWebFirst || hasRequestedCompanyIds();
+        long fetchDurationMillis = 0;
         if (effectiveFetchWebFirst) {
+            long fetchStartedAtMillis = Instant.now().toEpochMilli();
             int fetchExit = runFetchWebStage(config);
+            fetchDurationMillis = Instant.now().toEpochMilli() - fetchStartedAtMillis;
             if (fetchExit != 0) {
                 return fetchExit;
             }
         }
 
+        long normalizeStartedAtMillis = Instant.now().toEpochMilli();
         List<Path> rawFiles = collectRawInputFiles(recursive || effectiveFetchWebFirst);
         if (rawFiles.isEmpty()) {
             System.err.println(
@@ -481,25 +544,34 @@ public final class PipelineRunCommand implements Callable<Integer> {
         }
 
         Map<String, String> companyContextById = loadCompanyContextById(config.companies());
-        for (EvaluableJob job : jobsToEvaluate) {
-            String externalContext = resolveCompanyContext(job.jobInput().companyName(), config.companies(), companyContextById);
-            EvaluationResult evaluation = engine.evaluate(
-                    job.jobInput(),
+        long normalizeDurationMillis = Instant.now().toEpochMilli() - normalizeStartedAtMillis;
+        int effectiveEvaluateMaxConcurrency = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--evaluate-max-concurrency",
+                evaluateMaxConcurrency,
+                config.runtimeSettings().evaluation().maxConcurrency()
+        );
+        if (effectiveEvaluateMaxConcurrency < 1) {
+            System.err.println("--evaluate-max-concurrency must be at least 1.");
+            return 1;
+        }
+        long evaluateStartedAtMillis = Instant.now().toEpochMilli();
+        try {
+            items.addAll(evaluateJobs(
+                    jobsToEvaluate,
                     persona.get(),
                     candidateProfile,
                     config,
-                    externalContext
-            );
-            items.add(new BatchEvaluationItem(
-                    job.sourceFile(),
-                    job.jobInput(),
-                    evaluation,
-                    job.jobKey(),
-                    job.fingerprint(),
-                    job.changeStatus()
+                    companyContextById,
+                    effectiveEvaluateMaxConcurrency
             ));
+        } catch (JobEvaluationFailedException e) {
+            System.err.println("Failed to evaluate job '" + e.sourceFile() + "': " + e.getCause().getMessage());
+            return 1;
         }
+        long evaluateDurationMillis = Instant.now().toEpochMilli() - evaluateStartedAtMillis;
 
+        long reportStartedAtMillis = Instant.now().toEpochMilli();
         BatchEvaluationReport batchReport = buildBatchReport(
                 persona.get().id(),
                 effectiveCandidateProfileId,
@@ -592,21 +664,30 @@ public final class PipelineRunCommand implements Callable<Integer> {
             System.err.println("Failed to write weekly digest: " + e.getMessage());
             return 1;
         }
+        long reportDurationMillis = Instant.now().toEpochMilli() - reportStartedAtMillis;
 
-        printSummary(
-                batchReport,
-                warningCount,
-                batchJsonPath,
-                batchMarkdownPath,
-                weeklyOutputFile,
-                resolvedTrendHistoryFile,
-                effectiveCandidateProfileId,
-                trendAlertCount,
-                trendDispatchResults
-        );
-        if (!changeWarnings.isEmpty()) {
-            for (String warning : changeWarnings) {
-                System.err.println("change_detection_warning: " + warning);
+        if (!suppressSummaryOutput) {
+            printSummary(
+                    batchReport,
+                    warningCount,
+                    batchJsonPath,
+                    batchMarkdownPath,
+                    weeklyOutputFile,
+                    resolvedTrendHistoryFile,
+                    effectiveCandidateProfileId,
+                    trendAlertCount,
+                    trendDispatchResults,
+                    Instant.now().toEpochMilli() - pipelineStartedAtMillis,
+                    fetchDurationMillis,
+                    normalizeDurationMillis,
+                    evaluateDurationMillis,
+                    reportDurationMillis,
+                    effectiveEvaluateMaxConcurrency
+            );
+            if (!changeWarnings.isEmpty()) {
+                for (String warning : changeWarnings) {
+                    System.err.println("change_detection_warning: " + warning);
+                }
             }
         }
         if (failOnWarnings && warningCount > 0) {
@@ -638,20 +719,78 @@ public final class PipelineRunCommand implements Callable<Integer> {
     }
 
     private int runFetchWebStage(EngineConfig config) {
+        FetchWebRuntimeConfig runtimeDefaults = config.runtimeSettings().fetchWeb();
+        int effectiveTimeoutSeconds = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-timeout-seconds",
+                fetchWebTimeoutSeconds,
+                runtimeDefaults.timeoutSeconds()
+        );
+        String effectiveUserAgent = RuntimeOptionResolver.resolveString(
+                spec,
+                "--fetch-web-user-agent",
+                fetchWebUserAgent,
+                runtimeDefaults.userAgent()
+        );
+        int effectiveRetries = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-retries",
+                fetchWebRetries,
+                runtimeDefaults.retries()
+        );
+        long effectiveBackoffMillis = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-backoff-millis",
+                fetchWebBackoffMillis,
+                runtimeDefaults.backoffMillis()
+        );
+        long effectiveRequestDelayMillis = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-request-delay-millis",
+                fetchWebRequestDelayMillis,
+                runtimeDefaults.requestDelayMillis()
+        );
+        int effectiveMaxConcurrency = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-max-concurrency",
+                fetchWebMaxConcurrency,
+                runtimeDefaults.maxConcurrency()
+        );
+        int effectiveMaxConcurrencyPerHost = RuntimeOptionResolver.resolveInt(
+                spec,
+                "--fetch-web-max-concurrency-per-host",
+                fetchWebMaxConcurrencyPerHost,
+                runtimeDefaults.maxConcurrencyPerHost()
+        );
+        String effectiveRobotsMode = RuntimeOptionResolver.resolveString(
+                spec,
+                "--fetch-web-robots-mode",
+                fetchWebRobotsMode,
+                runtimeDefaults.robotsMode()
+        );
+        long effectiveCacheTtlMinutes = RuntimeOptionResolver.resolveLong(
+                spec,
+                "--fetch-web-cache-ttl-minutes",
+                fetchWebCacheTtlMinutes,
+                runtimeDefaults.cacheTtlMinutes()
+        );
+
         CareerPageFetchService.FetchOptions options = new CareerPageFetchService.FetchOptions(
                 rawInputDir,
                 fetchWebCompanyIds,
                 fetchWebMaxJobsPerCompany,
-                fetchWebTimeoutSeconds,
-                fetchWebUserAgent,
-                fetchWebRetries,
-                fetchWebBackoffMillis,
-                fetchWebRequestDelayMillis,
+                effectiveTimeoutSeconds,
+                effectiveUserAgent,
+                effectiveRetries,
+                effectiveBackoffMillis,
+                effectiveRequestDelayMillis,
+                effectiveMaxConcurrency,
+                effectiveMaxConcurrencyPerHost,
                 companyContextDir,
                 !disableCompanyContext,
-                fetchWebRobotsMode,
+                effectiveRobotsMode,
                 fetchWebCacheDir,
-                fetchWebCacheTtlMinutes,
+                effectiveCacheTtlMinutes,
                 !fetchWebDisableCache
         );
         CareerPageFetchService.FetchOutcome outcome = fetchService.fetchToRawFiles(
@@ -676,6 +815,14 @@ public final class PipelineRunCommand implements Callable<Integer> {
         System.out.println("companies_failed: " + outcome.companiesFailed());
         System.out.println("raw_files_generated: " + outcome.rawFilesGenerated());
         System.out.println("context_files_generated: " + outcome.contextFilesGenerated());
+        System.out.println("duration_ms: " + outcome.totalDurationMillis());
+        System.out.println("cache_fresh_hits: " + outcome.freshCacheHitCount());
+        System.out.println("cache_misses: " + outcome.cacheMissCount());
+        System.out.println("cache_stale_fallbacks: " + outcome.staleCacheFallbackCount());
+        System.out.println("retries_used: " + outcome.retryCount());
+        System.out.println("outgoing_requests: " + outcome.outgoingRequestCount());
+        System.out.println("max_concurrency: " + effectiveMaxConcurrency);
+        System.out.println("max_concurrency_per_host: " + effectiveMaxConcurrencyPerHost);
         System.out.println("raw_input_dir: " + rawInputDir);
         if (!disableCompanyContext) {
             System.out.println("company_context_dir: " + companyContextDir);
@@ -889,6 +1036,87 @@ public final class PipelineRunCommand implements Callable<Integer> {
         );
     }
 
+    private List<BatchEvaluationItem> evaluateJobs(
+            List<EvaluableJob> jobsToEvaluate,
+            PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
+            EngineConfig config,
+            Map<String, String> companyContextById,
+            int maxConcurrency
+    ) {
+        if (jobsToEvaluate.isEmpty()) {
+            return List.of();
+        }
+        if (maxConcurrency == 1 || jobsToEvaluate.size() == 1) {
+            List<BatchEvaluationItem> items = new ArrayList<>(jobsToEvaluate.size());
+            for (EvaluableJob job : jobsToEvaluate) {
+                items.add(evaluateJob(job, persona, candidateProfile, config, companyContextById));
+            }
+            return List.copyOf(items);
+        }
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(maxConcurrency)) {
+            List<Future<BatchEvaluationItem>> futures = new ArrayList<>(jobsToEvaluate.size());
+            for (EvaluableJob job : jobsToEvaluate) {
+                futures.add(executor.submit(() -> evaluateJob(
+                        job,
+                        persona,
+                        candidateProfile,
+                        config,
+                        companyContextById
+                )));
+            }
+
+            List<BatchEvaluationItem> items = new ArrayList<>(jobsToEvaluate.size());
+            for (Future<BatchEvaluationItem> future : futures) {
+                items.add(future.get());
+            }
+            return List.copyOf(items);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while evaluating jobs.", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof JobEvaluationFailedException failedException) {
+                throw failedException;
+            }
+            throw new IllegalStateException("Failed to evaluate jobs.", cause);
+        }
+    }
+
+    private BatchEvaluationItem evaluateJob(
+            EvaluableJob job,
+            PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
+            EngineConfig config,
+            Map<String, String> companyContextById
+    ) {
+        try {
+            String externalContext = resolveCompanyContext(
+                    job.jobInput().companyName(),
+                    config.companies(),
+                    companyContextById
+            );
+            EvaluationResult evaluation = jobEvaluationService.evaluate(
+                    job.jobInput(),
+                    persona,
+                    candidateProfile,
+                    config,
+                    externalContext
+            );
+            return new BatchEvaluationItem(
+                    job.sourceFile(),
+                    job.jobInput(),
+                    evaluation,
+                    job.jobKey(),
+                    job.fingerprint(),
+                    job.changeStatus()
+            );
+        } catch (RuntimeException e) {
+            throw new JobEvaluationFailedException(job.sourceFile(), e);
+        }
+    }
+
     private Path resolveChangeStateFile(String personaIdValue, String candidateProfileIdValue) {
         if (changeStateFile != null) {
             return changeStateFile;
@@ -968,11 +1196,23 @@ public final class PipelineRunCommand implements Callable<Integer> {
             Path trendHistoryPath,
             String candidateProfileIdValue,
             int trendAlertCount,
-            List<TrendAlertSink.DispatchResult> trendDispatchResults
+            List<TrendAlertSink.DispatchResult> trendDispatchResults,
+            long totalDurationMillis,
+            long fetchDurationMillis,
+            long normalizeDurationMillis,
+            long evaluateDurationMillis,
+            long reportDurationMillis,
+            int evaluateMaxConcurrencyValue
     ) {
         System.out.println("Pipeline completed.");
         System.out.println("persona: " + report.personaId());
         System.out.println("candidate_profile: " + candidateProfileIdValue);
+        System.out.println("duration_ms: " + totalDurationMillis);
+        System.out.println("fetch_duration_ms: " + fetchDurationMillis);
+        System.out.println("normalize_duration_ms: " + normalizeDurationMillis);
+        System.out.println("evaluate_duration_ms: " + evaluateDurationMillis);
+        System.out.println("evaluate_max_concurrency: " + evaluateMaxConcurrencyValue);
+        System.out.println("report_duration_ms: " + reportDurationMillis);
         System.out.println("total_raw_files: " + report.totalFiles());
         System.out.println("warnings: " + warningCount);
         System.out.println("evaluated: " + report.evaluatedCount());
@@ -1023,5 +1263,29 @@ public final class PipelineRunCommand implements Callable<Integer> {
             String fingerprint,
             String changeStatus
     ) {
+    }
+
+    @FunctionalInterface
+    interface JobEvaluationService {
+        EvaluationResult evaluate(
+                JobInput jobInput,
+                PersonaConfig persona,
+                CandidateProfileConfig candidateProfile,
+                EngineConfig config,
+                String externalContext
+        );
+    }
+
+    private static final class JobEvaluationFailedException extends RuntimeException {
+        private final String sourceFile;
+
+        private JobEvaluationFailedException(String sourceFile, Throwable cause) {
+            super(cause);
+            this.sourceFile = sourceFile;
+        }
+
+        private String sourceFile() {
+            return sourceFile;
+        }
     }
 }

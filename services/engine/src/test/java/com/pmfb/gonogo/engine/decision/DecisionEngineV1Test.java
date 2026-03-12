@@ -9,6 +9,7 @@ import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
+import com.pmfb.gonogo.engine.config.RuntimeSettingsConfig;
 import com.pmfb.gonogo.engine.job.JobInput;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -467,6 +468,103 @@ final class DecisionEngineV1Test {
         assertTrue(result.riskSignals().contains("candidate_seniority_mismatch"));
     }
 
+    @Test
+    void detectsAlgorithmicInterviewRiskFromCombinedSignals() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Screening Heavy Co",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        """
+                                Strong problem-solving ability required.
+                                Interview process includes a coding test covering data structures and algorithms.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("algorithmic_interview_risk"));
+    }
+
+    @Test
+    void detectsProductEngineeringAndInterviewPositives() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Productive Labs",
+                        "Senior Backend Engineer",
+                        "Tokyo",
+                        "JPY 10,000,000 - 12,000,000",
+                        "Hybrid",
+                        """
+                                Work closely with Product Managers on customer-facing product reliability.
+                                We publish an engineering blog, invest in developer productivity,
+                                and maintain internal developer tools.
+                                Process: casual interview, technical interview, final interview.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.positiveSignals().contains("product_pm_collaboration"));
+        assertTrue(result.positiveSignals().contains("engineering_maturity"));
+        assertTrue(result.positiveSignals().contains("casual_interview"));
+    }
+
+    @Test
+    void detectsJapanSpecificWorkLifeBalancePositives() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Balanced Systems",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,500,000 - 11,500,000",
+                        "Hybrid",
+                        """
+                                The team uses asynchronous communication and written-first updates.
+                                Full flextime with no core hours.
+                                Average overtime: 10 hours / month.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.positiveSignals().contains("async_communication"));
+        assertTrue(result.positiveSignals().contains("real_flextime"));
+        assertTrue(result.positiveSignals().contains("low_overtime_disclosed"));
+        assertFalse(result.riskSignals().contains("fake_flextime_risk"));
+    }
+
+    @Test
+    void detectsTraditionalPressureAndCustomerSiteRisks() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Traditional SIer",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 8,500,000 - 10,500,000",
+                        "Hybrid",
+                        """
+                                Business level Japanese required and TOEIC score submission preferred.
+                                Flexible working hours.
+                                We need a self-motivated person who can work under pressure.
+                                Some projects are performed onsite at customer offices.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("pressure_culture_risk"));
+        assertTrue(result.riskSignals().contains("fake_flextime_risk"));
+        assertTrue(result.riskSignals().contains("traditional_corporate_process_risk"));
+        assertTrue(result.riskSignals().contains("customer_site_risk"));
+    }
+
     private PersonaConfig defaultPersona() {
         return new PersonaConfig(
                 "product_expat_engineer",
@@ -537,7 +635,8 @@ final class DecisionEngineV1Test {
                                 "Recruitment / dispatch company"
                         )
                 ),
-                List.of()
+                List.of(),
+                RuntimeSettingsConfig.defaults()
         );
     }
 }

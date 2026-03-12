@@ -71,17 +71,22 @@ class _RunsBody extends StatelessComponent {
     return section(classes: 'page', [
       h1([.text('Runs')]),
       card([
-        p([.text('Reports root: '), code([.text(index.reportsRoot)])]),
+        p([
+          .text('Reports root: '),
+          code([.text(index.reportsRoot)]),
+        ]),
         p([.text(index.reportsRootExists ? 'Reports root is available.' : 'Reports root does not exist.')]),
         if (!index.reportsRootExists)
           p([
             .text('Tip: run server with '),
-            code([.text('REPORTS_ROOT=/Users/pmfb/Documents/coding/go-no-go-engine/output jaspr serve')]),
+            code([.text('REPORTS_ROOT=../../services/engine/output jaspr serve')]),
           ]),
         ...issueList(index.issues),
       ]),
       if (index.runs.isEmpty)
-        card([p([.text('No runs discovered yet. Generate reports with the engine first.')])])
+        card([
+          p([.text('No runs discovered yet. Generate reports with the engine first.')]),
+        ])
       else
         _RunsTable(runs: index.runs),
     ]);
@@ -111,7 +116,9 @@ class _RunsTable extends StatelessComponent {
         tbody([
           for (final run in runs)
             tr([
-              td([code([.text(run.runId)])]),
+              td([
+                code([.text(run.runId)]),
+              ]),
               td([.text('${run.batchEvaluationJsonReports.length}')]),
               td([.text('${run.batchEvaluationMarkdownReports.length}')]),
               td([.text('${run.weeklyDigestReports.length}')]),
