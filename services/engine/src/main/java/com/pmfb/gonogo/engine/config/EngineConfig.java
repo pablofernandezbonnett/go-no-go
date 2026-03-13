@@ -7,7 +7,8 @@ public record EngineConfig(
         List<PersonaConfig> personas,
         List<BlacklistedCompanyConfig> blacklistedCompanies,
         List<CandidateProfileConfig> candidateProfiles,
-        RuntimeSettingsConfig runtimeSettings
+        RuntimeSettingsConfig runtimeSettings,
+        DecisionSignalsConfig decisionSignals
 ) {
     public EngineConfig {
         companies = List.copyOf(companies);
@@ -15,5 +16,23 @@ public record EngineConfig(
         blacklistedCompanies = List.copyOf(blacklistedCompanies);
         candidateProfiles = List.copyOf(candidateProfiles);
         runtimeSettings = runtimeSettings == null ? RuntimeSettingsConfig.defaults() : runtimeSettings;
+        decisionSignals = decisionSignals == null ? DecisionSignalsConfig.defaults() : decisionSignals;
+    }
+
+    public EngineConfig(
+            List<CompanyConfig> companies,
+            List<PersonaConfig> personas,
+            List<BlacklistedCompanyConfig> blacklistedCompanies,
+            List<CandidateProfileConfig> candidateProfiles,
+            RuntimeSettingsConfig runtimeSettings
+    ) {
+        this(
+                companies,
+                personas,
+                blacklistedCompanies,
+                candidateProfiles,
+                runtimeSettings,
+                DecisionSignalsConfig.defaults()
+        );
     }
 }

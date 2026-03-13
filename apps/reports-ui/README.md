@@ -34,6 +34,8 @@ The UI consumes artifacts produced by the engine, mainly:
 - `Company Context` (`/context`): culture/reputation context by company.
 - `Trends & Alerts` (`/trends`): trend history and alert artifact render.
 - `Evaluate` (`/evaluate`): submit one URL or raw job description for ad-hoc engine evaluation.
+  It can evaluate either one persona or all configured personas against the selected candidate profile.
+  The same page also exposes reusable recent URLs discovered from processed job artifacts and prior ad-hoc URL evaluations.
 
 ## Data Contract
 
@@ -110,5 +112,10 @@ Build output:
 - UI stack: Jaspr (no React/Vite).
 - Ad-hoc evaluation accepts both `URL` and pasted raw job text.
 - Ad-hoc evaluation writes YAML analysis artifacts into `<REPORTS_ROOT>/ad-hoc-evaluations/`.
+- URL-based ad-hoc evaluations reuse a stable artifact file per `persona + candidate profile + source URL`; raw-text evaluations remain timestamped.
+- The evaluate page shows a reusable URL history built from `jobs/**/*.yaml` and `ad-hoc-evaluations/*.yaml` under the reports root.
+- The recent URL history supports client-side search by company/title/URL plus a deduplicated source filter (company, URL host, or source kind).
+- The evaluate page defaults to `All personas` and selects the first configured candidate profile automatically; when no candidate profiles exist it falls back to `None`.
+- The evaluate page uses collapsible panels for input, recent URLs, and per-persona results to keep long sessions easier to scan.
 - Ad-hoc URL evaluation only accepts public `http/https` URLs; localhost/private-network targets are rejected.
 - Pasted raw text is size-limited and stripped of unsafe control characters before being sent to the engine.

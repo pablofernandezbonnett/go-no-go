@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.job.JobInput;
+import com.pmfb.gonogo.engine.job.JobInputFieldKeys;
 import com.pmfb.gonogo.engine.job.JobInputYamlWriter;
 import com.pmfb.gonogo.engine.job.RawJobExtractionResult;
 import com.pmfb.gonogo.engine.job.RawJobParser;
@@ -17,6 +18,7 @@ import picocli.CommandLine.Option;
         description = "Normalize raw job text into a job input YAML file."
 )
 public final class FetchCommand implements Callable<Integer> {
+    private static final String FIELD_WARNINGS = "warnings";
     private final RawJobParser parser;
     private final JobInputYamlWriter writer;
 
@@ -76,15 +78,15 @@ public final class FetchCommand implements Callable<Integer> {
         }
 
         System.out.println("Generated job input YAML: " + outputFile);
-        System.out.println("company_name: " + jobInput.companyName());
-        System.out.println("title: " + jobInput.title());
-        System.out.println("location: " + jobInput.location());
-        System.out.println("salary_range: " + jobInput.salaryRange());
-        System.out.println("remote_policy: " + jobInput.remotePolicy());
+        System.out.println(JobInputFieldKeys.COMPANY_NAME + ": " + jobInput.companyName());
+        System.out.println(JobInputFieldKeys.TITLE + ": " + jobInput.title());
+        System.out.println(JobInputFieldKeys.LOCATION + ": " + jobInput.location());
+        System.out.println(JobInputFieldKeys.SALARY_RANGE + ": " + jobInput.salaryRange());
+        System.out.println(JobInputFieldKeys.REMOTE_POLICY + ": " + jobInput.remotePolicy());
         if (extraction.warnings().isEmpty()) {
-            System.out.println("warnings: []");
+            System.out.println(FIELD_WARNINGS + ": []");
         } else {
-            System.out.println("warnings:");
+            System.out.println(FIELD_WARNINGS + ":");
             for (String warning : extraction.warnings()) {
                 System.out.println(" - " + warning);
             }

@@ -68,26 +68,6 @@ personas:
       - japanese_not_blocking
       - stable_scaleup
 
-  - id: product_expat_engineer_growth_tolerant
-    description: "Product-oriented expat engineer open to growth-stage volatility if role fit is strong"
-    priorities:
-      - english_environment
-      - product_company
-      - engineering_culture
-      - hybrid_work
-      - salary
-      - stability
-
-    hard_no:
-      - consulting_company
-      - onsite_only
-      - salary_missing
-
-    acceptable_if:
-      - hybrid_partial
-      - japanese_not_blocking
-      - stable_scaleup
-
   - id: product_expat_engineer_pragmatic
     description: "Product-oriented expat engineer optimizing for employability first, with consulting tolerated but penalized"
     priorities:

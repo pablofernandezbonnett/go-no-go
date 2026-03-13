@@ -8,25 +8,46 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class RawJobParser {
+    private static final String OPTIONAL_LIST_PREFIX_REGEX = "^\\s*[•・*\\-]?\\s*";
     private static final List<Pattern> TITLE_PATTERNS = List.of(
-            Pattern.compile("(?i)^\\s*(title|role|position)\\s*:\\s*(.+)$"),
-            Pattern.compile("(?i)^\\s*job\\s+title\\s*:\\s*(.+)$")
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(title|role|position)\\s*:\\s*(.+)$"),
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "job\\s+title\\s*:\\s*(.+)$")
     );
     private static final List<Pattern> COMPANY_PATTERNS = List.of(
-            Pattern.compile("(?i)^\\s*(company|company name|employer)\\s*:\\s*(.+)$")
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(company|company name|employer)\\s*:\\s*(.+)$")
     );
     private static final List<Pattern> LOCATION_PATTERNS = List.of(
-            Pattern.compile("(?i)^\\s*(location|office|based in)\\s*:\\s*(.+)$"),
-            Pattern.compile("^\\s*(勤務地|勤務場所)\\s*[:：]\\s*(.+)$")
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(location|office|based in)\\s*:\\s*(.+)$"),
+            Pattern.compile(OPTIONAL_LIST_PREFIX_REGEX + "(勤務地|勤務場所)\\s*[:：]\\s*(.+)$")
     );
     private static final List<Pattern> SALARY_LABEL_PATTERNS = List.of(
-            Pattern.compile("(?i)^\\s*(salary|compensation|pay range|annual salary|年収|給与)\\s*[:：]\\s*(.+)$")
+            Pattern.compile(
+                    "(?i)" + OPTIONAL_LIST_PREFIX_REGEX
+                            + "(salary|compensation|pay range|annual salary range|annual salary|年収|給与)"
+                            + "\\s*[:：]\\s*(.+)$"
+            )
     );
     private static final List<Pattern> REMOTE_POLICY_PATTERNS = List.of(
-            Pattern.compile("(?i)^\\s*(remote policy|work style|working style|work mode|remote/hybrid)\\s*[:：]\\s*(.+)$")
+            Pattern.compile(
+                    "(?i)" + OPTIONAL_LIST_PREFIX_REGEX
+                            + "(remote policy|work style|working style|work mode|remote/hybrid)\\s*[:：]\\s*(.+)$"
+            )
+    );
+    private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
+            "onsite",
+            "on-site",
+            "on site",
+            "onsite only",
+            "office attendance required",
+            "work from office",
+            "in office",
+            "office-based",
+            "office based"
     );
     private static final Pattern CURRENCY_RANGE_PATTERN = Pattern.compile(
-            "(?i)(?:JPY|USD|EUR|¥|\\$|€)\\s*\\d[\\d,]*(?:\\s*(?:-|~|to)\\s*(?:JPY|USD|EUR|¥|\\$|€)?\\s*\\d[\\d,]*)?"
+            "(?i)(?:JPY|USD|EUR|¥|\\$|€)\\s*\\d[\\d,]*(?:\\.\\d+)?(?:\\s*(?:million|m))?"
+                    + "(?:\\s*(?:-|~|to)\\s*(?:JPY|USD|EUR|¥|\\$|€)?\\s*\\d[\\d,]*(?:\\.\\d+)?"
+                    + "(?:\\s*(?:million|m))?)?"
     );
 
     public RawJobExtractionResult parse(String rawText, String companyOverride, String titleOverride) {
@@ -152,10 +173,7 @@ public final class RawJobParser {
                 || loweredText.contains("work from home")
                 || loweredText.contains("wfh");
         boolean hasHybrid = loweredText.contains("hybrid");
-        boolean hasOnsite = loweredText.contains("onsite")
-                || loweredText.contains("on-site")
-                || loweredText.contains("on site")
-                || loweredText.contains("office");
+        boolean hasOnsite = containsAny(loweredText, ONSITE_ONLY_KEYWORDS);
 
         if (hasHybrid || (hasRemote && hasOnsite)) {
             return "Hybrid";
@@ -173,10 +191,7 @@ public final class RawJobParser {
         String lowered = normalize(rawValue);
         boolean hasRemote = lowered.contains("remote") || lowered.contains("wfh");
         boolean hasHybrid = lowered.contains("hybrid");
-        boolean hasOnsite = lowered.contains("onsite")
-                || lowered.contains("on-site")
-                || lowered.contains("on site")
-                || lowered.contains("office");
+        boolean hasOnsite = containsAny(lowered, ONSITE_ONLY_KEYWORDS) || "office".equals(lowered);
         if (hasHybrid || (hasRemote && hasOnsite)) {
             return "Hybrid";
         }
@@ -204,5 +219,14 @@ public final class RawJobParser {
 
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private boolean containsAny(String text, List<String> keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

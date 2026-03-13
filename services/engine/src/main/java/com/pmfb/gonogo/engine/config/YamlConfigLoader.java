@@ -31,11 +31,19 @@ public final class YamlConfigLoader {
         List<BlacklistedCompanyConfig> blacklistedCompanies = loadBlacklistedCompanies(errors);
         List<CandidateProfileConfig> candidateProfiles = new CandidateProfileYamlLoader(configDirectory).load(errors);
         RuntimeSettingsConfig runtimeSettings = loadRuntimeSettings(errors);
+        DecisionSignalsConfig decisionSignals = loadDecisionSignals(errors);
 
         if (!errors.isEmpty()) {
             throw new ConfigLoadException(errors);
         }
-        return new EngineConfig(companies, personas, blacklistedCompanies, candidateProfiles, runtimeSettings);
+        return new EngineConfig(
+                companies,
+                personas,
+                blacklistedCompanies,
+                candidateProfiles,
+                runtimeSettings,
+                decisionSignals
+        );
     }
 
     private void ensureConfigDirectory(List<String> errors) {
@@ -151,6 +159,23 @@ public final class YamlConfigLoader {
         );
     }
 
+    private DecisionSignalsConfig loadDecisionSignals(List<String> errors) {
+        String fileName = "decision-signals.yaml";
+        Path path = configDirectory.resolve(fileName);
+        if (!Files.exists(path)) {
+            return DecisionSignalsConfig.defaults();
+        }
+        Map<String, Object> root = loadRoot(path, errors);
+        if (root == null) {
+            return DecisionSignalsConfig.defaults();
+        }
+        return new DecisionSignalsConfig(
+                loadDecisionSignalLanguage(root, fileName, errors),
+                loadDecisionSignalWorkLifeBalance(root, fileName, errors),
+                loadDecisionSignalMobility(root, fileName, errors)
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private FetchWebRuntimeConfig loadFetchWebRuntime(
             Map<String, Object> root,
@@ -208,6 +233,113 @@ public final class YamlConfigLoader {
         String context = fileName + " evaluation";
         return new EvaluationRuntimeConfig(
                 readOptionalIntWithDefault(map, "max_concurrency", defaults.maxConcurrency(), context, errors)
+        );
+    }
+
+    private DecisionSignalsConfig.LanguageConfig loadDecisionSignalLanguage(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        DecisionSignalsConfig.LanguageConfig defaults = DecisionSignalsConfig.LanguageConfig.defaults();
+        Map<String, Object> map = readOptionalMap(root, "language", fileName, errors);
+        String context = fileName + " language";
+        return new DecisionSignalsConfig.LanguageConfig(
+                readOptionalStringListWithDefault(map, "required_keywords", defaults.requiredKeywords(), context, errors),
+                readOptionalStringListWithDefault(
+                        map,
+                        "friction_soft_keywords",
+                        defaults.frictionSoftKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "medium_high_friction_keywords",
+                        defaults.mediumHighFrictionKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "high_friction_keywords",
+                        defaults.highFrictionKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "optional_or_exempt_keywords",
+                        defaults.optionalOrExemptKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "english_friendly_keywords",
+                        defaults.englishFriendlyKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "english_support_environment_keywords",
+                        defaults.englishSupportEnvironmentKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalIntWithDefault(
+                        map,
+                        "english_support_max_index",
+                        defaults.englishSupportMaxIndex(),
+                        context,
+                        errors
+                )
+        );
+    }
+
+    private DecisionSignalsConfig.WorkLifeBalanceConfig loadDecisionSignalWorkLifeBalance(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        DecisionSignalsConfig.WorkLifeBalanceConfig defaults = DecisionSignalsConfig.WorkLifeBalanceConfig.defaults();
+        Map<String, Object> map = readOptionalMap(root, "work_life_balance", fileName, errors);
+        String context = fileName + " work_life_balance";
+        return new DecisionSignalsConfig.WorkLifeBalanceConfig(
+                readOptionalStringListWithDefault(
+                        map,
+                        "overtime_risk_keywords",
+                        defaults.overtimeRiskKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "holiday_policy_risk_keywords",
+                        defaults.holidayPolicyRiskKeywords(),
+                        context,
+                        errors
+                )
+        );
+    }
+
+    private DecisionSignalsConfig.MobilityConfig loadDecisionSignalMobility(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        DecisionSignalsConfig.MobilityConfig defaults = DecisionSignalsConfig.MobilityConfig.defaults();
+        Map<String, Object> map = readOptionalMap(root, "mobility", fileName, errors);
+        String context = fileName + " mobility";
+        return new DecisionSignalsConfig.MobilityConfig(
+                readOptionalStringListWithDefault(
+                        map,
+                        "location_mobility_risk_keywords",
+                        defaults.locationMobilityRiskKeywords(),
+                        context,
+                        errors
+                )
         );
     }
 
@@ -493,5 +625,36 @@ public final class YamlConfigLoader {
             return defaultValue;
         }
         return text.trim();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> readOptionalMap(
+            Map<String, Object> root,
+            String key,
+            String fileName,
+            List<String> errors
+    ) {
+        Object value = root.get(key);
+        if (value == null) {
+            return Map.of();
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            errors.add(fileName + " field '" + key + "' must be a map");
+            return Map.of();
+        }
+        return (Map<String, Object>) rawMap;
+    }
+
+    private List<String> readOptionalStringListWithDefault(
+            Map<String, Object> map,
+            String key,
+            List<String> defaultValue,
+            String context,
+            List<String> errors
+    ) {
+        if (!map.containsKey(key)) {
+            return defaultValue;
+        }
+        return readOptionalStringList(map, key, context, errors);
     }
 }

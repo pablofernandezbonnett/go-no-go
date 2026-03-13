@@ -26,6 +26,9 @@ public final class ScheduleCommand implements Callable<Integer> {
     private static final String CRON_INSTALL_HINT = "Install manually when ready: crontab ";
     private static final String SINGLE_QUOTE = "'";
     private static final String SINGLE_QUOTE_ESCAPE = "'\"'\"'";
+    private static final String FIELD_SCRIPT_FILE = "script_file";
+    private static final String FIELD_CRON_FILE = "cron_file";
+    private static final String FIELD_LOG_FILE = "log_file";
 
     @Option(
             names = {"--cron"},
@@ -113,9 +116,9 @@ public final class ScheduleCommand implements Callable<Integer> {
         }
 
         System.out.println("Scheduled-run artifacts generated (not active).");
-        System.out.println("script_file: " + resolvedScript);
-        System.out.println("cron_file: " + resolvedCronFile);
-        System.out.println("log_file: " + resolvedLogFile);
+        System.out.println(FIELD_SCRIPT_FILE + ": " + resolvedScript);
+        System.out.println(FIELD_CRON_FILE + ": " + resolvedCronFile);
+        System.out.println(FIELD_LOG_FILE + ": " + resolvedLogFile);
         System.out.println(CRON_INSTALL_HINT + resolvedCronFile);
         return 0;
     }

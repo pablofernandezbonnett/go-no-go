@@ -7,12 +7,14 @@ Active files:
 - `personas.yaml`
 - `blacklist.yaml`
 - `runtime.yaml` - operational runtime defaults for fetch/pipeline commands
+- `decision-signals.yaml` - keyword and threshold config for selected decision signals
 - `candidate-profiles/` - optional runtime candidate profiles used for candidate-aware evaluation
 
 Templates/examples:
 - `companies.example.yaml`
 - `personas.example.yaml`
 - `runtime.example.yaml`
+- `decision-signals.example.yaml`
 - `candidate-profiles/README.md`
 
 Use the example files as schema guides when adding new entries.
@@ -117,6 +119,34 @@ Priority order:
 - built-in fallback
 
 This keeps fetch and pipeline behavior configurable at runtime without turning every operational default into a compile-time constant.
+
+## decision-signals.yaml
+
+This file externalizes selected keyword lists and thresholds while keeping the scoring logic in Java.
+
+Current scopes:
+- `language`
+- `work_life_balance`
+- `mobility`
+
+Supported `language` fields:
+- `required_keywords`
+- `friction_soft_keywords`
+- `medium_high_friction_keywords`
+- `high_friction_keywords`
+- `optional_or_exempt_keywords`
+- `english_friendly_keywords`
+- `english_support_environment_keywords`
+- `english_support_max_index`
+
+Supported `work_life_balance` fields:
+- `overtime_risk_keywords`
+- `holiday_policy_risk_keywords`
+
+Supported `mobility` fields:
+- `location_mobility_risk_keywords`
+
+Use this file to tune market wording without recompiling the engine. Keep the rule logic itself in Java.
 
 ## Validation
 

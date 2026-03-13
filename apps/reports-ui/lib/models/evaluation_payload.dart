@@ -41,6 +41,53 @@ class EvaluationOptionsPayload {
   }
 }
 
+class EvaluationUrlHistoryItemPayload {
+  const EvaluationUrlHistoryItemPayload({
+    required this.url,
+    required this.companyName,
+    required this.title,
+    required this.generatedAt,
+    required this.sourceKind,
+    required this.persona,
+    required this.candidateProfile,
+  });
+
+  final String url;
+  final String companyName;
+  final String title;
+  final String generatedAt;
+  final String sourceKind;
+  final String persona;
+  final String candidateProfile;
+
+  factory EvaluationUrlHistoryItemPayload.fromJson(Map<String, dynamic> json) {
+    return EvaluationUrlHistoryItemPayload(
+      url: json['url']?.toString() ?? '',
+      companyName: json['company_name']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      generatedAt: json['generated_at']?.toString() ?? '',
+      sourceKind: json['source_kind']?.toString() ?? '',
+      persona: json['persona']?.toString() ?? '',
+      candidateProfile: json['candidate_profile']?.toString() ?? '',
+    );
+  }
+}
+
+class EvaluationUrlHistoryPayload {
+  const EvaluationUrlHistoryPayload({required this.items});
+
+  final List<EvaluationUrlHistoryItemPayload> items;
+
+  factory EvaluationUrlHistoryPayload.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    return EvaluationUrlHistoryPayload(
+      items: rawItems is List
+          ? rawItems.whereType<Map<String, dynamic>>().map(EvaluationUrlHistoryItemPayload.fromJson).toList()
+          : const [],
+    );
+  }
+}
+
 class EvaluationSourcePayload {
   const EvaluationSourcePayload({
     required this.kind,
@@ -213,6 +260,35 @@ class EvaluationResponsePayload {
             ),
       normalizationWarnings: warningsRaw is List ? warningsRaw.map((item) => item.toString()).toList() : const [],
       analysisFile: json['analysis_file']?.toString() ?? '',
+    );
+  }
+}
+
+class EvaluationSessionPayload {
+  const EvaluationSessionPayload({
+    required this.requestedPersonaId,
+    required this.requestedCandidateProfileId,
+    required this.results,
+  });
+
+  final String requestedPersonaId;
+  final String requestedCandidateProfileId;
+  final List<EvaluationResponsePayload> results;
+
+  factory EvaluationSessionPayload.fromJson(Map<String, dynamic> json) {
+    final rawResults = json['results'];
+    if (rawResults is List) {
+      return EvaluationSessionPayload(
+        requestedPersonaId: json['requested_persona_id']?.toString() ?? '',
+        requestedCandidateProfileId: json['requested_candidate_profile_id']?.toString() ?? '',
+        results: rawResults.whereType<Map<String, dynamic>>().map(EvaluationResponsePayload.fromJson).toList(),
+      );
+    }
+
+    return EvaluationSessionPayload(
+      requestedPersonaId: json['persona']?.toString() ?? '',
+      requestedCandidateProfileId: json['candidate_profile']?.toString() ?? '',
+      results: [EvaluationResponsePayload.fromJson(json)],
     );
   }
 }

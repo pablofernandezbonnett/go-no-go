@@ -24,12 +24,12 @@ public final class JobInputYamlWriter {
         options.setIndent(2);
 
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put("company_name", jobInput.companyName());
-        root.put("title", jobInput.title());
-        root.put("location", jobInput.location());
-        root.put("salary_range", jobInput.salaryRange());
-        root.put("remote_policy", jobInput.remotePolicy());
-        root.put("description", jobInput.description());
+        root.put(JobInputFieldKeys.COMPANY_NAME, jobInput.companyName());
+        root.put(JobInputFieldKeys.TITLE, jobInput.title());
+        root.put(JobInputFieldKeys.LOCATION, jobInput.location());
+        root.put(JobInputFieldKeys.SALARY_RANGE, jobInput.salaryRange());
+        root.put(JobInputFieldKeys.REMOTE_POLICY, jobInput.remotePolicy());
+        root.put(JobInputFieldKeys.DESCRIPTION, jobInput.description());
 
         try (Writer writer = Files.newBufferedWriter(outputFile, StandardCharsets.UTF_8)) {
             new Yaml(options).dump(root, writer);
