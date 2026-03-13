@@ -9,6 +9,44 @@ import java.util.List;
 import java.util.Locale;
 
 public final class BatchReportWriter {
+    private static final String FIELD_GENERATED_AT = "generated_at";
+    private static final String FIELD_PERSONA = "persona";
+    private static final String FIELD_CANDIDATE_PROFILE = "candidate_profile";
+    private static final String FIELD_SUMMARY = "summary";
+    private static final String FIELD_TOTAL_FILES = "total_files";
+    private static final String FIELD_EVALUATED = "evaluated";
+    private static final String FIELD_FAILED = "failed";
+    private static final String FIELD_GO = "go";
+    private static final String FIELD_GO_WITH_CAUTION = "go_with_caution";
+    private static final String FIELD_NO_GO = "no_go";
+    private static final String FIELD_NEW = "new";
+    private static final String FIELD_UPDATED = "updated";
+    private static final String FIELD_UNCHANGED = "unchanged";
+    private static final String FIELD_REMOVED = "removed";
+    private static final String FIELD_ITEMS = "items";
+    private static final String FIELD_REMOVED_ITEMS = "removed_items";
+    private static final String FIELD_ERRORS = "errors";
+    private static final String FIELD_SOURCE_FILE = "source_file";
+    private static final String FIELD_COMPANY = "company";
+    private static final String FIELD_TITLE = "title";
+    private static final String FIELD_LOCATION = "location";
+    private static final String FIELD_SALARY_RANGE = "salary_range";
+    private static final String FIELD_REMOTE_POLICY = "remote_policy";
+    private static final String FIELD_VERDICT = "verdict";
+    private static final String FIELD_SCORE = "score";
+    private static final String FIELD_RAW_SCORE = "raw_score";
+    private static final String FIELD_LANGUAGE_FRICTION_INDEX = "language_friction_index";
+    private static final String FIELD_COMPANY_REPUTATION_INDEX = "company_reputation_index";
+    private static final String FIELD_JOB_KEY = "job_key";
+    private static final String FIELD_CHANGE_STATUS = "change_status";
+    private static final String FIELD_RAW_SCORE_RANGE = "raw_score_range";
+    private static final String FIELD_MIN = "min";
+    private static final String FIELD_MAX = "max";
+    private static final String FIELD_HARD_REJECT_REASONS = "hard_reject_reasons";
+    private static final String FIELD_POSITIVE_SIGNALS = "positive_signals";
+    private static final String FIELD_RISK_SIGNALS = "risk_signals";
+    private static final String FIELD_REASONING = "reasoning";
+
     public void writeJson(Path outputFile, BatchEvaluationReport report) throws IOException {
         ensureParentDirectory(outputFile);
         Files.writeString(outputFile, toJson(report), StandardCharsets.UTF_8);
@@ -22,51 +60,51 @@ public final class BatchReportWriter {
     private String toJson(BatchEvaluationReport report) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
-        appendJsonField(sb, 1, "generated_at", report.generatedAt(), true);
-        appendJsonField(sb, 1, "persona", report.personaId(), true);
-        appendJsonField(sb, 1, "candidate_profile", report.candidateProfileId(), true);
+        appendJsonField(sb, 1, FIELD_GENERATED_AT, report.generatedAt(), true);
+        appendJsonField(sb, 1, FIELD_PERSONA, report.personaId(), true);
+        appendJsonField(sb, 1, FIELD_CANDIDATE_PROFILE, report.candidateProfileId(), true);
 
-        sb.append(indent(1)).append("\"summary\": {\n");
-        appendJsonNumberField(sb, 2, "total_files", report.totalFiles(), true);
-        appendJsonNumberField(sb, 2, "evaluated", report.evaluatedCount(), true);
-        appendJsonNumberField(sb, 2, "failed", report.failedCount(), true);
-        appendJsonNumberField(sb, 2, "go", report.goCount(), true);
-        appendJsonNumberField(sb, 2, "go_with_caution", report.goWithCautionCount(), true);
-        appendJsonNumberField(sb, 2, "no_go", report.noGoCount(), true);
-        appendJsonNumberField(sb, 2, "new", report.newCount(), true);
-        appendJsonNumberField(sb, 2, "updated", report.updatedCount(), true);
-        appendJsonNumberField(sb, 2, "unchanged", report.unchangedCount(), true);
-        appendJsonNumberField(sb, 2, "removed", report.removedCount(), false);
+        sb.append(indent(1)).append('"').append(FIELD_SUMMARY).append("\": {\n");
+        appendJsonNumberField(sb, 2, FIELD_TOTAL_FILES, report.totalFiles(), true);
+        appendJsonNumberField(sb, 2, FIELD_EVALUATED, report.evaluatedCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_FAILED, report.failedCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_GO, report.goCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_GO_WITH_CAUTION, report.goWithCautionCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_NO_GO, report.noGoCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_NEW, report.newCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_UPDATED, report.updatedCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_UNCHANGED, report.unchangedCount(), true);
+        appendJsonNumberField(sb, 2, FIELD_REMOVED, report.removedCount(), false);
         sb.append(indent(1)).append("},\n");
 
-        sb.append(indent(1)).append("\"items\": [\n");
+        sb.append(indent(1)).append('"').append(FIELD_ITEMS).append("\": [\n");
         for (int i = 0; i < report.items().size(); i++) {
             BatchEvaluationItem item = report.items().get(i);
             boolean isLast = i == report.items().size() - 1;
             sb.append(indent(2)).append("{\n");
-            appendJsonField(sb, 3, "source_file", item.sourceFile(), true);
-            appendJsonField(sb, 3, "company", item.job().companyName(), true);
-            appendJsonField(sb, 3, "title", item.job().title(), true);
-            appendJsonField(sb, 3, "location", item.job().location(), true);
-            appendJsonField(sb, 3, "salary_range", item.job().salaryRange(), true);
-            appendJsonField(sb, 3, "remote_policy", item.job().remotePolicy(), true);
-            appendJsonField(sb, 3, "verdict", item.evaluation().verdict().name(), true);
-            appendJsonNumberField(sb, 3, "score", item.evaluation().score(), true);
-            appendJsonNumberField(sb, 3, "raw_score", item.evaluation().rawScore(), true);
-            appendJsonNumberField(sb, 3, "language_friction_index", item.evaluation().languageFrictionIndex(), true);
-            appendJsonNumberField(sb, 3, "company_reputation_index", item.evaluation().companyReputationIndex(), true);
-            appendJsonField(sb, 3, "job_key", item.jobKey(), true);
-            appendJsonField(sb, 3, "change_status", item.changeStatus(), true);
+            appendJsonField(sb, 3, FIELD_SOURCE_FILE, item.sourceFile(), true);
+            appendJsonField(sb, 3, FIELD_COMPANY, item.job().companyName(), true);
+            appendJsonField(sb, 3, FIELD_TITLE, item.job().title(), true);
+            appendJsonField(sb, 3, FIELD_LOCATION, item.job().location(), true);
+            appendJsonField(sb, 3, FIELD_SALARY_RANGE, item.job().salaryRange(), true);
+            appendJsonField(sb, 3, FIELD_REMOTE_POLICY, item.job().remotePolicy(), true);
+            appendJsonField(sb, 3, FIELD_VERDICT, item.evaluation().verdict().name(), true);
+            appendJsonNumberField(sb, 3, FIELD_SCORE, item.evaluation().score(), true);
+            appendJsonNumberField(sb, 3, FIELD_RAW_SCORE, item.evaluation().rawScore(), true);
+            appendJsonNumberField(sb, 3, FIELD_LANGUAGE_FRICTION_INDEX, item.evaluation().languageFrictionIndex(), true);
+            appendJsonNumberField(sb, 3, FIELD_COMPANY_REPUTATION_INDEX, item.evaluation().companyReputationIndex(), true);
+            appendJsonField(sb, 3, FIELD_JOB_KEY, item.jobKey(), true);
+            appendJsonField(sb, 3, FIELD_CHANGE_STATUS, item.changeStatus(), true);
 
-            sb.append(indent(3)).append("\"raw_score_range\": {\n");
-            appendJsonNumberField(sb, 4, "min", item.evaluation().rawScoreMin(), true);
-            appendJsonNumberField(sb, 4, "max", item.evaluation().rawScoreMax(), false);
+            sb.append(indent(3)).append('"').append(FIELD_RAW_SCORE_RANGE).append("\": {\n");
+            appendJsonNumberField(sb, 4, FIELD_MIN, item.evaluation().rawScoreMin(), true);
+            appendJsonNumberField(sb, 4, FIELD_MAX, item.evaluation().rawScoreMax(), false);
             sb.append(indent(3)).append("},\n");
 
-            appendJsonArrayField(sb, 3, "hard_reject_reasons", item.evaluation().hardRejectReasons(), true);
-            appendJsonArrayField(sb, 3, "positive_signals", item.evaluation().positiveSignals(), true);
-            appendJsonArrayField(sb, 3, "risk_signals", item.evaluation().riskSignals(), true);
-            appendJsonArrayField(sb, 3, "reasoning", item.evaluation().reasoning(), false);
+            appendJsonArrayField(sb, 3, FIELD_HARD_REJECT_REASONS, item.evaluation().hardRejectReasons(), true);
+            appendJsonArrayField(sb, 3, FIELD_POSITIVE_SIGNALS, item.evaluation().positiveSignals(), true);
+            appendJsonArrayField(sb, 3, FIELD_RISK_SIGNALS, item.evaluation().riskSignals(), true);
+            appendJsonArrayField(sb, 3, FIELD_REASONING, item.evaluation().reasoning(), false);
             sb.append(indent(2)).append("}");
             if (!isLast) {
                 sb.append(",");
@@ -75,16 +113,16 @@ public final class BatchReportWriter {
         }
         sb.append(indent(1)).append("],\n");
 
-        sb.append(indent(1)).append("\"removed_items\": [\n");
+        sb.append(indent(1)).append('"').append(FIELD_REMOVED_ITEMS).append("\": [\n");
         for (int i = 0; i < report.removedItems().size(); i++) {
             RemovedJobItem item = report.removedItems().get(i);
             boolean isLast = i == report.removedItems().size() - 1;
             sb.append(indent(2)).append("{\n");
-            appendJsonField(sb, 3, "job_key", item.jobKey(), true);
-            appendJsonField(sb, 3, "source_file", item.sourceFile(), true);
-            appendJsonField(sb, 3, "company", item.company(), true);
-            appendJsonField(sb, 3, "title", item.title(), true);
-            appendJsonField(sb, 3, "location", item.location(), false);
+            appendJsonField(sb, 3, FIELD_JOB_KEY, item.jobKey(), true);
+            appendJsonField(sb, 3, FIELD_SOURCE_FILE, item.sourceFile(), true);
+            appendJsonField(sb, 3, FIELD_COMPANY, item.company(), true);
+            appendJsonField(sb, 3, FIELD_TITLE, item.title(), true);
+            appendJsonField(sb, 3, FIELD_LOCATION, item.location(), false);
             sb.append(indent(2)).append("}");
             if (!isLast) {
                 sb.append(",");
@@ -93,13 +131,13 @@ public final class BatchReportWriter {
         }
         sb.append(indent(1)).append("],\n");
 
-        sb.append(indent(1)).append("\"errors\": [\n");
+        sb.append(indent(1)).append('"').append(FIELD_ERRORS).append("\": [\n");
         for (int i = 0; i < report.errors().size(); i++) {
             BatchEvaluationError error = report.errors().get(i);
             boolean isLast = i == report.errors().size() - 1;
             sb.append(indent(2)).append("{\n");
-            appendJsonField(sb, 3, "source_file", error.sourceFile(), true);
-            appendJsonArrayField(sb, 3, "errors", error.errors(), false);
+            appendJsonField(sb, 3, FIELD_SOURCE_FILE, error.sourceFile(), true);
+            appendJsonArrayField(sb, 3, FIELD_ERRORS, error.errors(), false);
             sb.append(indent(2)).append("}");
             if (!isLast) {
                 sb.append(",");

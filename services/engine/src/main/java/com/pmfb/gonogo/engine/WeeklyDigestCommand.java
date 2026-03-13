@@ -18,6 +18,11 @@ import picocli.CommandLine.Option;
         description = "Generate a weekly markdown digest from a batch evaluation JSON report."
 )
 public final class WeeklyDigestCommand implements Callable<Integer> {
+    private static final String FIELD_SOURCE_REPORT = "source_report";
+    private static final String FIELD_EVALUATED = "evaluated";
+    private static final String FIELD_PARSING_ERRORS = "parsing_errors";
+    private static final String FIELD_RANKING_STRATEGY = "ranking_strategy";
+
     private final WeeklyDigestGenerator generator;
 
     public WeeklyDigestCommand() {
@@ -91,10 +96,10 @@ public final class WeeklyDigestCommand implements Callable<Integer> {
         }
 
         System.out.println("Weekly digest generated: " + outputFile);
-        System.out.println("source_report: " + inputJson);
-        System.out.println("evaluated: " + data.items().size());
-        System.out.println("parsing_errors: " + data.errors().size());
-        System.out.println("ranking_strategy: " + strategy.name().toLowerCase(Locale.ROOT));
+        System.out.println(FIELD_SOURCE_REPORT + ": " + inputJson);
+        System.out.println(FIELD_EVALUATED + ": " + data.items().size());
+        System.out.println(FIELD_PARSING_ERRORS + ": " + data.errors().size());
+        System.out.println(FIELD_RANKING_STRATEGY + ": " + strategy.name().toLowerCase(Locale.ROOT));
         return 0;
     }
 

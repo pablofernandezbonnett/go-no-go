@@ -6,6 +6,8 @@ import '../models/evaluation_payload.dart';
 import '../services/evaluation_api.dart';
 import 'reports_view_helpers.dart';
 
+const _allSourcesFilter = 'all_sources';
+
 @client
 class EvaluatePage extends StatefulComponent {
   const EvaluatePage({super.key});
@@ -18,47 +20,76 @@ class _EvaluatePageState extends State<EvaluatePage> {
   static const _client = EvaluationApiClient();
 
   EvaluationOptionsPayload? _options;
-  EvaluationResponsePayload? _result;
+  EvaluationSessionPayload? _session;
+  List<EvaluationUrlHistoryItemPayload> _urlHistory = const [];
   String? _loadError;
+  String? _historyError;
   String? _submitError;
   bool _isLoading = true;
   bool _isSubmitting = false;
 
   String _inputMode = inputModeRawText;
-  String _selectedPersonaId = '';
-  String _selectedCandidateProfileId = candidateProfileAuto;
+  String _selectedPersonaId = allPersonasOptionId;
+  String _selectedCandidateProfileId = candidateProfileNone;
   String _jobUrl = '';
   String _rawText = '';
-  String _companyName = '';
-  String _title = '';
-  String _timeoutSeconds = '20';
+  String _urlHistoryQuery = '';
+  String _selectedHistorySource = _allSourcesFilter;
+  bool _isInputPanelExpanded = true;
+  bool _isHistoryPanelExpanded = false;
+  Set<String> _expandedResultPersonas = const <String>{};
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _loadOptions();
+      _loadPageData();
     } else {
       _isLoading = false;
     }
   }
 
-  Future<void> _loadOptions() async {
+  Future<void> _loadPageData() async {
     setState(() {
       _isLoading = true;
       _loadError = null;
     });
     try {
       final options = await _client.fetchOptions();
+      List<EvaluationUrlHistoryItemPayload> urlHistory = const [];
+      String? historyError;
+      try {
+        final history = await _client.fetchUrlHistory();
+        urlHistory = history.items;
+      } catch (error) {
+        historyError = error.toString();
+      }
       setState(() {
         _options = options;
-        _selectedPersonaId = options.personas.isEmpty ? '' : options.personas.first.id;
+        _selectedPersonaId = _resolveSelectedPersona(options);
+        _selectedCandidateProfileId = _resolveSelectedCandidateProfile(options);
+        _urlHistory = urlHistory;
+        _historyError = historyError;
         _isLoading = false;
       });
     } catch (error) {
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _refreshUrlHistory() async {
+    try {
+      final history = await _client.fetchUrlHistory();
+      setState(() {
+        _urlHistory = history.items;
+        _historyError = null;
+      });
+    } catch (error) {
+      setState(() {
+        _historyError = error.toString();
       });
     }
   }
@@ -75,14 +106,15 @@ class _EvaluatePageState extends State<EvaluatePage> {
         'candidateProfileId': _selectedCandidateProfileId,
         'jobUrl': _jobUrl,
         'rawText': _rawText,
-        'companyName': _companyName,
-        'title': _title,
-        'timeoutSeconds': _timeoutSeconds,
       });
       setState(() {
-        _result = result;
+        _session = result;
+        _expandedResultPersonas = result.results.isEmpty ? const <String>{} : {result.results.first.persona};
         _isSubmitting = false;
       });
+      if (_inputMode == inputModeUrl) {
+        await _refreshUrlHistory();
+      }
     } catch (error) {
       setState(() {
         _isSubmitting = false;
@@ -91,11 +123,124 @@ class _EvaluatePageState extends State<EvaluatePage> {
     }
   }
 
+  void _useHistoryUrl(String url) {
+    setState(() {
+      _inputMode = inputModeUrl;
+      _jobUrl = url;
+      _rawText = '';
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updateInputMode(String value) {
+    setState(() {
+      _inputMode = value;
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updatePersona(String value) {
+    setState(() {
+      _selectedPersonaId = value;
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updateCandidateProfile(String value) {
+    setState(() {
+      _selectedCandidateProfileId = value;
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updateJobUrl(String value) {
+    setState(() {
+      _jobUrl = value;
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updateRawText(String value) {
+    setState(() {
+      _rawText = value;
+      _submitError = null;
+      _session = null;
+      _expandedResultPersonas = const <String>{};
+    });
+  }
+
+  void _updateUrlHistoryQuery(String value) {
+    setState(() {
+      _urlHistoryQuery = value;
+    });
+  }
+
+  void _updateHistorySource(String value) {
+    setState(() {
+      _selectedHistorySource = value;
+    });
+  }
+
+  void _toggleInputPanel() {
+    setState(() {
+      _isInputPanelExpanded = !_isInputPanelExpanded;
+    });
+  }
+
+  void _toggleHistoryPanel() {
+    setState(() {
+      _isHistoryPanelExpanded = !_isHistoryPanelExpanded;
+    });
+  }
+
+  void _toggleResultPanel(String personaId) {
+    setState(() {
+      final expanded = {..._expandedResultPersonas};
+      if (expanded.contains(personaId)) {
+        expanded.remove(personaId);
+      } else {
+        expanded.add(personaId);
+      }
+      _expandedResultPersonas = expanded;
+    });
+  }
+
+  String _resolveSelectedPersona(EvaluationOptionsPayload options) {
+    if (_selectedPersonaId == allPersonasOptionId) {
+      return allPersonasOptionId;
+    }
+    for (final persona in options.personas) {
+      if (persona.id == _selectedPersonaId) {
+        return _selectedPersonaId;
+      }
+    }
+    return allPersonasOptionId;
+  }
+
+  String _resolveSelectedCandidateProfile(EvaluationOptionsPayload options) {
+    for (final profile in options.candidateProfiles) {
+      if (profile.id == _selectedCandidateProfileId) {
+        return _selectedCandidateProfileId;
+      }
+    }
+    return options.candidateProfiles.isEmpty ? candidateProfileNone : options.candidateProfiles.first.id;
+  }
+
   @override
   Component build(BuildContext context) {
     if (!kIsWeb) return pageLoading('Evaluate', 'Loading evaluation tools on the client...');
     if (_isLoading) return pageLoading('Evaluate', 'Loading evaluation options...');
-    if (_loadError != null) return pageError('Evaluate', _loadError!, _loadOptions);
+    if (_loadError != null) return pageError('Evaluate', _loadError!, _loadPageData);
     final options = _options;
     if (options == null || options.personas.isEmpty) {
       return pageEmpty('Evaluate', 'No personas are available for ad-hoc evaluation.');
@@ -107,20 +252,27 @@ class _EvaluatePageState extends State<EvaluatePage> {
       selectedCandidateProfileId: _selectedCandidateProfileId,
       jobUrl: _jobUrl,
       rawText: _rawText,
-      companyName: _companyName,
-      title: _title,
-      timeoutSeconds: _timeoutSeconds,
+      isInputPanelExpanded: _isInputPanelExpanded,
+      isHistoryPanelExpanded: _isHistoryPanelExpanded,
+      expandedResultPersonas: _expandedResultPersonas,
+      urlHistory: _urlHistory,
+      urlHistoryQuery: _urlHistoryQuery,
+      selectedHistorySource: _selectedHistorySource,
+      historyError: _historyError,
       submitError: _submitError,
-      result: _result,
+      session: _session,
       isSubmitting: _isSubmitting,
-      onInputModeChanged: (value) => setState(() => _inputMode = value),
-      onPersonaChanged: (value) => setState(() => _selectedPersonaId = value),
-      onCandidateProfileChanged: (value) => setState(() => _selectedCandidateProfileId = value),
-      onJobUrlChanged: (value) => setState(() => _jobUrl = value),
-      onRawTextChanged: (value) => setState(() => _rawText = value),
-      onCompanyNameChanged: (value) => setState(() => _companyName = value),
-      onTitleChanged: (value) => setState(() => _title = value),
-      onTimeoutChanged: (value) => setState(() => _timeoutSeconds = value),
+      onInputModeChanged: _updateInputMode,
+      onPersonaChanged: _updatePersona,
+      onCandidateProfileChanged: _updateCandidateProfile,
+      onJobUrlChanged: _updateJobUrl,
+      onRawTextChanged: _updateRawText,
+      onUrlHistoryQueryChanged: _updateUrlHistoryQuery,
+      onHistorySourceChanged: _updateHistorySource,
+      onToggleInputPanel: _toggleInputPanel,
+      onToggleHistoryPanel: _toggleHistoryPanel,
+      onToggleResultPanel: _toggleResultPanel,
+      onUseUrl: _useHistoryUrl,
       onSubmit: _submit,
     );
   }
@@ -134,20 +286,27 @@ class _EvaluateBody extends StatelessComponent {
     required this.selectedCandidateProfileId,
     required this.jobUrl,
     required this.rawText,
-    required this.companyName,
-    required this.title,
-    required this.timeoutSeconds,
+    required this.isInputPanelExpanded,
+    required this.isHistoryPanelExpanded,
+    required this.expandedResultPersonas,
+    required this.urlHistory,
+    required this.urlHistoryQuery,
+    required this.selectedHistorySource,
+    required this.historyError,
     required this.submitError,
-    required this.result,
+    required this.session,
     required this.isSubmitting,
     required this.onInputModeChanged,
     required this.onPersonaChanged,
     required this.onCandidateProfileChanged,
     required this.onJobUrlChanged,
     required this.onRawTextChanged,
-    required this.onCompanyNameChanged,
-    required this.onTitleChanged,
-    required this.onTimeoutChanged,
+    required this.onUrlHistoryQueryChanged,
+    required this.onHistorySourceChanged,
+    required this.onToggleInputPanel,
+    required this.onToggleHistoryPanel,
+    required this.onToggleResultPanel,
+    required this.onUseUrl,
     required this.onSubmit,
   });
 
@@ -157,52 +316,75 @@ class _EvaluateBody extends StatelessComponent {
   final String selectedCandidateProfileId;
   final String jobUrl;
   final String rawText;
-  final String companyName;
-  final String title;
-  final String timeoutSeconds;
+  final bool isInputPanelExpanded;
+  final bool isHistoryPanelExpanded;
+  final Set<String> expandedResultPersonas;
+  final List<EvaluationUrlHistoryItemPayload> urlHistory;
+  final String urlHistoryQuery;
+  final String selectedHistorySource;
+  final String? historyError;
   final String? submitError;
-  final EvaluationResponsePayload? result;
+  final EvaluationSessionPayload? session;
   final bool isSubmitting;
   final void Function(String) onInputModeChanged;
   final void Function(String) onPersonaChanged;
   final void Function(String) onCandidateProfileChanged;
   final void Function(String) onJobUrlChanged;
   final void Function(String) onRawTextChanged;
-  final void Function(String) onCompanyNameChanged;
-  final void Function(String) onTitleChanged;
-  final void Function(String) onTimeoutChanged;
+  final void Function(String) onUrlHistoryQueryChanged;
+  final void Function(String) onHistorySourceChanged;
+  final void Function() onToggleInputPanel;
+  final void Function() onToggleHistoryPanel;
+  final void Function(String) onToggleResultPanel;
+  final void Function(String) onUseUrl;
   final void Function() onSubmit;
 
   @override
   Component build(BuildContext context) {
     return section(classes: 'page', [
       h1([.text('Evaluate')]),
-      card([
-        p([.text('Paste a job post or submit a URL for ad-hoc evaluation against the engine runtime.')]),
-        _EvaluateForm(
-          options: options,
-          inputMode: inputMode,
-          selectedPersonaId: selectedPersonaId,
-          selectedCandidateProfileId: selectedCandidateProfileId,
-          jobUrl: jobUrl,
-          rawText: rawText,
-          companyName: companyName,
-          title: title,
-          timeoutSeconds: timeoutSeconds,
-          isSubmitting: isSubmitting,
-          onInputModeChanged: onInputModeChanged,
-          onPersonaChanged: onPersonaChanged,
-          onCandidateProfileChanged: onCandidateProfileChanged,
-          onJobUrlChanged: onJobUrlChanged,
-          onRawTextChanged: onRawTextChanged,
-          onCompanyNameChanged: onCompanyNameChanged,
-          onTitleChanged: onTitleChanged,
-          onTimeoutChanged: onTimeoutChanged,
-          onSubmit: onSubmit,
+      _PanelCard(
+        title: 'Evaluate Input',
+        description:
+            'Paste a job post or submit a URL for ad-hoc evaluation against one persona or all configured personas.',
+        isExpanded: isInputPanelExpanded,
+        onToggle: onToggleInputPanel,
+        children: [
+          _EvaluateForm(
+            options: options,
+            inputMode: inputMode,
+            selectedPersonaId: selectedPersonaId,
+            selectedCandidateProfileId: selectedCandidateProfileId,
+            jobUrl: jobUrl,
+            rawText: rawText,
+            isSubmitting: isSubmitting,
+            onInputModeChanged: onInputModeChanged,
+            onPersonaChanged: onPersonaChanged,
+            onCandidateProfileChanged: onCandidateProfileChanged,
+            onJobUrlChanged: onJobUrlChanged,
+            onRawTextChanged: onRawTextChanged,
+            onSubmit: onSubmit,
+          ),
+          if (submitError != null) p(classes: 'error', [.text(submitError!)]),
+        ],
+      ),
+      _EvaluateUrlHistoryCard(
+        items: urlHistory,
+        query: urlHistoryQuery,
+        selectedSource: selectedHistorySource,
+        isExpanded: isHistoryPanelExpanded,
+        error: historyError,
+        onQueryChanged: onUrlHistoryQueryChanged,
+        onSourceChanged: onHistorySourceChanged,
+        onToggle: onToggleHistoryPanel,
+        onUseUrl: onUseUrl,
+      ),
+      if (session != null)
+        _EvaluateResultsSection(
+          session: session!,
+          expandedPersonas: expandedResultPersonas,
+          onToggleResultPanel: onToggleResultPanel,
         ),
-        if (submitError != null) p(classes: 'error', [.text(submitError!)]),
-      ]),
-      if (result != null) _EvaluateResultCard(result: result!),
     ]);
   }
 }
@@ -215,18 +397,12 @@ class _EvaluateForm extends StatelessComponent {
     required this.selectedCandidateProfileId,
     required this.jobUrl,
     required this.rawText,
-    required this.companyName,
-    required this.title,
-    required this.timeoutSeconds,
     required this.isSubmitting,
     required this.onInputModeChanged,
     required this.onPersonaChanged,
     required this.onCandidateProfileChanged,
     required this.onJobUrlChanged,
     required this.onRawTextChanged,
-    required this.onCompanyNameChanged,
-    required this.onTitleChanged,
-    required this.onTimeoutChanged,
     required this.onSubmit,
   });
 
@@ -236,25 +412,18 @@ class _EvaluateForm extends StatelessComponent {
   final String selectedCandidateProfileId;
   final String jobUrl;
   final String rawText;
-  final String companyName;
-  final String title;
-  final String timeoutSeconds;
   final bool isSubmitting;
   final void Function(String) onInputModeChanged;
   final void Function(String) onPersonaChanged;
   final void Function(String) onCandidateProfileChanged;
   final void Function(String) onJobUrlChanged;
   final void Function(String) onRawTextChanged;
-  final void Function(String) onCompanyNameChanged;
-  final void Function(String) onTitleChanged;
-  final void Function(String) onTimeoutChanged;
   final void Function() onSubmit;
 
   @override
   Component build(BuildContext context) {
     return div(classes: 'controls form-grid', [
       ..._selectorFields(),
-      ..._overrideFields(),
       _sourceInputField(),
       _submitButton(),
     ]);
@@ -311,41 +480,20 @@ class _EvaluateForm extends StatelessComponent {
       _selectField(
         labelText: 'Persona',
         value: selectedPersonaId,
-        options: [for (final persona in options.personas) (persona.id, persona.label)],
+        options: [
+          const (allPersonasOptionId, 'All personas'),
+          for (final persona in options.personas) (persona.id, persona.label),
+        ],
         onChanged: onPersonaChanged,
       ),
       _selectField(
         labelText: 'Candidate profile',
         value: selectedCandidateProfileId,
         options: [
-          const (candidateProfileAuto, 'Auto'),
-          const (candidateProfileNone, 'None'),
           for (final profile in options.candidateProfiles) (profile.id, profile.label),
+          const (candidateProfileNone, 'None'),
         ],
         onChanged: onCandidateProfileChanged,
-      ),
-    ];
-  }
-
-  List<Component> _overrideFields() {
-    return [
-      _textField(
-        labelText: 'Company override',
-        value: companyName,
-        placeholder: 'Optional company name override',
-        onChanged: onCompanyNameChanged,
-      ),
-      _textField(
-        labelText: 'Title override',
-        value: title,
-        placeholder: 'Optional title override',
-        onChanged: onTitleChanged,
-      ),
-      _textField(
-        labelText: 'Timeout seconds',
-        value: timeoutSeconds,
-        placeholder: '20',
-        onChanged: onTimeoutChanged,
       ),
     ];
   }
@@ -381,23 +529,115 @@ class _EvaluateForm extends StatelessComponent {
   }
 }
 
-class _EvaluateResultCard extends StatelessComponent {
-  const _EvaluateResultCard({required this.result});
+class _PanelCard extends StatelessComponent {
+  const _PanelCard({
+    required this.title,
+    required this.description,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.children,
+  });
 
-  final EvaluationResponsePayload result;
+  final String title;
+  final String description;
+  final bool isExpanded;
+  final void Function() onToggle;
+  final List<Component> children;
 
   @override
   Component build(BuildContext context) {
     return card([
-      h2([.text('Result')]),
-      p([
-        .text('Artifact: '),
-        code([.text(result.analysisFile.isEmpty ? 'not written' : result.analysisFile)]),
+      div(classes: 'collapsible-header', [
+        div(classes: 'collapsible-header-copy', [
+          h2([.text(title)]),
+          p(classes: 'collapsible-summary', [.text(description)]),
+        ]),
+        button(
+          onClick: onToggle,
+          [.text(isExpanded ? 'Hide' : 'Show')],
+        ),
       ]),
-      p([.text('Generated at: ${result.generatedAt}')]),
-      _EvaluateSourceBlock(source: result.source),
-      pre([.text(_consoleOutput(result))]),
+      if (isExpanded) div(classes: 'collapsible-body', children),
     ]);
+  }
+}
+
+class _EvaluateResultsSection extends StatelessComponent {
+  const _EvaluateResultsSection({
+    required this.session,
+    required this.expandedPersonas,
+    required this.onToggleResultPanel,
+  });
+
+  final EvaluationSessionPayload session;
+  final Set<String> expandedPersonas;
+  final void Function(String) onToggleResultPanel;
+
+  @override
+  Component build(BuildContext context) {
+    return div([
+      card([
+        h2([.text('Results')]),
+        p([.text(_summaryText())]),
+      ]),
+      for (final result in session.results)
+        _EvaluateResultCard(
+          result: result,
+          isExpanded: expandedPersonas.contains(result.persona),
+          onToggle: () => onToggleResultPanel(result.persona),
+        ),
+    ]);
+  }
+
+  String _summaryText() {
+    final count = session.results.length;
+    if (count == 0) {
+      return 'No evaluation results were returned.';
+    }
+    final candidateProfile = session.requestedCandidateProfileId.isEmpty
+        ? candidateProfileNone
+        : session.requestedCandidateProfileId;
+    if (session.requestedPersonaId == allPersonasOptionId) {
+      return 'Evaluated $count personas against candidate profile $candidateProfile.';
+    }
+    return 'Evaluated 1 persona against candidate profile $candidateProfile.';
+  }
+}
+
+class _EvaluateResultCard extends StatelessComponent {
+  const _EvaluateResultCard({
+    required this.result,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final EvaluationResponsePayload result;
+  final bool isExpanded;
+  final void Function() onToggle;
+
+  @override
+  Component build(BuildContext context) {
+    return _PanelCard(
+      title: 'Result · ${result.persona}',
+      description: '${result.evaluation.verdict} · ${result.evaluation.score}/100',
+      isExpanded: isExpanded,
+      onToggle: onToggle,
+      children: [
+        p([
+          .text('Artifact: '),
+          code([.text(result.analysisFile.isEmpty ? 'not written' : result.analysisFile)]),
+        ]),
+        p([
+          .text('Generated at: ${formatFriendlyDateTime(result.generatedAt)}'),
+          if (result.generatedAt.isNotEmpty) ...[
+            .text(' '),
+            code([.text(result.generatedAt)]),
+          ],
+        ]),
+        _EvaluateSourceBlock(source: result.source),
+        pre([.text(_consoleOutput(result))]),
+      ],
+    );
   }
 
   String _consoleOutput(EvaluationResponsePayload payload) {
@@ -443,6 +683,185 @@ class _EvaluateResultCard extends StatelessComponent {
       buffer.writeln(' | $line');
     }
     return buffer.toString().trimRight();
+  }
+}
+
+class _EvaluateUrlHistoryCard extends StatelessComponent {
+  const _EvaluateUrlHistoryCard({
+    required this.items,
+    required this.query,
+    required this.selectedSource,
+    required this.isExpanded,
+    required this.error,
+    required this.onQueryChanged,
+    required this.onSourceChanged,
+    required this.onToggle,
+    required this.onUseUrl,
+  });
+
+  final List<EvaluationUrlHistoryItemPayload> items;
+  final String query;
+  final String selectedSource;
+  final bool isExpanded;
+  final String? error;
+  final void Function(String) onQueryChanged;
+  final void Function(String) onSourceChanged;
+  final void Function() onToggle;
+  final void Function(String) onUseUrl;
+
+  @override
+  Component build(BuildContext context) {
+    final filteredItems = _filteredItems();
+    final sourceOptions = _sourceOptions();
+
+    return _PanelCard(
+      title: 'Recent URLs',
+      description: 'Reuse URLs already seen in processed job artifacts or ad-hoc evaluations.',
+      isExpanded: isExpanded,
+      onToggle: onToggle,
+      children: [
+        div(classes: 'controls form-grid', [
+          label([
+            .text('Search URLs'),
+            input<String>(
+              type: InputType.text,
+              value: query,
+              attributes: const {'placeholder': 'Filter by company, title, or URL'},
+              onInput: onQueryChanged,
+            ),
+          ]),
+          label([
+            .text('Source'),
+            select(
+              value: selectedSource,
+              onChange: (values) => onSourceChanged(values.isEmpty ? _allSourcesFilter : values.first),
+              [
+                option(
+                  value: _allSourcesFilter,
+                  selected: selectedSource == _allSourcesFilter,
+                  [.text('All sources')],
+                ),
+                for (final source in sourceOptions)
+                  option(
+                    value: source,
+                    selected: selectedSource == source,
+                    [.text(source)],
+                  ),
+              ],
+            ),
+          ]),
+        ]),
+        p([
+          .text('Showing ${filteredItems.length} of ${items.length} URLs'),
+        ]),
+        if (error != null) p(classes: 'error', [.text(error!)]),
+        if (filteredItems.isEmpty && error == null)
+          p([
+            .text(items.isEmpty ? 'No reusable URLs were found yet.' : 'No URLs match the current filters.'),
+          ])
+        else if (filteredItems.isNotEmpty)
+          table([
+            thead([
+              tr([
+                th([.text('Seen')]),
+                th([.text('Company')]),
+                th([.text('Title')]),
+                th([.text('Source')]),
+                th([.text('URL')]),
+                th([.text('Action')]),
+              ]),
+            ]),
+            tbody([
+              for (final item in filteredItems) _historyRow(item),
+            ]),
+          ]),
+      ],
+    );
+  }
+
+  List<String> _sourceOptions() {
+    final values = <String>{};
+    for (final item in items) {
+      final company = item.companyName.trim();
+      if (company.isNotEmpty) {
+        values.add(company);
+      }
+      final host = _hostLabel(item.url);
+      if (host.isNotEmpty) {
+        values.add(host);
+      }
+      values.add(_sourceSummary(item));
+    }
+    final sources = values.toList()..sort();
+    return sources;
+  }
+
+  List<EvaluationUrlHistoryItemPayload> _filteredItems() {
+    final normalizedQuery = query.trim().toLowerCase();
+    return items
+        .where((item) {
+          if (selectedSource != _allSourcesFilter && !_matchesSelectedSource(item)) {
+            return false;
+          }
+          if (normalizedQuery.isEmpty) {
+            return true;
+          }
+          final haystack = [
+            item.companyName,
+            item.title,
+            item.url,
+          ].join(' ').toLowerCase();
+          return haystack.contains(normalizedQuery);
+        })
+        .toList(growable: false);
+  }
+
+  bool _matchesSelectedSource(EvaluationUrlHistoryItemPayload item) {
+    return item.companyName == selectedSource ||
+        _hostLabel(item.url) == selectedSource ||
+        _sourceSummary(item) == selectedSource;
+  }
+
+  Component _historyRow(EvaluationUrlHistoryItemPayload item) {
+    return tr([
+      td([.text(formatFriendlyDateTime(item.generatedAt))]),
+      td([.text(item.companyName.isEmpty ? 'Unknown' : item.companyName)]),
+      td([.text(item.title.isEmpty ? 'Untitled job' : item.title)]),
+      td([.text(_sourceSummary(item))]),
+      td([
+        a(
+          href: item.url,
+          target: Target.blank,
+          attributes: const {'rel': 'noreferrer noopener'},
+          [.text(item.url)],
+        ),
+      ]),
+      td([
+        button(
+          onClick: () => onUseUrl(item.url),
+          [.text('Use')],
+        ),
+      ]),
+    ]);
+  }
+
+  String _sourceSummary(EvaluationUrlHistoryItemPayload item) {
+    if (item.sourceKind == historySourceKindAdHoc) {
+      final scope = [
+        if (item.persona.isNotEmpty) item.persona,
+        if (item.candidateProfile.isNotEmpty) item.candidateProfile,
+      ].join(' / ');
+      if (scope.isNotEmpty) {
+        return 'Ad hoc ($scope)';
+      }
+      return 'Ad hoc';
+    }
+    return 'Pipeline job';
+  }
+
+  String _hostLabel(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    return uri?.host ?? '';
   }
 }
 

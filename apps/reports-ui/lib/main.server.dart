@@ -19,6 +19,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'app.dart';
 import 'backend/engine_catalog_repository.dart';
 import 'backend/evaluation_runner.dart';
+import 'backend/evaluation_url_history_repository.dart';
 import 'constants/evaluation_contract.dart';
 import 'report_access/report_access.dart';
 
@@ -44,6 +45,7 @@ void main() async {
   final reportSource = ReportSource(config: reportsConfig);
   const reportIndexBuilder = ReportIndexBuilder();
   final engineCatalogRepository = EngineCatalogRepository(engineRoot: engineRoot);
+  final evaluationUrlHistoryRepository = EvaluationUrlHistoryRepository(reportsRoot: reportsRoot);
   final evaluationRunner = EngineEvaluationRunner(
     engineRoot: engineRoot,
     reportsRoot: reportsRoot,
@@ -84,6 +86,24 @@ void main() async {
     }
   });
 
+  router.get(evaluateUrlHistoryApiPath, (request) async {
+    try {
+      final history = await evaluationUrlHistoryRepository.load();
+      return Response.ok(
+        jsonEncode(history.toJson()),
+        headers: const {'content-type': jsonContentType},
+      );
+    } catch (error) {
+      return Response.internalServerError(
+        body: jsonEncode({
+          'error': evaluationErrorHistoryLoadFailed,
+          'message': 'Failed to load evaluation URL history.',
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    }
+  });
+
   router.post(evaluateApiPath, (request) async {
     try {
       final body = await request.readAsString();
@@ -100,7 +120,11 @@ void main() async {
       }
 
       final evaluationRequest = EvaluationRequest.fromJson(decoded);
-      final result = await evaluationRunner.evaluate(evaluationRequest);
+      final catalog = await engineCatalogRepository.loadEvaluateCatalog();
+      final result = await evaluationRunner.evaluate(
+        evaluationRequest,
+        catalog.personas.map((persona) => persona.id).toList(growable: false),
+      );
       return Response.ok(
         jsonEncode(result),
         headers: const {'content-type': jsonContentType},

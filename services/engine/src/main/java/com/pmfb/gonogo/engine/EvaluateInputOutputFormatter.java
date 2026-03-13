@@ -2,6 +2,7 @@ package com.pmfb.gonogo.engine;
 
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
 import com.pmfb.gonogo.engine.job.JobInput;
+import com.pmfb.gonogo.engine.job.JobInputFieldKeys;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,80 +13,80 @@ final class EvaluateInputOutputFormatter {
         EvaluationResult result = analysis.evaluation();
         JobInput job = analysis.jobInput();
 
-        appendLine(sb, "verdict", result.verdict().name());
-        appendLine(sb, "score", result.score() + "/100");
+        appendLine(sb, EvaluateInputFieldKeys.VERDICT, result.verdict().name());
+        appendLine(sb, EvaluateInputFieldKeys.SCORE, result.score() + "/100");
         appendLine(
                 sb,
-                "raw_score",
+                EvaluateInputFieldKeys.RAW_SCORE,
                 result.rawScore() + " (range " + result.rawScoreMin() + ".." + result.rawScoreMax() + ")"
         );
-        appendLine(sb, "language_friction_index", result.languageFrictionIndex() + "/100");
-        appendLine(sb, "company_reputation_index", result.companyReputationIndex() + "/100");
-        appendLine(sb, "persona", analysis.personaId());
-        appendLine(sb, "candidate_profile", analysis.candidateProfileId());
-        appendLine(sb, "source_kind", analysis.source().kind());
+        appendLine(sb, EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX, result.languageFrictionIndex() + "/100");
+        appendLine(sb, EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX, result.companyReputationIndex() + "/100");
+        appendLine(sb, EvaluateInputFieldKeys.PERSONA, analysis.personaId());
+        appendLine(sb, EvaluateInputFieldKeys.CANDIDATE_PROFILE, analysis.candidateProfileId());
+        appendLine(sb, EvaluateInputFieldKeys.SOURCE_KIND, analysis.source().kind());
         if (!analysis.source().url().isBlank()) {
-            appendLine(sb, "source_url", analysis.source().url());
+            appendLine(sb, EvaluateInputFieldKeys.SOURCE_URL, analysis.source().url());
         }
         if (!analysis.source().file().isBlank()) {
-            appendLine(sb, "source_file", analysis.source().file());
+            appendLine(sb, EvaluateInputFieldKeys.SOURCE_FILE, analysis.source().file());
         }
         if (!analysis.source().rawText().isBlank()) {
-            appendMultiline(sb, "source_raw_text", analysis.source().rawText());
+            appendMultiline(sb, EvaluateInputFieldKeys.SOURCE_RAW_TEXT, analysis.source().rawText());
         }
-        appendLine(sb, "company", job.companyName());
-        appendLine(sb, "role", job.title());
-        appendList(sb, "hard_reject_reasons", result.hardRejectReasons());
-        appendList(sb, "positive_signals", result.positiveSignals());
-        appendList(sb, "risk_signals", result.riskSignals());
-        appendList(sb, "reasoning", result.reasoning());
+        appendLine(sb, EvaluateInputFieldKeys.COMPANY, job.companyName());
+        appendLine(sb, EvaluateInputFieldKeys.ROLE, job.title());
+        appendList(sb, EvaluateInputFieldKeys.HARD_REJECT_REASONS, result.hardRejectReasons());
+        appendList(sb, EvaluateInputFieldKeys.POSITIVE_SIGNALS, result.positiveSignals());
+        appendList(sb, EvaluateInputFieldKeys.RISK_SIGNALS, result.riskSignals());
+        appendList(sb, EvaluateInputFieldKeys.REASONING, result.reasoning());
         if (!analysis.normalizationWarnings().isEmpty()) {
-            appendList(sb, "normalization_warnings", analysis.normalizationWarnings());
+            appendList(sb, EvaluateInputFieldKeys.NORMALIZATION_WARNINGS, analysis.normalizationWarnings());
         }
         if (!analysisFile.isBlank()) {
-            appendLine(sb, "analysis_file", analysisFile);
+            appendLine(sb, EvaluateInputFieldKeys.ANALYSIS_FILE, analysisFile);
         }
         return sb.toString();
     }
 
     String toJson(EvaluateInputAnalysis analysis, String analysisFile) {
         LinkedHashMap<String, Object> root = new LinkedHashMap<>();
-        root.put("generated_at", analysis.generatedAt());
-        root.put("persona", analysis.personaId());
-        root.put("candidate_profile", analysis.candidateProfileId());
+        root.put(EvaluateInputFieldKeys.GENERATED_AT, analysis.generatedAt());
+        root.put(EvaluateInputFieldKeys.PERSONA, analysis.personaId());
+        root.put(EvaluateInputFieldKeys.CANDIDATE_PROFILE, analysis.candidateProfileId());
 
         LinkedHashMap<String, Object> source = new LinkedHashMap<>();
-        source.put("kind", analysis.source().kind());
-        source.put("url", analysis.source().url());
-        source.put("file", analysis.source().file());
-        source.put("raw_text", analysis.source().rawText());
-        root.put("source", source);
+        source.put(EvaluateInputFieldKeys.KIND, analysis.source().kind());
+        source.put(EvaluateInputFieldKeys.URL, analysis.source().url());
+        source.put(EvaluateInputFieldKeys.FILE, analysis.source().file());
+        source.put(EvaluateInputFieldKeys.RAW_TEXT, analysis.source().rawText());
+        root.put(EvaluateInputFieldKeys.SOURCE, source);
 
         LinkedHashMap<String, Object> jobInput = new LinkedHashMap<>();
-        jobInput.put("company_name", analysis.jobInput().companyName());
-        jobInput.put("title", analysis.jobInput().title());
-        jobInput.put("location", analysis.jobInput().location());
-        jobInput.put("salary_range", analysis.jobInput().salaryRange());
-        jobInput.put("remote_policy", analysis.jobInput().remotePolicy());
-        jobInput.put("description", analysis.jobInput().description());
-        root.put("job_input", jobInput);
+        jobInput.put(JobInputFieldKeys.COMPANY_NAME, analysis.jobInput().companyName());
+        jobInput.put(JobInputFieldKeys.TITLE, analysis.jobInput().title());
+        jobInput.put(JobInputFieldKeys.LOCATION, analysis.jobInput().location());
+        jobInput.put(JobInputFieldKeys.SALARY_RANGE, analysis.jobInput().salaryRange());
+        jobInput.put(JobInputFieldKeys.REMOTE_POLICY, analysis.jobInput().remotePolicy());
+        jobInput.put(JobInputFieldKeys.DESCRIPTION, analysis.jobInput().description());
+        root.put(EvaluateInputFieldKeys.JOB_INPUT, jobInput);
 
         LinkedHashMap<String, Object> evaluation = new LinkedHashMap<>();
-        evaluation.put("verdict", analysis.evaluation().verdict().name());
-        evaluation.put("score", analysis.evaluation().score());
-        evaluation.put("raw_score", analysis.evaluation().rawScore());
-        evaluation.put("raw_score_min", analysis.evaluation().rawScoreMin());
-        evaluation.put("raw_score_max", analysis.evaluation().rawScoreMax());
-        evaluation.put("language_friction_index", analysis.evaluation().languageFrictionIndex());
-        evaluation.put("company_reputation_index", analysis.evaluation().companyReputationIndex());
-        evaluation.put("hard_reject_reasons", analysis.evaluation().hardRejectReasons());
-        evaluation.put("positive_signals", analysis.evaluation().positiveSignals());
-        evaluation.put("risk_signals", analysis.evaluation().riskSignals());
-        evaluation.put("reasoning", analysis.evaluation().reasoning());
-        root.put("evaluation", evaluation);
+        evaluation.put(EvaluateInputFieldKeys.VERDICT, analysis.evaluation().verdict().name());
+        evaluation.put(EvaluateInputFieldKeys.SCORE, analysis.evaluation().score());
+        evaluation.put(EvaluateInputFieldKeys.RAW_SCORE, analysis.evaluation().rawScore());
+        evaluation.put(EvaluateInputFieldKeys.RAW_SCORE_MIN, analysis.evaluation().rawScoreMin());
+        evaluation.put(EvaluateInputFieldKeys.RAW_SCORE_MAX, analysis.evaluation().rawScoreMax());
+        evaluation.put(EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX, analysis.evaluation().languageFrictionIndex());
+        evaluation.put(EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX, analysis.evaluation().companyReputationIndex());
+        evaluation.put(EvaluateInputFieldKeys.HARD_REJECT_REASONS, analysis.evaluation().hardRejectReasons());
+        evaluation.put(EvaluateInputFieldKeys.POSITIVE_SIGNALS, analysis.evaluation().positiveSignals());
+        evaluation.put(EvaluateInputFieldKeys.RISK_SIGNALS, analysis.evaluation().riskSignals());
+        evaluation.put(EvaluateInputFieldKeys.REASONING, analysis.evaluation().reasoning());
+        root.put(EvaluateInputFieldKeys.EVALUATION, evaluation);
 
-        root.put("normalization_warnings", analysis.normalizationWarnings());
-        root.put("analysis_file", analysisFile);
+        root.put(EvaluateInputFieldKeys.NORMALIZATION_WARNINGS, analysis.normalizationWarnings());
+        root.put(EvaluateInputFieldKeys.ANALYSIS_FILE, analysisFile);
         return toJsonObject(root);
     }
 

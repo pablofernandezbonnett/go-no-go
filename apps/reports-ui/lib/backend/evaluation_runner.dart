@@ -5,8 +5,6 @@ import '../constants/evaluation_contract.dart';
 import 'evaluation_input_safety.dart';
 
 const _defaultTimeoutSeconds = 20;
-const _minimumTimeoutSeconds = 5;
-const _maximumTimeoutSeconds = 120;
 const _engineRunCommand = 'run';
 const _engineEvaluateInputCommand = 'evaluate-input';
 const _engineOutputFormatFlag = '--output-format';
@@ -14,8 +12,6 @@ const _engineOutputAnalysisFileFlag = '--output-analysis-file';
 const _engineTimeoutFlag = '--timeout-seconds';
 const _enginePersonaFlag = '--persona';
 const _engineCandidateProfileFlag = '--candidate-profile';
-const _engineCompanyNameFlag = '--company-name';
-const _engineTitleFlag = '--title';
 const _engineJobUrlFlag = '--job-url';
 const _engineStdinFlag = '--stdin';
 const _engineJsonOutputFormat = 'json';
@@ -24,6 +20,8 @@ const _gradleConsolePlainFlag = '--console=plain';
 const _engineArgsPrefix = '--args=';
 const _adhocUrlSuffix = 'url';
 const _adhocTextSuffix = 'text';
+const _fileExtension = '.yaml';
+const _stableNameMaxLength = 72;
 
 const _inputSafety = EvaluationInputSafety();
 
@@ -34,9 +32,6 @@ class EvaluationRequest {
     required this.candidateProfileId,
     required this.jobUrl,
     required this.rawText,
-    required this.companyName,
-    required this.title,
-    required this.timeoutSeconds,
   });
 
   final String inputMode;
@@ -44,28 +39,19 @@ class EvaluationRequest {
   final String candidateProfileId;
   final String jobUrl;
   final String rawText;
-  final String companyName;
-  final String title;
-  final int timeoutSeconds;
 
   static EvaluationRequest fromJson(Map<String, dynamic> json) {
     final inputMode = (json['inputMode']?.toString() ?? inputModeRawText).trim().toLowerCase();
     final personaId = (json['personaId']?.toString() ?? '').trim();
-    final candidateProfileId = (json['candidateProfileId']?.toString() ?? candidateProfileAuto).trim();
+    final candidateProfileId = (json['candidateProfileId']?.toString() ?? '').trim();
     final jobUrl = (json['jobUrl']?.toString() ?? '').trim();
     final rawText = json['rawText']?.toString() ?? '';
-    final companyName = (json['companyName']?.toString() ?? '').trim();
-    final title = (json['title']?.toString() ?? '').trim();
-    final timeoutSeconds = _parseInt(json['timeoutSeconds'], fallback: _defaultTimeoutSeconds);
 
     if (personaId.isEmpty) {
       throw const FormatException('personaId is required.');
     }
     if (inputMode != inputModeUrl && inputMode != inputModeRawText) {
       throw const FormatException('inputMode must be url or raw_text.');
-    }
-    if (timeoutSeconds < _minimumTimeoutSeconds || timeoutSeconds > _maximumTimeoutSeconds) {
-      throw const FormatException('timeoutSeconds must be between 5 and 120.');
     }
 
     final sanitizedJobUrl = inputMode == inputModeUrl ? _inputSafety.validateUrl(jobUrl) : '';
@@ -74,20 +60,23 @@ class EvaluationRequest {
     return EvaluationRequest(
       inputMode: inputMode,
       personaId: personaId,
-      candidateProfileId: candidateProfileId.isEmpty ? candidateProfileAuto : candidateProfileId,
+      candidateProfileId: candidateProfileId.isEmpty ? candidateProfileNone : candidateProfileId,
       jobUrl: sanitizedJobUrl,
       rawText: sanitizedRawText,
-      companyName: _inputSafety.sanitizeOverride(companyName),
-      title: _inputSafety.sanitizeOverride(title),
-      timeoutSeconds: timeoutSeconds,
     );
   }
 
-  static int _parseInt(Object? raw, {required int fallback}) {
-    if (raw is num) {
-      return raw.toInt();
+  List<String> resolvePersonaIds(List<String> availablePersonaIds) {
+    if (personaId == allPersonasOptionId) {
+      if (availablePersonaIds.isEmpty) {
+        throw const FormatException('No personas are available for evaluation.');
+      }
+      return availablePersonaIds;
     }
-    return int.tryParse(raw?.toString().trim() ?? '') ?? fallback;
+    if (!availablePersonaIds.contains(personaId)) {
+      throw FormatException('Unknown personaId: $personaId');
+    }
+    return [personaId];
   }
 }
 
@@ -102,30 +91,37 @@ class EngineEvaluationRunner {
   final Directory reportsRoot;
   final String gradlewCommand;
 
-  Future<Map<String, dynamic>> evaluate(EvaluationRequest request) async {
-    final artifactFile = await _buildArtifactFile(request);
+  Future<Map<String, Object>> evaluate(EvaluationRequest request, List<String> availablePersonaIds) async {
+    final personaIds = request.resolvePersonaIds(availablePersonaIds);
+    final results = <Map<String, dynamic>>[];
+    for (final personaId in personaIds) {
+      results.add(await _evaluateSingle(request, personaId));
+    }
+    return {
+      'requested_persona_id': request.personaId,
+      'requested_candidate_profile_id': request.candidateProfileId,
+      'results': results,
+    };
+  }
+
+  Future<Map<String, dynamic>> _evaluateSingle(EvaluationRequest request, String personaId) async {
+    final artifactFile = await _buildArtifactFile(request, personaId);
     final engineArgs = <String>[
       _engineEvaluateInputCommand,
       _enginePersonaFlag,
-      request.personaId,
+      personaId,
       _engineOutputFormatFlag,
       _engineJsonOutputFormat,
       _engineOutputAnalysisFileFlag,
       artifactFile.path,
       _engineTimeoutFlag,
-      request.timeoutSeconds.toString(),
+      _defaultTimeoutSeconds.toString(),
     ];
 
     if (request.candidateProfileId == candidateProfileNone) {
       engineArgs.addAll([_engineCandidateProfileFlag, candidateProfileNone]);
     } else if (request.candidateProfileId != candidateProfileAuto) {
       engineArgs.addAll([_engineCandidateProfileFlag, request.candidateProfileId]);
-    }
-    if (request.companyName.isNotEmpty) {
-      engineArgs.addAll([_engineCompanyNameFlag, request.companyName]);
-    }
-    if (request.title.isNotEmpty) {
-      engineArgs.addAll([_engineTitleFlag, request.title]);
     }
     if (request.inputMode == inputModeUrl) {
       engineArgs.addAll([_engineJobUrlFlag, request.jobUrl]);
@@ -169,17 +165,28 @@ class EngineEvaluationRunner {
     return decoded;
   }
 
-  Future<File> _buildArtifactFile(EvaluationRequest request) async {
+  Future<File> _buildArtifactFile(EvaluationRequest request, String personaId) async {
     final dir = Directory(_join(reportsRoot.path, adHocEvaluationsDirectory));
     await dir.create(recursive: true);
+    final scope = _sanitizeFileSegment('$personaId--${request.candidateProfileId}');
+    if (request.inputMode == inputModeUrl) {
+      final sourceUri = Uri.parse(request.jobUrl);
+      final host = _sanitizeFileSegment(sourceUri.host.isEmpty ? _adhocUrlSuffix : sourceUri.host);
+      final pathSegment = _sanitizeFileSegment(
+        sourceUri.pathSegments.isEmpty ? _adhocUrlSuffix : sourceUri.pathSegments.last,
+      );
+      final stableStem = _truncateFileSegment('$host-$pathSegment', _stableNameMaxLength);
+      final stableHash = _stableHash(request.jobUrl);
+      return File(_join(dir.path, 'adhoc-url-$scope-$stableStem-$stableHash$_fileExtension'));
+    }
+
     final timestamp = DateTime.now()
         .toUtc()
         .toIso8601String()
         .replaceAll(':', '')
         .replaceAll('-', '')
         .replaceAll('.', '');
-    final suffix = request.inputMode == inputModeUrl ? _adhocUrlSuffix : _adhocTextSuffix;
-    return File(_join(dir.path, 'adhoc-$timestamp-$suffix.yaml'));
+    return File(_join(dir.path, 'adhoc-$timestamp-$scope-$_adhocTextSuffix$_fileExtension'));
   }
 
   dynamic _parseJsonPayload(String stdoutText) {
@@ -238,5 +245,30 @@ class EngineEvaluationRunner {
       return '$left$right';
     }
     return '$left${Platform.pathSeparator}$right';
+  }
+
+  String _sanitizeFileSegment(String input) {
+    final normalized = input
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-{2,}'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+    return normalized.isEmpty ? 'item' : normalized;
+  }
+
+  String _truncateFileSegment(String input, int maxLength) {
+    if (input.length <= maxLength) {
+      return input;
+    }
+    return input.substring(0, maxLength);
+  }
+
+  String _stableHash(String value) {
+    var hash = 0xcbf29ce484222325;
+    for (final codeUnit in value.codeUnits) {
+      hash ^= codeUnit;
+      hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
+    }
+    return hash.toRadixString(16).padLeft(16, '0');
   }
 }

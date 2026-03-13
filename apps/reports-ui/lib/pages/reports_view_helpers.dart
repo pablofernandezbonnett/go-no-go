@@ -4,6 +4,21 @@ import 'package:jaspr_router/jaspr_router.dart';
 
 import '../models/reports_index_payload.dart';
 
+const _monthNames = <String>[
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
 String buildRouteWithQuery(String path, Map<String, String?> queryValues) {
   final filtered = <String, String>{};
   for (final entry in queryValues.entries) {
@@ -101,5 +116,25 @@ Component pageError(String title, String error, void Function() onRetry) => sect
 
 Component pageEmpty(String title, String message) => section(classes: 'page', [
   h1([.text(title)]),
-  card([p([.text(message)])]),
+  card([
+    p([.text(message)]),
+  ]),
 ]);
+
+String formatFriendlyDateTime(String rawValue) {
+  final trimmed = rawValue.trim();
+  if (trimmed.isEmpty) {
+    return 'Unknown';
+  }
+
+  try {
+    final parsed = DateTime.parse(trimmed).toLocal();
+    final month = _monthNames[parsed.month - 1];
+    final day = parsed.day.toString().padLeft(2, '0');
+    final hour = parsed.hour.toString().padLeft(2, '0');
+    final minute = parsed.minute.toString().padLeft(2, '0');
+    return '$month $day, ${parsed.year} at $hour:$minute';
+  } catch (_) {
+    return trimmed;
+  }
+}

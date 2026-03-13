@@ -62,6 +62,7 @@ Implemented now:
 - initial package structure for core modules
 - YAML config loader + validator
 - runtime operational defaults via `config/runtime.yaml`
+- selected decision-signal keywords/thresholds via `config/decision-signals.yaml`
 - `gonogo config validate` command
 - `gonogo fetch` command to normalize raw text into YAML
 - `gonogo fetch-web` command to fetch selected career pages from `config/companies.yaml`
@@ -105,6 +106,7 @@ config/
 ├── companies.yaml
 ├── personas.yaml
 ├── blacklist.yaml
+├── decision-signals.yaml
 ├── runtime.yaml
 └── candidate-profiles/
     ├── README.md
@@ -130,6 +132,7 @@ Configuration templates and field definitions:
 - `config/companies.example.yaml`
 - `config/personas.example.yaml`
 - `config/runtime.example.yaml`
+- `config/decision-signals.example.yaml`
 - `config/candidate-profiles/README.md`
 
 ## Getting Started

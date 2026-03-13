@@ -20,7 +20,19 @@ class EvaluationApiClient {
     return EvaluationOptionsPayload.fromJson(decoded);
   }
 
-  Future<EvaluationResponsePayload> evaluate(Map<String, Object?> request) async {
+  Future<EvaluationUrlHistoryPayload> fetchUrlHistory() async {
+    final response = await http.get(Uri.parse(evaluateUrlHistoryApiPath));
+    if (response.statusCode != 200) {
+      throw StateError('Failed to load URL history (${response.statusCode}).');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid URL history response format.');
+    }
+    return EvaluationUrlHistoryPayload.fromJson(decoded);
+  }
+
+  Future<EvaluationSessionPayload> evaluate(Map<String, Object?> request) async {
     final response = await http.post(
       Uri.parse(evaluateApiPath),
       headers: const {'content-type': jsonContentType},
@@ -36,6 +48,6 @@ class EvaluationApiClient {
     if (decoded is! Map<String, dynamic>) {
       throw StateError('Invalid evaluation response format.');
     }
-    return EvaluationResponsePayload.fromJson(decoded);
+    return EvaluationSessionPayload.fromJson(decoded);
   }
 }

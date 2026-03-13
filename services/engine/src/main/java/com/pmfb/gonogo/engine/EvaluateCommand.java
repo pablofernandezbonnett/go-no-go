@@ -125,22 +125,22 @@ public final class EvaluateCommand implements Callable<Integer> {
             JobInput job,
             EvaluationResult result
     ) {
-        System.out.println("verdict: " + result.verdict());
-        System.out.println("score: " + result.score() + "/100");
+        System.out.println(EvaluateInputFieldKeys.VERDICT + ": " + result.verdict());
+        System.out.println(EvaluateInputFieldKeys.SCORE + ": " + result.score() + "/100");
         System.out.println(
-                "raw_score: " + result.rawScore()
+                EvaluateInputFieldKeys.RAW_SCORE + ": " + result.rawScore()
                         + " (range " + result.rawScoreMin() + ".." + result.rawScoreMax() + ")"
         );
-        System.out.println("language_friction_index: " + result.languageFrictionIndex() + "/100");
-        System.out.println("company_reputation_index: " + result.companyReputationIndex() + "/100");
-        System.out.println("persona: " + persona.id());
-        System.out.println("candidate_profile: " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
-        System.out.println("company: " + job.companyName());
-        System.out.println("role: " + job.title());
-        printList("hard_reject_reasons", result.hardRejectReasons());
-        printList("positive_signals", result.positiveSignals());
-        printList("risk_signals", result.riskSignals());
-        printList("reasoning", result.reasoning());
+        System.out.println(EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX + ": " + result.languageFrictionIndex() + "/100");
+        System.out.println(EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX + ": " + result.companyReputationIndex() + "/100");
+        System.out.println(EvaluateInputFieldKeys.PERSONA + ": " + persona.id());
+        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
+        System.out.println(EvaluateInputFieldKeys.COMPANY + ": " + job.companyName());
+        System.out.println(EvaluateInputFieldKeys.ROLE + ": " + job.title());
+        printList(EvaluateInputFieldKeys.HARD_REJECT_REASONS, result.hardRejectReasons());
+        printList(EvaluateInputFieldKeys.POSITIVE_SIGNALS, result.positiveSignals());
+        printList(EvaluateInputFieldKeys.RISK_SIGNALS, result.riskSignals());
+        printList(EvaluateInputFieldKeys.REASONING, result.reasoning());
     }
 
     private void printList(String key, List<String> values) {

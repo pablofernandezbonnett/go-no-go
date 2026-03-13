@@ -265,6 +265,27 @@ class App extends StatelessComponent {
       fontWeight: .w600,
       margin: Spacing.only(bottom: 0.75.rem),
     ),
+    css('.collapsible-header').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .flexStart,
+      gap: Gap.all(0.8.rem),
+      margin: Spacing.only(bottom: 0.4.rem),
+    ),
+    css('.collapsible-header-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.15.rem),
+      flex: Flex(grow: 1),
+    ),
+    css('.collapsible-summary').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.92.rem,
+    ),
+    css('.collapsible-body').styles(
+      margin: Spacing.only(top: 0.5.rem),
+    ),
     css('section.page button').styles(
       border: Border.none,
       radius: .all(.circular(7.px)),
@@ -298,6 +319,9 @@ class App extends StatelessComponent {
       ),
       css('.controls select').styles(
         width: 100.percent,
+      ),
+      css('.collapsible-header').styles(
+        flexDirection: .column,
       ),
       css('section.page table').styles(
         display: .block,
