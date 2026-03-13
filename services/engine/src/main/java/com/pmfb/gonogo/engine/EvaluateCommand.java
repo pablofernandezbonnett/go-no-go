@@ -14,16 +14,12 @@ import com.pmfb.gonogo.engine.exception.JobInputLoadException;
 import com.pmfb.gonogo.engine.job.YamlJobInputLoader;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-@Command(
-        name = "evaluate",
-        description = "Evaluate a single job input using persona-aware rules."
-)
+@Command(name = "evaluate", description = "Evaluate a single job input using persona-aware rules.")
 public final class EvaluateCommand implements Callable<Integer> {
     private final DecisionEngineV1 engine;
 
@@ -35,31 +31,18 @@ public final class EvaluateCommand implements Callable<Integer> {
         this.engine = engine;
     }
 
-    @Option(
-            names = {"--persona"},
-            description = "Persona id from config/personas.yaml",
-            required = true
-    )
+    @Option(names = { "--persona" }, description = "Persona id from config/personas.yaml", required = true)
     private String personaId;
 
-    @Option(
-            names = {"--job-file"},
-            description = "YAML file with job input fields.",
-            required = true
-    )
+    @Option(names = { "--job-file" }, description = "YAML file with job input fields.", required = true)
     private Path jobFile;
 
-    @Option(
-            names = {"--candidate-profile"},
-            description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists)."
-    )
+    @Option(names = {
+            "--candidate-profile" }, description = "Optional candidate profile id from config/candidate-profiles (auto-selects when exactly one exists).")
     private String candidateProfileId;
 
-    @Option(
-            names = {"--config-dir"},
-            description = "Directory containing config YAML files.",
-            defaultValue = "config"
-    )
+    @Option(names = {
+            "--config-dir" }, description = "Directory containing config YAML files.", defaultValue = "config")
     private Path configDir;
 
     @Override
@@ -88,8 +71,8 @@ public final class EvaluateCommand implements Callable<Integer> {
             return 1;
         }
 
-        ConfigSelections.CandidateProfileResolution candidateProfileResolution =
-                ConfigSelections.resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
+        ConfigSelections.CandidateProfileResolution candidateProfileResolution = ConfigSelections
+                .resolveCandidateProfile(config.candidateProfiles(), candidateProfileId);
         if (!candidateProfileResolution.errorMessage().isBlank()) {
             System.err.println(candidateProfileResolution.errorMessage());
             if (!config.candidateProfiles().isEmpty()) {
@@ -113,8 +96,7 @@ public final class EvaluateCommand implements Callable<Integer> {
                 job,
                 persona.get(),
                 candidateProfileResolution.profile().orElse(null),
-                config
-        );
+                config);
         printResult(persona.get(), candidateProfileResolution.profile().orElse(null), job, result);
         return 0;
     }
@@ -123,18 +105,19 @@ public final class EvaluateCommand implements Callable<Integer> {
             PersonaConfig persona,
             CandidateProfileConfig candidateProfile,
             JobInput job,
-            EvaluationResult result
-    ) {
+            EvaluationResult result) {
         System.out.println(EvaluateInputFieldKeys.VERDICT + ": " + result.verdict());
         System.out.println(EvaluateInputFieldKeys.SCORE + ": " + result.score() + "/100");
         System.out.println(
                 EvaluateInputFieldKeys.RAW_SCORE + ": " + result.rawScore()
-                        + " (range " + result.rawScoreMin() + ".." + result.rawScoreMax() + ")"
-        );
-        System.out.println(EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX + ": " + result.languageFrictionIndex() + "/100");
-        System.out.println(EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX + ": " + result.companyReputationIndex() + "/100");
+                        + " (range " + result.rawScoreMin() + ".." + result.rawScoreMax() + ")");
+        System.out.println(
+                EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX + ": " + result.languageFrictionIndex() + "/100");
+        System.out.println(
+                EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX + ": " + result.companyReputationIndex() + "/100");
         System.out.println(EvaluateInputFieldKeys.PERSONA + ": " + persona.id());
-        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": " + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
+        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": "
+                + ConfigSelections.candidateProfileIdOrNone(candidateProfile));
         System.out.println(EvaluateInputFieldKeys.COMPANY + ": " + job.companyName());
         System.out.println(EvaluateInputFieldKeys.ROLE + ": " + job.title());
         printList(EvaluateInputFieldKeys.HARD_REJECT_REASONS, result.hardRejectReasons());
