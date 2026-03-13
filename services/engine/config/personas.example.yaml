@@ -36,19 +36,22 @@ personas:
     # Jobs materially below this threshold are penalized but not auto-rejected.
     minimum_salary_yen: 8000000
 
-  - id: product_expat_engineer_growth_tolerant_example
-    description: "Open to growth volatility when role fit is strong"
+  - id: product_expat_engineer_pragmatic_example
+    description: "Optimize for employability first, with consulting tolerated but penalized"
     priorities:
       - english_environment
       - product_company
       - engineering_culture
       - hybrid_work
+      - work_life_balance
       - salary
       - stability
     hard_no:
       - onsite_only
       - salary_missing
+      - early_stage_startup
     acceptable_if:
       - hybrid_partial
       - japanese_not_blocking
       - stable_scaleup
+    minimum_salary_yen: 8000000

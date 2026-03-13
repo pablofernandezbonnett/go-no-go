@@ -48,6 +48,18 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
     private static final String WEEKLY_FILE_EXTENSION = ".md";
     private static final String DEFAULT_ALERT_SINK = TrendAlertSinkFactory.SINK_NONE;
     private static final Path RESOLUTION_STATE_FILE = Path.of("output/fetch-web-resolution.yaml");
+    private static final String LABEL_RUN_ALL_COMPLETED = "run-all completed.";
+    private static final String FIELD_PERSONAS_TOTAL = "personas_total";
+    private static final String FIELD_PERSONAS_SUCCEEDED = "personas_succeeded";
+    private static final String FIELD_PERSONAS_FAILED = "personas_failed";
+    private static final String FIELD_PERSONA_CONCURRENCY = "persona_concurrency";
+    private static final String FIELD_RAW_INPUT_DIR = "raw_input_dir";
+    private static final String FIELD_JOBS_OUTPUT_DIR = "jobs_output_dir";
+    private static final String FIELD_BATCH_OUTPUT_DIR = "batch_output_dir";
+    private static final String FIELD_WEEKLY_OUTPUT_DIR = "weekly_output_dir";
+    private static final String FIELD_FETCH_MAX_JOBS_PER_COMPANY = "fetch_max_jobs_per_company";
+    private static final String FIELD_PERSONA_EXIT = "persona_exit";
+    private static final String FIELD_PERSONA_JOBS_OUTPUT_DIR = "persona_jobs_output_dir";
 
     @Spec
     private CommandSpec spec;
@@ -438,7 +450,7 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
                         + "' exited with code " + result.exitCode() + ".");
             }
             if (!result.jobsOutputDir().equals(jobsOutputDir)) {
-                System.out.println("persona_jobs_output_dir: "
+                System.out.println(FIELD_PERSONA_JOBS_OUTPUT_DIR + ": "
                         + result.personaId() + "=" + result.jobsOutputDir());
             }
         }
@@ -797,19 +809,19 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
             Map<String, Integer> personaExitCodes,
             int personaConcurrencyValue
     ) {
-        System.out.println("run-all completed.");
-        System.out.println("personas_total: " + totalPersonas);
-        System.out.println("personas_succeeded: " + succeeded);
-        System.out.println("personas_failed: " + failed);
-        System.out.println("persona_concurrency: " + personaConcurrencyValue);
-        System.out.println("candidate_profile: " + candidateProfile);
-        System.out.println("raw_input_dir: " + rawInputDir);
-        System.out.println("jobs_output_dir: " + jobsOutputDir);
-        System.out.println("batch_output_dir: " + batchOutputDir);
-        System.out.println("weekly_output_dir: " + weeklyOutputDir);
-        System.out.println("fetch_max_jobs_per_company: " + fetchWebMaxJobsPerCompany);
+        System.out.println(LABEL_RUN_ALL_COMPLETED);
+        System.out.println(FIELD_PERSONAS_TOTAL + ": " + totalPersonas);
+        System.out.println(FIELD_PERSONAS_SUCCEEDED + ": " + succeeded);
+        System.out.println(FIELD_PERSONAS_FAILED + ": " + failed);
+        System.out.println(FIELD_PERSONA_CONCURRENCY + ": " + personaConcurrencyValue);
+        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": " + candidateProfile);
+        System.out.println(FIELD_RAW_INPUT_DIR + ": " + rawInputDir);
+        System.out.println(FIELD_JOBS_OUTPUT_DIR + ": " + jobsOutputDir);
+        System.out.println(FIELD_BATCH_OUTPUT_DIR + ": " + batchOutputDir);
+        System.out.println(FIELD_WEEKLY_OUTPUT_DIR + ": " + weeklyOutputDir);
+        System.out.println(FIELD_FETCH_MAX_JOBS_PER_COMPANY + ": " + fetchWebMaxJobsPerCompany);
         for (Map.Entry<String, Integer> entry : personaExitCodes.entrySet()) {
-            System.out.println("persona_exit: " + entry.getKey() + "=" + entry.getValue());
+            System.out.println(FIELD_PERSONA_EXIT + ": " + entry.getKey() + "=" + entry.getValue());
         }
     }
 

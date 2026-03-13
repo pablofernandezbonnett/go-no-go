@@ -20,6 +20,22 @@ import picocli.CommandLine.Spec;
         description = "Fetch selected company career pages and generate normalized raw job text files."
 )
 public final class FetchWebCommand implements Callable<Integer> {
+    private static final String LABEL_FETCH_WEB_SUMMARY = "fetch-web summary:";
+    private static final String FIELD_COMPANIES_PROCESSED = "companies_processed";
+    private static final String FIELD_COMPANIES_FAILED = "companies_failed";
+    private static final String FIELD_RAW_FILES_GENERATED = "raw_files_generated";
+    private static final String FIELD_CONTEXT_FILES_GENERATED = "context_files_generated";
+    private static final String FIELD_DURATION_MS = "duration_ms";
+    private static final String FIELD_CACHE_FRESH_HITS = "cache_fresh_hits";
+    private static final String FIELD_CACHE_MISSES = "cache_misses";
+    private static final String FIELD_CACHE_STALE_FALLBACKS = "cache_stale_fallbacks";
+    private static final String FIELD_RETRIES_USED = "retries_used";
+    private static final String FIELD_OUTGOING_REQUESTS = "outgoing_requests";
+    private static final String FIELD_MAX_CONCURRENCY = "max_concurrency";
+    private static final String FIELD_MAX_CONCURRENCY_PER_HOST = "max_concurrency_per_host";
+    private static final String FIELD_OUTPUT_DIR = "output_dir";
+    private static final String FIELD_CONTEXT_OUTPUT_DIR = "context_output_dir";
+
     private final CareerPageFetchService fetchService;
 
     @Spec
@@ -259,22 +275,22 @@ public final class FetchWebCommand implements Callable<Integer> {
             System.err.println(message);
         }
 
-        System.out.println("fetch-web summary:");
-        System.out.println("companies_processed: " + outcome.selectedCompanies());
-        System.out.println("companies_failed: " + outcome.companiesFailed());
-        System.out.println("raw_files_generated: " + outcome.rawFilesGenerated());
-        System.out.println("context_files_generated: " + outcome.contextFilesGenerated());
-        System.out.println("duration_ms: " + outcome.totalDurationMillis());
-        System.out.println("cache_fresh_hits: " + outcome.freshCacheHitCount());
-        System.out.println("cache_misses: " + outcome.cacheMissCount());
-        System.out.println("cache_stale_fallbacks: " + outcome.staleCacheFallbackCount());
-        System.out.println("retries_used: " + outcome.retryCount());
-        System.out.println("outgoing_requests: " + outcome.outgoingRequestCount());
-        System.out.println("max_concurrency: " + effectiveMaxConcurrency);
-        System.out.println("max_concurrency_per_host: " + effectiveMaxConcurrencyPerHost);
-        System.out.println("output_dir: " + outputDir);
+        System.out.println(LABEL_FETCH_WEB_SUMMARY);
+        System.out.println(FIELD_COMPANIES_PROCESSED + ": " + outcome.selectedCompanies());
+        System.out.println(FIELD_COMPANIES_FAILED + ": " + outcome.companiesFailed());
+        System.out.println(FIELD_RAW_FILES_GENERATED + ": " + outcome.rawFilesGenerated());
+        System.out.println(FIELD_CONTEXT_FILES_GENERATED + ": " + outcome.contextFilesGenerated());
+        System.out.println(FIELD_DURATION_MS + ": " + outcome.totalDurationMillis());
+        System.out.println(FIELD_CACHE_FRESH_HITS + ": " + outcome.freshCacheHitCount());
+        System.out.println(FIELD_CACHE_MISSES + ": " + outcome.cacheMissCount());
+        System.out.println(FIELD_CACHE_STALE_FALLBACKS + ": " + outcome.staleCacheFallbackCount());
+        System.out.println(FIELD_RETRIES_USED + ": " + outcome.retryCount());
+        System.out.println(FIELD_OUTGOING_REQUESTS + ": " + outcome.outgoingRequestCount());
+        System.out.println(FIELD_MAX_CONCURRENCY + ": " + effectiveMaxConcurrency);
+        System.out.println(FIELD_MAX_CONCURRENCY_PER_HOST + ": " + effectiveMaxConcurrencyPerHost);
+        System.out.println(FIELD_OUTPUT_DIR + ": " + outputDir);
         if (!disableCompanyContext) {
-            System.out.println("context_output_dir: " + contextOutputDir);
+            System.out.println(FIELD_CONTEXT_OUTPUT_DIR + ": " + contextOutputDir);
         }
 
         return outcome.allSelectedCompaniesFailed() ? 1 : 0;

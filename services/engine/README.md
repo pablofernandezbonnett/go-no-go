@@ -62,11 +62,13 @@ Implemented now:
 - initial package structure for core modules
 - YAML config loader + validator
 - runtime operational defaults via `config/runtime.yaml`
+- selected decision-signal keywords/thresholds via `config/decision-signals.yaml`
 - `gonogo config validate` command
 - `gonogo fetch` command to normalize raw text into YAML
 - `gonogo fetch-web` command to fetch selected career pages from `config/companies.yaml`
 - `gonogo evaluate` command (persona-aware)
 - `gonogo evaluate-input` command for direct URL/raw-text evaluation
+- `gonogo rerun-ad-hoc` command to refresh saved `output/ad-hoc-evaluations/*.yaml` artifacts
 - `gonogo check` short command with input autodetection (URL / raw text / file path)
 - `gonogo evaluate-batch` command with markdown/json report generation
 - `gonogo weekly-digest` command from batch JSON reports
@@ -105,6 +107,7 @@ config/
 ├── companies.yaml
 ├── personas.yaml
 ├── blacklist.yaml
+├── decision-signals.yaml
 ├── runtime.yaml
 └── candidate-profiles/
     ├── README.md
@@ -130,6 +133,7 @@ Configuration templates and field definitions:
 - `config/companies.example.yaml`
 - `config/personas.example.yaml`
 - `config/runtime.example.yaml`
+- `config/decision-signals.example.yaml`
 - `config/candidate-profiles/README.md`
 
 ## Getting Started
@@ -288,6 +292,12 @@ Current Ops UI capabilities:
 - Rejects localhost/private-network URLs in direct URL mode.
 - Sanitizes raw HTML/script-like pasted input into safe plain text before parsing/storing artifacts.
 
+`rerun-ad-hoc`
+
+- Re-evaluates saved `output/ad-hoc-evaluations/*.yaml` artifacts in place.
+- Reuses each artifact's saved `persona`, `candidate_profile`, and original source (`url` or stored raw text).
+- Best command after engine calibration changes when you want to refresh ad-hoc evaluations without re-pasting URLs/text manually.
+
 `check` (aliases: `quick-check`, `qc`)
 
 - Short smart wrapper with defaults for daily usage.
@@ -389,6 +399,12 @@ About the job
 Senior Backend Engineer
 Salary: JPY 8,000,000 - 10,000,000
 EOF
+```
+
+Refresh all saved ad-hoc evaluation artifacts in place:
+
+```bash
+./gradlew run --args="rerun-ad-hoc"
 ```
 
 Build:

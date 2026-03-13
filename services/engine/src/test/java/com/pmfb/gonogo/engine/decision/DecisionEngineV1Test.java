@@ -565,6 +565,96 @@ final class DecisionEngineV1Test {
         assertTrue(result.riskSignals().contains("customer_site_risk"));
     }
 
+    @Test
+    void doesNotFlagOvertimeRiskForNeutralOvertimeAllowanceMention() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Fast Retailing",
+                        "Application Engineer",
+                        "Tokyo",
+                        "JPY 6,560,000 - JPY 21,240,000",
+                        "Unspecified",
+                        """
+                                Annual salary range with commuting allowance and overtime allowance.
+                                English is used on a daily basis and current fluency is not a requirement.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("overtime_risk"));
+    }
+
+    @Test
+    void doesNotFlagSalaryRangeAnomalyForAnnualAndMonthlyRanges() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Fast Retailing",
+                        "Application Engineer",
+                        "Tokyo",
+                        "¥6.56 million - ¥21.24 million (Monthly Salary: ¥410,000 - ¥1,180,000)",
+                        "Unspecified",
+                        "English is used on a daily basis and fluency in English is not required."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("salary_range_anomaly"));
+    }
+
+    @Test
+    void suppressesCompanyLanguageRiskWhenRoleExplicitlySupportsEnglish() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Fast Retailing",
+                        "Application Engineer",
+                        "Tokyo",
+                        "JPY 6,560,000 - JPY 21,240,000",
+                        "Unspecified",
+                        """
+                                Individuals who can proactively engage in a work environment requiring daily English usage.
+                                Current fluency is not a requirement. We provide support to become comfortable with English.
+                                """
+                ),
+                defaultPersona(),
+                configWithCompany(
+                        new CompanyConfig(
+                                "fast_retailing",
+                                "Fast Retailing",
+                                "https://www.fastretailing.com/employment/en/",
+                                "retail_product",
+                                "japan",
+                                "Retail tech transformation focus.",
+                                List.of("stable_public", "product_leader"),
+                                List.of("language_friction_high")
+                        )
+                )
+        );
+
+        assertFalse(result.riskSignals().contains("language_friction"));
+        assertEquals(20, result.languageFrictionIndex());
+    }
+
+    @Test
+    void flagsHolidayPolicyRiskForNationalHolidaysAsWorkdays() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Fast Retailing",
+                        "Application Engineer",
+                        "Tokyo",
+                        "JPY 6,560,000 - JPY 21,240,000",
+                        "Unspecified",
+                        "Two days off per week. National holidays are workdays."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("holiday_policy_risk"));
+    }
+
     private PersonaConfig defaultPersona() {
         return new PersonaConfig(
                 "product_expat_engineer",

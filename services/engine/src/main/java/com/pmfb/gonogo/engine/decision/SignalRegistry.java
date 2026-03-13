@@ -1,7 +1,9 @@
 package com.pmfb.gonogo.engine.decision;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -14,6 +16,10 @@ import java.util.Map;
  * applied when the signal's {@code priorityGroup} is in the persona's priorities list.
  */
 public final class SignalRegistry {
+    private static final String JSON_FIELD_NAME = "name";
+    private static final String JSON_FIELD_TYPE = "type";
+    private static final String JSON_FIELD_PRIORITY_GROUP = "priority_group";
+    private static final String JSON_FIELD_DEFAULT_WEIGHT = "default_weight";
 
     public enum SignalType { POSITIVE, RISK }
 
@@ -24,74 +30,74 @@ public final class SignalRegistry {
             int defaultWeight
     ) {
         public Map<String, Object> toJson() {
-            Map<String, Object> map = new HashMap<>();
-            map.put("name", name);
-            map.put("type", type.name().toLowerCase());
-            map.put("priority_group", priorityGroup);
-            map.put("default_weight", defaultWeight);
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put(JSON_FIELD_NAME, name);
+            map.put(JSON_FIELD_TYPE, type.name().toLowerCase(Locale.ROOT));
+            map.put(JSON_FIELD_PRIORITY_GROUP, priorityGroup);
+            map.put(JSON_FIELD_DEFAULT_WEIGHT, defaultWeight);
             return map;
         }
     }
 
     private static final List<SignalDescriptor> ALL = List.of(
             // ── Positive signals (24) ──────────────────────────────────────────────
-            new SignalDescriptor("salary_transparency",               SignalType.POSITIVE, "salary",               2),
-            new SignalDescriptor("hybrid_work",                       SignalType.POSITIVE, "hybrid_work",          2),
-            new SignalDescriptor("remote_friendly",                   SignalType.POSITIVE, "hybrid_work",          2),
-            new SignalDescriptor("english_environment",               SignalType.POSITIVE, "english_environment",  2),
-            new SignalDescriptor("product_company",                   SignalType.POSITIVE, "product_company",      2),
-            new SignalDescriptor("engineering_culture",               SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("engineering_environment",           SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("inhouse_product_engineering",       SignalType.POSITIVE, "product_company",      2),
-            new SignalDescriptor("global_team_collaboration",         SignalType.POSITIVE, "english_environment",  2),
-            new SignalDescriptor("english_support_environment",       SignalType.POSITIVE, "english_environment",  2),
-            new SignalDescriptor("visa_sponsorship_support",          SignalType.POSITIVE, "english_environment",  2),
-            new SignalDescriptor("work_life_balance",                 SignalType.POSITIVE, "work_life_balance",    2),
-            new SignalDescriptor("stability",                         SignalType.POSITIVE, "stability",            2),
-            new SignalDescriptor("company_reputation_positive",       SignalType.POSITIVE, "stability",            2),
-            new SignalDescriptor("company_reputation_positive_strong",SignalType.POSITIVE, "stability",            2),
-            new SignalDescriptor("candidate_stack_fit",               SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("candidate_domain_fit",              SignalType.POSITIVE, "product_company",      2),
-            new SignalDescriptor("candidate_seniority_fit",           SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("product_pm_collaboration",          SignalType.POSITIVE, "product_company",      2),
-            new SignalDescriptor("engineering_maturity",              SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("casual_interview",                  SignalType.POSITIVE, "engineering_culture",  2),
-            new SignalDescriptor("async_communication",               SignalType.POSITIVE, "work_life_balance",    2),
-            new SignalDescriptor("real_flextime",                     SignalType.POSITIVE, "work_life_balance",    2),
-            new SignalDescriptor("low_overtime_disclosed",            SignalType.POSITIVE, "work_life_balance",    2),
+            new SignalDescriptor(SignalIds.SALARY_TRANSPARENCY,               SignalType.POSITIVE, PriorityGroupIds.SALARY,              2),
+            new SignalDescriptor(SignalIds.HYBRID_WORK,                       SignalType.POSITIVE, PriorityGroupIds.HYBRID_WORK,         2),
+            new SignalDescriptor(SignalIds.REMOTE_FRIENDLY,                   SignalType.POSITIVE, PriorityGroupIds.HYBRID_WORK,         2),
+            new SignalDescriptor(SignalIds.ENGLISH_ENVIRONMENT,               SignalType.POSITIVE, PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
+            new SignalDescriptor(SignalIds.PRODUCT_COMPANY,                   SignalType.POSITIVE, PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.ENGINEERING_CULTURE,               SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.ENGINEERING_ENVIRONMENT,           SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.INHOUSE_PRODUCT_ENGINEERING,       SignalType.POSITIVE, PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.GLOBAL_TEAM_COLLABORATION,         SignalType.POSITIVE, PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
+            new SignalDescriptor(SignalIds.ENGLISH_SUPPORT_ENVIRONMENT,       SignalType.POSITIVE, PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
+            new SignalDescriptor(SignalIds.VISA_SPONSORSHIP_SUPPORT,          SignalType.POSITIVE, PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
+            new SignalDescriptor(SignalIds.WORK_LIFE_BALANCE,                 SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.STABILITY,                         SignalType.POSITIVE, PriorityGroupIds.STABILITY,           2),
+            new SignalDescriptor(SignalIds.COMPANY_REPUTATION_POSITIVE,       SignalType.POSITIVE, PriorityGroupIds.STABILITY,           2),
+            new SignalDescriptor(SignalIds.COMPANY_REPUTATION_POSITIVE_STRONG,SignalType.POSITIVE, PriorityGroupIds.STABILITY,           2),
+            new SignalDescriptor(SignalIds.CANDIDATE_STACK_FIT,               SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.CANDIDATE_DOMAIN_FIT,              SignalType.POSITIVE, PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.CANDIDATE_SENIORITY_FIT,           SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.PRODUCT_PM_COLLABORATION,          SignalType.POSITIVE, PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.ENGINEERING_MATURITY,              SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.CASUAL_INTERVIEW,                  SignalType.POSITIVE, PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.ASYNC_COMMUNICATION,               SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.REAL_FLEXTIME,                     SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.LOW_OVERTIME_DISCLOSED,            SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
 
             // ── Risk signals (31) ─────────────────────────────────────────────────
-            new SignalDescriptor("salary_low_confidence",             SignalType.RISK,     "salary",               2),
-            new SignalDescriptor("salary_below_persona_floor",        SignalType.RISK,     "salary",               3),
-            new SignalDescriptor("onsite_bias",                       SignalType.RISK,     "hybrid_work",          2),
-            new SignalDescriptor("language_friction",                 SignalType.RISK,     "english_environment",  3),
-            new SignalDescriptor("language_friction_critical",        SignalType.RISK,     "english_environment",  7),
-            new SignalDescriptor("consulting_risk",                   SignalType.RISK,     "product_company",      3),
-            new SignalDescriptor("overtime_risk",                     SignalType.RISK,     "work_life_balance",    3),
-            new SignalDescriptor("engineering_environment_risk",      SignalType.RISK,     "work_life_balance",    2),
-            new SignalDescriptor("startup_risk",                      SignalType.RISK,     "stability",            3),
-            new SignalDescriptor("role_mismatch_manager_vs_ic_title", SignalType.RISK,     "engineering_culture",  5),
-            new SignalDescriptor("role_identity_mismatch",            SignalType.RISK,     "engineering_culture",  6),
-            new SignalDescriptor("intermediary_contract_risk",        SignalType.RISK,     "product_company",      5),
-            new SignalDescriptor("inclusion_contradiction",           SignalType.RISK,     "english_environment",  5),
-            new SignalDescriptor("pre_ipo_risk",                      SignalType.RISK,     "stability",            4),
-            new SignalDescriptor("manager_scope_salary_misaligned",   SignalType.RISK,     "salary",               5),
-            new SignalDescriptor("workload_policy_risk",              SignalType.RISK,     "work_life_balance",    6),
-            new SignalDescriptor("holiday_policy_risk",               SignalType.RISK,     "work_life_balance",    5),
-            new SignalDescriptor("location_mobility_risk",            SignalType.RISK,     "hybrid_work",          4),
-            new SignalDescriptor("salary_range_anomaly",              SignalType.RISK,     "salary",               6),
-            new SignalDescriptor("debt_first_culture_risk",           SignalType.RISK,     "engineering_culture",  6),
-            new SignalDescriptor("hypergrowth_execution_risk",        SignalType.RISK,     "stability",            5),
-            new SignalDescriptor("company_reputation_risk",           SignalType.RISK,     "stability",            3),
-            new SignalDescriptor("company_reputation_risk_high",      SignalType.RISK,     "stability",            3),
-            new SignalDescriptor("candidate_stack_gap",               SignalType.RISK,     "engineering_culture",  3),
-            new SignalDescriptor("candidate_domain_gap",              SignalType.RISK,     "product_company",      3),
-            new SignalDescriptor("candidate_seniority_mismatch",      SignalType.RISK,     "engineering_culture",  4),
-            new SignalDescriptor("algorithmic_interview_risk",        SignalType.RISK,     "engineering_culture",  2),
-            new SignalDescriptor("pressure_culture_risk",             SignalType.RISK,     "work_life_balance",    2),
-            new SignalDescriptor("fake_flextime_risk",                SignalType.RISK,     "work_life_balance",    2),
-            new SignalDescriptor("traditional_corporate_process_risk",SignalType.RISK,     "english_environment",  2),
-            new SignalDescriptor("customer_site_risk",                SignalType.RISK,     "product_company",      2)
+            new SignalDescriptor(SignalIds.SALARY_LOW_CONFIDENCE,             SignalType.RISK,     PriorityGroupIds.SALARY,              2),
+            new SignalDescriptor(SignalIds.SALARY_BELOW_PERSONA_FLOOR,        SignalType.RISK,     PriorityGroupIds.SALARY,              3),
+            new SignalDescriptor(SignalIds.ONSITE_BIAS,                       SignalType.RISK,     PriorityGroupIds.HYBRID_WORK,         2),
+            new SignalDescriptor(SignalIds.LANGUAGE_FRICTION,                 SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 3),
+            new SignalDescriptor(SignalIds.LANGUAGE_FRICTION_CRITICAL,        SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 7),
+            new SignalDescriptor(SignalIds.CONSULTING_RISK,                   SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     3),
+            new SignalDescriptor(SignalIds.OVERTIME_RISK,                     SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   3),
+            new SignalDescriptor(SignalIds.ENGINEERING_ENVIRONMENT_RISK,      SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.STARTUP_RISK,                      SignalType.RISK,     PriorityGroupIds.STABILITY,           3),
+            new SignalDescriptor(SignalIds.ROLE_MISMATCH_MANAGER_VS_IC_TITLE, SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 5),
+            new SignalDescriptor(SignalIds.ROLE_IDENTITY_MISMATCH,            SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 6),
+            new SignalDescriptor(SignalIds.INTERMEDIARY_CONTRACT_RISK,        SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     5),
+            new SignalDescriptor(SignalIds.INCLUSION_CONTRADICTION,           SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 5),
+            new SignalDescriptor(SignalIds.PRE_IPO_RISK,                      SignalType.RISK,     PriorityGroupIds.STABILITY,           4),
+            new SignalDescriptor(SignalIds.MANAGER_SCOPE_SALARY_MISALIGNED,   SignalType.RISK,     PriorityGroupIds.SALARY,              5),
+            new SignalDescriptor(SignalIds.WORKLOAD_POLICY_RISK,              SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   6),
+            new SignalDescriptor(SignalIds.HOLIDAY_POLICY_RISK,               SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   5),
+            new SignalDescriptor(SignalIds.LOCATION_MOBILITY_RISK,            SignalType.RISK,     PriorityGroupIds.HYBRID_WORK,         4),
+            new SignalDescriptor(SignalIds.SALARY_RANGE_ANOMALY,              SignalType.RISK,     PriorityGroupIds.SALARY,              6),
+            new SignalDescriptor(SignalIds.DEBT_FIRST_CULTURE_RISK,           SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 6),
+            new SignalDescriptor(SignalIds.HYPERGROWTH_EXECUTION_RISK,        SignalType.RISK,     PriorityGroupIds.STABILITY,           5),
+            new SignalDescriptor(SignalIds.COMPANY_REPUTATION_RISK,           SignalType.RISK,     PriorityGroupIds.STABILITY,           3),
+            new SignalDescriptor(SignalIds.COMPANY_REPUTATION_RISK_HIGH,      SignalType.RISK,     PriorityGroupIds.STABILITY,           3),
+            new SignalDescriptor(SignalIds.CANDIDATE_STACK_GAP,               SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 3),
+            new SignalDescriptor(SignalIds.CANDIDATE_DOMAIN_GAP,              SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     3),
+            new SignalDescriptor(SignalIds.CANDIDATE_SENIORITY_MISMATCH,      SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 4),
+            new SignalDescriptor(SignalIds.ALGORITHMIC_INTERVIEW_RISK,        SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 2),
+            new SignalDescriptor(SignalIds.PRESSURE_CULTURE_RISK,             SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.FAKE_FLEXTIME_RISK,                SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   2),
+            new SignalDescriptor(SignalIds.TRADITIONAL_CORPORATE_PROCESS_RISK,SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
+            new SignalDescriptor(SignalIds.CUSTOMER_SITE_RISK,                SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     2)
     );
 
     private static final Map<String, SignalDescriptor> BY_NAME;

@@ -35,6 +35,7 @@ public final class ConfigValidator {
         validateBlacklist(config.blacklistedCompanies(), errors);
         validateCandidateProfiles(config.candidateProfiles(), errors);
         validateRuntimeSettings(config.runtimeSettings(), errors);
+        validateDecisionSignals(config.decisionSignals(), errors);
         return errors;
     }
 
@@ -236,6 +237,83 @@ public final class ConfigValidator {
         }
     }
 
+    private void validateDecisionSignals(
+            DecisionSignalsConfig decisionSignals,
+            List<String> errors
+    ) {
+        if (decisionSignals == null) {
+            errors.add("decision-signals config must be defined");
+            return;
+        }
+
+        DecisionSignalsConfig.LanguageConfig language = decisionSignals.language();
+        if (language == null) {
+            errors.add("decision-signals.language must be defined");
+        } else {
+            validateDecisionSignalList(language.requiredKeywords(), "decision-signals.language.required_keywords", errors);
+            validateDecisionSignalList(
+                    language.frictionSoftKeywords(),
+                    "decision-signals.language.friction_soft_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    language.mediumHighFrictionKeywords(),
+                    "decision-signals.language.medium_high_friction_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    language.highFrictionKeywords(),
+                    "decision-signals.language.high_friction_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    language.optionalOrExemptKeywords(),
+                    "decision-signals.language.optional_or_exempt_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    language.englishFriendlyKeywords(),
+                    "decision-signals.language.english_friendly_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    language.englishSupportEnvironmentKeywords(),
+                    "decision-signals.language.english_support_environment_keywords",
+                    errors
+            );
+            if (language.englishSupportMaxIndex() < 0 || language.englishSupportMaxIndex() > 100) {
+                errors.add("decision-signals.language.english_support_max_index must be between 0 and 100");
+            }
+        }
+
+        DecisionSignalsConfig.WorkLifeBalanceConfig workLifeBalance = decisionSignals.workLifeBalance();
+        if (workLifeBalance == null) {
+            errors.add("decision-signals.work_life_balance must be defined");
+        } else {
+            validateDecisionSignalList(
+                    workLifeBalance.overtimeRiskKeywords(),
+                    "decision-signals.work_life_balance.overtime_risk_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    workLifeBalance.holidayPolicyRiskKeywords(),
+                    "decision-signals.work_life_balance.holiday_policy_risk_keywords",
+                    errors
+            );
+        }
+
+        DecisionSignalsConfig.MobilityConfig mobility = decisionSignals.mobility();
+        if (mobility == null) {
+            errors.add("decision-signals.mobility must be defined");
+        } else {
+            validateDecisionSignalList(
+                    mobility.locationMobilityRiskKeywords(),
+                    "decision-signals.mobility.location_mobility_risk_keywords",
+                    errors
+            );
+        }
+    }
+
     private void validateId(String value, String field, List<String> errors) {
         if (value == null || value.isBlank()) {
             errors.add(field + " cannot be blank");
@@ -283,6 +361,18 @@ public final class ConfigValidator {
                 errors.add(field + " contains unknown tag '" + tag + "'");
             }
         }
+    }
+
+    private void validateDecisionSignalList(
+            List<String> values,
+            String field,
+            List<String> errors
+    ) {
+        if (values == null || values.isEmpty()) {
+            errors.add(field + " must contain at least one item");
+            return;
+        }
+        checkDuplicates(values, field, errors);
     }
 
     private Set<String> normalizeSet(List<String> values) {

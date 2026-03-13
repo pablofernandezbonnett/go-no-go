@@ -65,4 +65,40 @@ final class RawJobParserTest {
         assertEquals("JPY 8,500,000 to JPY 12,000,000", result.jobInput().salaryRange());
         assertEquals("Remote", result.jobInput().remotePolicy());
     }
+
+    @Test
+    void extractsBulletedAnnualSalaryRangeLabels() {
+        String rawText = """
+                Title: Application Engineer
+                Location: Ariake Headquarters, Tokyo
+                ・Annual Salary Range: ¥6.56 million - ¥21.24 million (Monthly Salary: ¥410,000 - ¥1,180,000)
+                ・Work Style: Hybrid
+                English is used on a daily basis.
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, "Fast Retailing", null);
+
+        assertEquals("Fast Retailing", result.jobInput().companyName());
+        assertEquals("Application Engineer", result.jobInput().title());
+        assertEquals("Ariake Headquarters, Tokyo", result.jobInput().location());
+        assertEquals(
+                "¥6.56 million - ¥21.24 million (Monthly Salary: ¥410,000 - ¥1,180,000)",
+                result.jobInput().salaryRange()
+        );
+        assertEquals("Hybrid", result.jobInput().remotePolicy());
+    }
+
+    @Test
+    void doesNotInferOnsiteOnlyFromGenericOfficeMentionsInNarrativeText() {
+        String rawText = """
+                Title: Application Engineer
+                Location: Tokyo
+                English is used on a daily basis in our headquarters environment.
+                We provide support to become comfortable with English.
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, "Fast Retailing", null);
+
+        assertEquals("Unspecified", result.jobInput().remotePolicy());
+    }
 }

@@ -37,6 +37,16 @@ import picocli.CommandLine.Option;
         description = "Evaluate multiple job YAML files and generate JSON/Markdown reports."
 )
 public final class BatchEvaluateCommand implements Callable<Integer> {
+    private static final String LABEL_BATCH_EVALUATION_COMPLETED = "Batch evaluation completed.";
+    private static final String FIELD_TOTAL_FILES = "total_files";
+    private static final String FIELD_EVALUATED = "evaluated";
+    private static final String FIELD_FAILED = "failed";
+    private static final String FIELD_GO = "go";
+    private static final String FIELD_GO_WITH_CAUTION = "go_with_caution";
+    private static final String FIELD_NO_GO = "no_go";
+    private static final String FIELD_MARKDOWN_REPORT = "markdown_report";
+    private static final String FIELD_JSON_REPORT = "json_report";
+
     private final DecisionEngineV1 engine;
 
     public BatchEvaluateCommand() {
@@ -296,16 +306,16 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
     }
 
     private void printSummary(BatchEvaluationReport report, Path markdownPath, Path jsonPath) {
-        System.out.println("Batch evaluation completed.");
-        System.out.println("persona: " + report.personaId());
-        System.out.println("candidate_profile: " + report.candidateProfileId());
-        System.out.println("total_files: " + report.totalFiles());
-        System.out.println("evaluated: " + report.evaluatedCount());
-        System.out.println("failed: " + report.failedCount());
-        System.out.println("go: " + report.goCount());
-        System.out.println("go_with_caution: " + report.goWithCautionCount());
-        System.out.println("no_go: " + report.noGoCount());
-        System.out.println("markdown_report: " + markdownPath);
-        System.out.println("json_report: " + jsonPath);
+        System.out.println(LABEL_BATCH_EVALUATION_COMPLETED);
+        System.out.println(EvaluateInputFieldKeys.PERSONA + ": " + report.personaId());
+        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": " + report.candidateProfileId());
+        System.out.println(FIELD_TOTAL_FILES + ": " + report.totalFiles());
+        System.out.println(FIELD_EVALUATED + ": " + report.evaluatedCount());
+        System.out.println(FIELD_FAILED + ": " + report.failedCount());
+        System.out.println(FIELD_GO + ": " + report.goCount());
+        System.out.println(FIELD_GO_WITH_CAUTION + ": " + report.goWithCautionCount());
+        System.out.println(FIELD_NO_GO + ": " + report.noGoCount());
+        System.out.println(FIELD_MARKDOWN_REPORT + ": " + markdownPath);
+        System.out.println(FIELD_JSON_REPORT + ": " + jsonPath);
     }
 }

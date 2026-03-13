@@ -3,6 +3,7 @@ package com.pmfb.gonogo.engine.decision;
 import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
+import com.pmfb.gonogo.engine.config.DecisionSignalsConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.job.JobInput;
@@ -122,16 +123,6 @@ public final class DecisionEngineV1 {
             "70 hours",
             "996"
     );
-    private static final List<String> OVERTIME_RISK_KEYWORDS = List.of(
-            "with overtime",
-            "overtime",
-            "fixed overtime",
-            "fast-paced",
-            "high-pressure",
-            "tight deadlines",
-            "deadlines are tight",
-            "occasional weekend work"
-    );
     private static final List<String> WORKLOAD_NO_FIXED_HOURS_KEYWORDS = List.of(
             "no set working hours",
             "no fixed working hours",
@@ -151,21 +142,9 @@ public final class DecisionEngineV1 {
             "work hard and play hard",
             "work hard, play hard",
             "work hard play hard",
-            "with overtime",
-            "overtime"
-    );
-    private static final List<String> HOLIDAY_POLICY_RISK_KEYWORDS = List.of(
-            "national holidays correspond to working days",
-            "national holidays are working days",
-            "public holidays are working days",
-            "holidays correspond to working days"
-    );
-    private static final List<String> LOCATION_MOBILITY_RISK_KEYWORDS = List.of(
-            "location may be changed",
-            "including overseas",
-            "transfer may be required",
-            "relocation may be required",
-            "as determined by the company"
+            "fixed overtime",
+            "deemed overtime",
+            "overtime included"
     );
     private static final List<String> LOCATION_CHANGE_BY_COMPANY_KEYWORDS = List.of(
             "location may be changed",
@@ -191,39 +170,6 @@ public final class DecisionEngineV1 {
             "10x over the past year",
             "10x growth"
     );
-    private static final List<String> LANGUAGE_REQUIRED_KEYWORDS = List.of(
-            "japanese required",
-            "japanese is required",
-            "japanese language required",
-            "must speak japanese",
-            "japanese is mandatory",
-            "mandatory japanese",
-            "japanese proficiency required",
-            "native japanese",
-            "native-level japanese",
-            "native level japanese",
-            "fluent japanese",
-            "advanced japanese",
-            "professional japanese",
-            "business-level japanese",
-            "business level japanese",
-            "jlpt n1",
-            "jlpt n2",
-            "n1 level japanese",
-            "n2 level japanese",
-            "日本語必須",
-            "ビジネスレベルの日本語",
-            "日本語ネイティブ",
-            "日本語能力試験n1",
-            "日本語能力試験n2"
-    );
-    private static final List<String> LANGUAGE_FRICTION_SOFT_KEYWORDS = List.of(
-            "business japanese",
-            "japanese fluency",
-            "japanese proficiency",
-            "japanese communication",
-            "japanese skill"
-    );
     private static final List<String> JAPANESE_INTERNAL_ONLY_KEYWORDS = List.of(
             "all internal communications",
             "all internal communication",
@@ -246,56 +192,6 @@ public final class DecisionEngineV1 {
             "外国人歓迎",
             "海外人材歓迎"
     );
-    private static final List<String> LANGUAGE_HIGH_FRICTION_KEYWORDS = List.of(
-            "native japanese",
-            "native-level japanese",
-            "native level japanese",
-            "jlpt n1",
-            "n1 level japanese",
-            "日本語ネイティブ",
-            "日本語能力試験n1",
-            "日本語能力試験ｎ1",
-            "日本語能力試験Ｎ1",
-            "日本語能力試験Ｎ１"
-    );
-    private static final List<String> LANGUAGE_MEDIUM_HIGH_FRICTION_KEYWORDS = List.of(
-            "business-level japanese",
-            "business level japanese",
-            "jlpt n2",
-            "n2 level japanese",
-            "n2 level or above",
-            "n2 or above",
-            "ビジネスレベルの日本語",
-            "日本語能力試験n2",
-            "日本語能力試験ｎ2",
-            "日本語能力試験Ｎ2",
-            "日本語能力試験Ｎ２"
-    );
-    private static final List<String> LANGUAGE_OPTIONAL_OR_EXEMPT_KEYWORDS = List.of(
-            "no japanese required",
-            "japanese not required",
-            "japanese is a plus",
-            "japanese preferred",
-            "japanese optional",
-            "japanese nice to have",
-            "basic japanese welcome",
-            "conversational japanese preferred",
-            "english only",
-            "日本語不問",
-            "日本語歓迎",
-            "日本語は必須ではありません"
-    );
-    private static final List<String> ENGLISH_FRIENDLY_KEYWORDS = List.of(
-            "english-first",
-            "english first",
-            "international team",
-            "no japanese required",
-            "japanese not required",
-            "english only",
-            "english speaking environment",
-            "english communication",
-            "global team"
-    );
     private static final List<String> INHOUSE_PRODUCT_ENGINEERING_KEYWORDS = List.of(
             "in-house development",
             "in house development",
@@ -310,12 +206,6 @@ public final class DecisionEngineV1 {
             "full remote team",
             "global team",
             "international team"
-    );
-    private static final List<String> ENGLISH_SUPPORT_ENVIRONMENT_KEYWORDS = List.of(
-            "english is used on a daily basis",
-            "english used on a daily basis",
-            "fluency in english is not required",
-            "support is provided"
     );
     private static final List<String> VISA_SPONSORSHIP_SUPPORT_KEYWORDS = List.of(
             "visa sponsorship",
@@ -518,73 +408,73 @@ public final class DecisionEngineV1 {
             "salary cuts"
     );
 
-    private static final String PRIORITY_SALARY = "salary";
-    private static final String PRIORITY_HYBRID_WORK = "hybrid_work";
-    private static final String PRIORITY_ENGLISH_ENVIRONMENT = "english_environment";
-    private static final String PRIORITY_PRODUCT_COMPANY = "product_company";
-    private static final String PRIORITY_ENGINEERING_CULTURE = "engineering_culture";
-    private static final String PRIORITY_WORK_LIFE_BALANCE = "work_life_balance";
-    private static final String PRIORITY_STABILITY = "stability";
+    private static final String PRIORITY_SALARY = PriorityGroupIds.SALARY;
+    private static final String PRIORITY_HYBRID_WORK = PriorityGroupIds.HYBRID_WORK;
+    private static final String PRIORITY_ENGLISH_ENVIRONMENT = PriorityGroupIds.ENGLISH_ENVIRONMENT;
+    private static final String PRIORITY_PRODUCT_COMPANY = PriorityGroupIds.PRODUCT_COMPANY;
+    private static final String PRIORITY_ENGINEERING_CULTURE = PriorityGroupIds.ENGINEERING_CULTURE;
+    private static final String PRIORITY_WORK_LIFE_BALANCE = PriorityGroupIds.WORK_LIFE_BALANCE;
+    private static final String PRIORITY_STABILITY = PriorityGroupIds.STABILITY;
     private static final String HARD_NO_JAPANESE_ONLY_ENVIRONMENT = "japanese_only_environment";
     private static final String HARD_NO_WORKLOAD_OVERLOAD = "workload_overload";
     private static final String HARD_NO_FORCED_RELOCATION = "forced_relocation";
 
-    private static final String SIGNAL_SALARY_TRANSPARENCY = "salary_transparency";
-    private static final String SIGNAL_HYBRID_WORK = "hybrid_work";
-    private static final String SIGNAL_REMOTE_FRIENDLY = "remote_friendly";
-    private static final String SIGNAL_ENGLISH_ENVIRONMENT = "english_environment";
-    private static final String SIGNAL_PRODUCT_COMPANY = "product_company";
-    private static final String SIGNAL_ENGINEERING_CULTURE = "engineering_culture";
-    private static final String SIGNAL_ENGINEERING_ENVIRONMENT = "engineering_environment";
-    private static final String SIGNAL_INHOUSE_PRODUCT_ENGINEERING = "inhouse_product_engineering";
-    private static final String SIGNAL_GLOBAL_TEAM_COLLABORATION = "global_team_collaboration";
-    private static final String SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT = "english_support_environment";
-    private static final String SIGNAL_VISA_SPONSORSHIP_SUPPORT = "visa_sponsorship_support";
-    private static final String SIGNAL_WORK_LIFE_BALANCE = "work_life_balance";
-    private static final String SIGNAL_STABILITY = "stability";
-    private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE = "company_reputation_positive";
-    private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG = "company_reputation_positive_strong";
-    private static final String SIGNAL_CANDIDATE_STACK_FIT = "candidate_stack_fit";
-    private static final String SIGNAL_CANDIDATE_DOMAIN_FIT = "candidate_domain_fit";
-    private static final String SIGNAL_CANDIDATE_SENIORITY_FIT = "candidate_seniority_fit";
-    private static final String SIGNAL_PRODUCT_PM_COLLABORATION = "product_pm_collaboration";
-    private static final String SIGNAL_ENGINEERING_MATURITY = "engineering_maturity";
-    private static final String SIGNAL_CASUAL_INTERVIEW = "casual_interview";
-    private static final String SIGNAL_ASYNC_COMMUNICATION = "async_communication";
-    private static final String SIGNAL_REAL_FLEXTIME = "real_flextime";
-    private static final String SIGNAL_LOW_OVERTIME_DISCLOSED = "low_overtime_disclosed";
+    private static final String SIGNAL_SALARY_TRANSPARENCY = SignalIds.SALARY_TRANSPARENCY;
+    private static final String SIGNAL_HYBRID_WORK = SignalIds.HYBRID_WORK;
+    private static final String SIGNAL_REMOTE_FRIENDLY = SignalIds.REMOTE_FRIENDLY;
+    private static final String SIGNAL_ENGLISH_ENVIRONMENT = SignalIds.ENGLISH_ENVIRONMENT;
+    private static final String SIGNAL_PRODUCT_COMPANY = SignalIds.PRODUCT_COMPANY;
+    private static final String SIGNAL_ENGINEERING_CULTURE = SignalIds.ENGINEERING_CULTURE;
+    private static final String SIGNAL_ENGINEERING_ENVIRONMENT = SignalIds.ENGINEERING_ENVIRONMENT;
+    private static final String SIGNAL_INHOUSE_PRODUCT_ENGINEERING = SignalIds.INHOUSE_PRODUCT_ENGINEERING;
+    private static final String SIGNAL_GLOBAL_TEAM_COLLABORATION = SignalIds.GLOBAL_TEAM_COLLABORATION;
+    private static final String SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT = SignalIds.ENGLISH_SUPPORT_ENVIRONMENT;
+    private static final String SIGNAL_VISA_SPONSORSHIP_SUPPORT = SignalIds.VISA_SPONSORSHIP_SUPPORT;
+    private static final String SIGNAL_WORK_LIFE_BALANCE = SignalIds.WORK_LIFE_BALANCE;
+    private static final String SIGNAL_STABILITY = SignalIds.STABILITY;
+    private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE = SignalIds.COMPANY_REPUTATION_POSITIVE;
+    private static final String SIGNAL_COMPANY_REPUTATION_POSITIVE_STRONG = SignalIds.COMPANY_REPUTATION_POSITIVE_STRONG;
+    private static final String SIGNAL_CANDIDATE_STACK_FIT = SignalIds.CANDIDATE_STACK_FIT;
+    private static final String SIGNAL_CANDIDATE_DOMAIN_FIT = SignalIds.CANDIDATE_DOMAIN_FIT;
+    private static final String SIGNAL_CANDIDATE_SENIORITY_FIT = SignalIds.CANDIDATE_SENIORITY_FIT;
+    private static final String SIGNAL_PRODUCT_PM_COLLABORATION = SignalIds.PRODUCT_PM_COLLABORATION;
+    private static final String SIGNAL_ENGINEERING_MATURITY = SignalIds.ENGINEERING_MATURITY;
+    private static final String SIGNAL_CASUAL_INTERVIEW = SignalIds.CASUAL_INTERVIEW;
+    private static final String SIGNAL_ASYNC_COMMUNICATION = SignalIds.ASYNC_COMMUNICATION;
+    private static final String SIGNAL_REAL_FLEXTIME = SignalIds.REAL_FLEXTIME;
+    private static final String SIGNAL_LOW_OVERTIME_DISCLOSED = SignalIds.LOW_OVERTIME_DISCLOSED;
 
-    private static final String SIGNAL_SALARY_LOW_CONFIDENCE = "salary_low_confidence";
-    private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = "salary_below_persona_floor";
-    private static final String SIGNAL_ONSITE_BIAS = "onsite_bias";
-    private static final String SIGNAL_LANGUAGE_FRICTION = "language_friction";
-    private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = "language_friction_critical";
-    private static final String SIGNAL_CONSULTING_RISK = "consulting_risk";
-    private static final String SIGNAL_OVERTIME_RISK = "overtime_risk";
-    private static final String SIGNAL_ENGINEERING_ENVIRONMENT_RISK = "engineering_environment_risk";
-    private static final String SIGNAL_STARTUP_RISK = "startup_risk";
-    private static final String SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE = "role_mismatch_manager_vs_ic_title";
-    private static final String SIGNAL_ROLE_IDENTITY_MISMATCH = "role_identity_mismatch";
-    private static final String SIGNAL_INTERMEDIARY_CONTRACT_RISK = "intermediary_contract_risk";
-    private static final String SIGNAL_INCLUSION_CONTRADICTION = "inclusion_contradiction";
-    private static final String SIGNAL_PRE_IPO_RISK = "pre_ipo_risk";
-    private static final String SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED = "manager_scope_salary_misaligned";
-    private static final String SIGNAL_WORKLOAD_POLICY_RISK = "workload_policy_risk";
-    private static final String SIGNAL_HOLIDAY_POLICY_RISK = "holiday_policy_risk";
-    private static final String SIGNAL_LOCATION_MOBILITY_RISK = "location_mobility_risk";
-    private static final String SIGNAL_SALARY_RANGE_ANOMALY = "salary_range_anomaly";
-    private static final String SIGNAL_DEBT_FIRST_CULTURE_RISK = "debt_first_culture_risk";
-    private static final String SIGNAL_HYPERGROWTH_EXECUTION_RISK = "hypergrowth_execution_risk";
-    private static final String SIGNAL_COMPANY_REPUTATION_RISK = "company_reputation_risk";
-    private static final String SIGNAL_COMPANY_REPUTATION_RISK_HIGH = "company_reputation_risk_high";
-    private static final String SIGNAL_CANDIDATE_STACK_GAP = "candidate_stack_gap";
-    private static final String SIGNAL_CANDIDATE_DOMAIN_GAP = "candidate_domain_gap";
-    private static final String SIGNAL_CANDIDATE_SENIORITY_MISMATCH = "candidate_seniority_mismatch";
-    private static final String SIGNAL_ALGORITHMIC_INTERVIEW_RISK = "algorithmic_interview_risk";
-    private static final String SIGNAL_PRESSURE_CULTURE_RISK = "pressure_culture_risk";
-    private static final String SIGNAL_FAKE_FLEXTIME_RISK = "fake_flextime_risk";
-    private static final String SIGNAL_TRADITIONAL_CORPORATE_PROCESS_RISK = "traditional_corporate_process_risk";
-    private static final String SIGNAL_CUSTOMER_SITE_RISK = "customer_site_risk";
+    private static final String SIGNAL_SALARY_LOW_CONFIDENCE = SignalIds.SALARY_LOW_CONFIDENCE;
+    private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = SignalIds.SALARY_BELOW_PERSONA_FLOOR;
+    private static final String SIGNAL_ONSITE_BIAS = SignalIds.ONSITE_BIAS;
+    private static final String SIGNAL_LANGUAGE_FRICTION = SignalIds.LANGUAGE_FRICTION;
+    private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = SignalIds.LANGUAGE_FRICTION_CRITICAL;
+    private static final String SIGNAL_CONSULTING_RISK = SignalIds.CONSULTING_RISK;
+    private static final String SIGNAL_OVERTIME_RISK = SignalIds.OVERTIME_RISK;
+    private static final String SIGNAL_ENGINEERING_ENVIRONMENT_RISK = SignalIds.ENGINEERING_ENVIRONMENT_RISK;
+    private static final String SIGNAL_STARTUP_RISK = SignalIds.STARTUP_RISK;
+    private static final String SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE = SignalIds.ROLE_MISMATCH_MANAGER_VS_IC_TITLE;
+    private static final String SIGNAL_ROLE_IDENTITY_MISMATCH = SignalIds.ROLE_IDENTITY_MISMATCH;
+    private static final String SIGNAL_INTERMEDIARY_CONTRACT_RISK = SignalIds.INTERMEDIARY_CONTRACT_RISK;
+    private static final String SIGNAL_INCLUSION_CONTRADICTION = SignalIds.INCLUSION_CONTRADICTION;
+    private static final String SIGNAL_PRE_IPO_RISK = SignalIds.PRE_IPO_RISK;
+    private static final String SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED = SignalIds.MANAGER_SCOPE_SALARY_MISALIGNED;
+    private static final String SIGNAL_WORKLOAD_POLICY_RISK = SignalIds.WORKLOAD_POLICY_RISK;
+    private static final String SIGNAL_HOLIDAY_POLICY_RISK = SignalIds.HOLIDAY_POLICY_RISK;
+    private static final String SIGNAL_LOCATION_MOBILITY_RISK = SignalIds.LOCATION_MOBILITY_RISK;
+    private static final String SIGNAL_SALARY_RANGE_ANOMALY = SignalIds.SALARY_RANGE_ANOMALY;
+    private static final String SIGNAL_DEBT_FIRST_CULTURE_RISK = SignalIds.DEBT_FIRST_CULTURE_RISK;
+    private static final String SIGNAL_HYPERGROWTH_EXECUTION_RISK = SignalIds.HYPERGROWTH_EXECUTION_RISK;
+    private static final String SIGNAL_COMPANY_REPUTATION_RISK = SignalIds.COMPANY_REPUTATION_RISK;
+    private static final String SIGNAL_COMPANY_REPUTATION_RISK_HIGH = SignalIds.COMPANY_REPUTATION_RISK_HIGH;
+    private static final String SIGNAL_CANDIDATE_STACK_GAP = SignalIds.CANDIDATE_STACK_GAP;
+    private static final String SIGNAL_CANDIDATE_DOMAIN_GAP = SignalIds.CANDIDATE_DOMAIN_GAP;
+    private static final String SIGNAL_CANDIDATE_SENIORITY_MISMATCH = SignalIds.CANDIDATE_SENIORITY_MISMATCH;
+    private static final String SIGNAL_ALGORITHMIC_INTERVIEW_RISK = SignalIds.ALGORITHMIC_INTERVIEW_RISK;
+    private static final String SIGNAL_PRESSURE_CULTURE_RISK = SignalIds.PRESSURE_CULTURE_RISK;
+    private static final String SIGNAL_FAKE_FLEXTIME_RISK = SignalIds.FAKE_FLEXTIME_RISK;
+    private static final String SIGNAL_TRADITIONAL_CORPORATE_PROCESS_RISK = SignalIds.TRADITIONAL_CORPORATE_PROCESS_RISK;
+    private static final String SIGNAL_CUSTOMER_SITE_RISK = SignalIds.CUSTOMER_SITE_RISK;
     private static final int EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE = 4;
     private static final int EXTRA_RISK_PENALTY_ROLE_MISMATCH = 2;
     private static final int EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH = 3;
@@ -837,10 +727,19 @@ public final class DecisionEngineV1 {
         Set<String> personaHardNo = normalizeSet(persona.hardNo());
         Set<String> personaPriorities = normalizeSet(persona.priorities());
 
-        int languageFrictionIndex = computeLanguageFrictionIndex(combinedText, trackedCompany);
+        DecisionSignalsConfig decisionSignals = config.decisionSignals();
+        int languageFrictionIndex = computeLanguageFrictionIndex(combinedText, trackedCompany, decisionSignals);
         int companyReputationIndex = computeCompanyReputationIndex(combinedText, trackedCompany);
 
-        detectPositiveSignals(job, combinedText, remotePolicy, salaryRange, trackedCompany, positiveSignals);
+        detectPositiveSignals(
+                job,
+                combinedText,
+                remotePolicy,
+                salaryRange,
+                trackedCompany,
+                decisionSignals,
+                positiveSignals
+        );
         detectRiskSignals(
                 job,
                 combinedText,
@@ -849,6 +748,7 @@ public final class DecisionEngineV1 {
                 trackedCompany,
                 config.blacklistedCompanies(),
                 persona,
+                decisionSignals,
                 riskSignals
         );
         detectMarketSignals(combinedText, positiveSignals, riskSignals);
@@ -862,6 +762,7 @@ public final class DecisionEngineV1 {
                 personaPriorities,
                 personaHardNo,
                 config.blacklistedCompanies(),
+                decisionSignals,
                 hardRejectReasons
         );
 
@@ -907,6 +808,7 @@ public final class DecisionEngineV1 {
             String remotePolicy,
             String salaryRange,
             Optional<CompanyConfig> trackedCompany,
+            DecisionSignalsConfig decisionSignals,
             Set<String> positiveSignals
     ) {
         if (isSalaryTransparent(salaryRange)) {
@@ -918,7 +820,7 @@ public final class DecisionEngineV1 {
         if (remotePolicy.contains("remote")) {
             positiveSignals.add(SIGNAL_REMOTE_FRIENDLY);
         }
-        if (hasEnglishFriendlySignal(combinedText, trackedCompany)) {
+        if (hasEnglishFriendlySignal(combinedText, trackedCompany, decisionSignals)) {
             positiveSignals.add(SIGNAL_ENGLISH_ENVIRONMENT);
         }
         if (isProductCompanySignal(combinedText, trackedCompany)) {
@@ -936,7 +838,7 @@ public final class DecisionEngineV1 {
         if (containsAny(combinedText, GLOBAL_TEAM_COLLABORATION_KEYWORDS)) {
             positiveSignals.add(SIGNAL_GLOBAL_TEAM_COLLABORATION);
         }
-        if (containsAny(combinedText, ENGLISH_SUPPORT_ENVIRONMENT_KEYWORDS)) {
+        if (hasEnglishSupportEnvironmentSignal(combinedText, decisionSignals)) {
             positiveSignals.add(SIGNAL_ENGLISH_SUPPORT_ENVIRONMENT);
         }
         if (containsAny(combinedText, VISA_SPONSORSHIP_SUPPORT_KEYWORDS)) {
@@ -959,6 +861,7 @@ public final class DecisionEngineV1 {
             Optional<CompanyConfig> trackedCompany,
             List<BlacklistedCompanyConfig> blacklist,
             PersonaConfig persona,
+            DecisionSignalsConfig decisionSignals,
             Set<String> riskSignals
     ) {
         if (isSalaryMissing(salaryRange)) {
@@ -976,13 +879,13 @@ public final class DecisionEngineV1 {
         if (isOnsiteBias(remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
         }
-        if (hasLanguageFrictionSignal(combinedText)) {
+        if (hasLanguageFrictionSignal(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION);
         }
-        if (hasCriticalLanguageFrictionSignal(combinedText)) {
+        if (hasCriticalLanguageFrictionSignal(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION_CRITICAL);
         }
-        if (containsAny(combinedText, OVERTIME_RISK_KEYWORDS)) {
+        if (containsAny(combinedText, decisionSignals.workLifeBalance().overtimeRiskKeywords())) {
             riskSignals.add(SIGNAL_OVERTIME_RISK);
         }
         if (hasEngineeringEnvironmentRiskSignal(combinedText)) {
@@ -1006,13 +909,13 @@ public final class DecisionEngineV1 {
         if (hasManagerScopeSalaryMisaligned(job.title(), combinedText, salaryRange)) {
             riskSignals.add(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED);
         }
-        if (hasWorkloadPolicyRisk(combinedText)) {
+        if (hasWorkloadPolicyRisk(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_WORKLOAD_POLICY_RISK);
         }
-        if (containsAny(combinedText, HOLIDAY_POLICY_RISK_KEYWORDS)) {
+        if (containsAny(combinedText, decisionSignals.workLifeBalance().holidayPolicyRiskKeywords())) {
             riskSignals.add(SIGNAL_HOLIDAY_POLICY_RISK);
         }
-        if (containsAny(combinedText, LOCATION_MOBILITY_RISK_KEYWORDS)) {
+        if (containsAny(combinedText, decisionSignals.mobility().locationMobilityRiskKeywords())) {
             riskSignals.add(SIGNAL_LOCATION_MOBILITY_RISK);
         }
         if (hasSalaryRangeAnomaly(salaryRange)) {
@@ -1031,7 +934,7 @@ public final class DecisionEngineV1 {
                 || containsAny(combinedText, CONSULTING_HARD_KEYWORDS)) {
             riskSignals.add(SIGNAL_CONSULTING_RISK);
         }
-        detectCompanyProfileRiskSignals(trackedCompany, riskSignals);
+        detectCompanyProfileRiskSignals(trackedCompany, combinedText, riskSignals, decisionSignals);
     }
 
     private void detectMarketSignals(
@@ -1338,6 +1241,7 @@ public final class DecisionEngineV1 {
             Set<String> personaPriorities,
             Set<String> personaHardNo,
             List<BlacklistedCompanyConfig> blacklist,
+            DecisionSignalsConfig decisionSignals,
             List<String> hardRejectReasons
     ) {
         if (personaHardNo.contains("consulting_company")
@@ -1363,12 +1267,12 @@ public final class DecisionEngineV1 {
         }
 
         if (personaHardNo.contains(HARD_NO_JAPANESE_ONLY_ENVIRONMENT)
-                && hasCriticalLanguageFrictionSignal(combinedText)) {
+                && hasCriticalLanguageFrictionSignal(combinedText, decisionSignals)) {
             hardRejectReasons.add("critical Japanese-only communication environment detected");
         }
 
         if (personaHardNo.contains(HARD_NO_WORKLOAD_OVERLOAD)
-                && hasWorkloadOverloadHardCondition(combinedText)) {
+                && hasWorkloadOverloadHardCondition(combinedText, decisionSignals)) {
             hardRejectReasons.add("overload workload policy detected (no fixed hours + minimum weekly commitment + overtime pressure)");
         }
 
@@ -1535,22 +1439,35 @@ public final class DecisionEngineV1 {
         return normalizedName.contains("corp") || normalizedName.contains("inc");
     }
 
-    private boolean hasEnglishFriendlySignal(String combinedText, Optional<CompanyConfig> trackedCompany) {
-        if (combinedText.contains("english") || containsAny(combinedText, ENGLISH_FRIENDLY_KEYWORDS)) {
+    private boolean hasEnglishFriendlySignal(
+            String combinedText,
+            Optional<CompanyConfig> trackedCompany,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        if (combinedText.contains("english")
+                || containsAny(combinedText, decisionSignals.language().englishFriendlyKeywords())) {
             return true;
         }
         return trackedCompany.map(company -> hasCorporateEnglishHint(company.corporateUrl())).orElse(false);
     }
 
-    private boolean hasLanguageFrictionSignal(String combinedText) {
-        boolean hasStrongRequiredLanguage = containsAny(combinedText, LANGUAGE_REQUIRED_KEYWORDS)
+    private boolean hasEnglishSupportEnvironmentSignal(
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        return containsAny(combinedText, decisionSignals.language().englishSupportEnvironmentKeywords());
+    }
+
+    private boolean hasLanguageFrictionSignal(String combinedText, DecisionSignalsConfig decisionSignals) {
+        boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
-        boolean hasOptionalLanguage = containsAny(combinedText, LANGUAGE_OPTIONAL_OR_EXEMPT_KEYWORDS)
+        boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
                 combinedText,
                 hasStrongRequiredLanguage,
-                hasOptionalLanguage
+                hasOptionalLanguage,
+                decisionSignals
         );
         if (hasStrongRequiredLanguage) {
             return true;
@@ -1558,13 +1475,17 @@ public final class DecisionEngineV1 {
         if (hasOptionalLanguage) {
             return false;
         }
-        return containsAny(combinedText, LANGUAGE_FRICTION_SOFT_KEYWORDS);
+        return containsAny(combinedText, decisionSignals.language().frictionSoftKeywords());
     }
 
-    private boolean hasCriticalLanguageFrictionSignal(String combinedText) {
-        boolean hasMediumOrHighLanguageRequirement = containsAny(combinedText, LANGUAGE_MEDIUM_HIGH_FRICTION_KEYWORDS)
-                || containsAny(combinedText, LANGUAGE_HIGH_FRICTION_KEYWORDS)
-                || containsAny(combinedText, LANGUAGE_REQUIRED_KEYWORDS)
+    private boolean hasCriticalLanguageFrictionSignal(
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        boolean hasMediumOrHighLanguageRequirement =
+                containsAny(combinedText, decisionSignals.language().mediumHighFrictionKeywords())
+                || containsAny(combinedText, decisionSignals.language().highFrictionKeywords())
+                || containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
         boolean hasJapaneseInternalOnly = containsAny(combinedText, JAPANESE_INTERNAL_ONLY_KEYWORDS)
                 || matchesAnyPattern(combinedText, JAPANESE_INTERNAL_ONLY_PATTERNS);
@@ -1573,17 +1494,19 @@ public final class DecisionEngineV1 {
 
     private int computeLanguageFrictionIndex(
             String combinedText,
-            Optional<CompanyConfig> trackedCompany
+            Optional<CompanyConfig> trackedCompany,
+            DecisionSignalsConfig decisionSignals
     ) {
-        boolean hasStrongRequiredLanguage = containsAny(combinedText, LANGUAGE_REQUIRED_KEYWORDS)
+        boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
-        boolean hasOptionalLanguage = containsAny(combinedText, LANGUAGE_OPTIONAL_OR_EXEMPT_KEYWORDS)
+        boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
-        boolean hasSoftLanguage = containsAny(combinedText, LANGUAGE_FRICTION_SOFT_KEYWORDS);
+        boolean hasSoftLanguage = containsAny(combinedText, decisionSignals.language().frictionSoftKeywords());
         hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
                 combinedText,
                 hasStrongRequiredLanguage,
-                hasOptionalLanguage
+                hasOptionalLanguage,
+                decisionSignals
         );
 
         int index = 0;
@@ -1595,13 +1518,13 @@ public final class DecisionEngineV1 {
             index = LANGUAGE_INDEX_SOFT_BASE;
         }
 
-        if (containsAny(combinedText, LANGUAGE_MEDIUM_HIGH_FRICTION_KEYWORDS)) {
+        if (containsAny(combinedText, decisionSignals.language().mediumHighFrictionKeywords())) {
             index = Math.max(index, LANGUAGE_INDEX_MEDIUM_HIGH);
         }
-        if (containsAny(combinedText, LANGUAGE_HIGH_FRICTION_KEYWORDS)) {
+        if (containsAny(combinedText, decisionSignals.language().highFrictionKeywords())) {
             index = Math.max(index, LANGUAGE_INDEX_HIGH);
         }
-        if (hasCriticalLanguageFrictionSignal(combinedText)) {
+        if (hasCriticalLanguageFrictionSignal(combinedText, decisionSignals)) {
             index = Math.max(index, LANGUAGE_INDEX_CRITICAL);
         }
 
@@ -1613,7 +1536,8 @@ public final class DecisionEngineV1 {
             index = Math.max(index, LANGUAGE_INDEX_COMPANY_RISK_FLOOR);
         }
 
-        boolean englishFriendly = hasEnglishFriendlySignal(combinedText, trackedCompany);
+        boolean englishFriendly = hasEnglishFriendlySignal(combinedText, trackedCompany, decisionSignals);
+        boolean englishSupportEnvironment = hasEnglishSupportEnvironmentSignal(combinedText, decisionSignals);
         if (!hasStrongRequiredLanguage && englishFriendly) {
             index -= LANGUAGE_INDEX_ENGLISH_FRIENDLY_BONUS;
         }
@@ -1624,6 +1548,9 @@ public final class DecisionEngineV1 {
             } else if (hasCorporateJapaneseHint(corporateUrl)) {
                 index += LANGUAGE_INDEX_CORPORATE_JAPANESE_PENALTY;
             }
+        }
+        if (!hasStrongRequiredLanguage && englishSupportEnvironment) {
+            index = Math.min(index, decisionSignals.language().englishSupportMaxIndex());
         }
         if (hasOptionalLanguage && !hasStrongRequiredLanguage) {
             index = Math.min(index, LANGUAGE_INDEX_OPTIONAL_MAX);
@@ -1641,14 +1568,15 @@ public final class DecisionEngineV1 {
     private boolean resolveRequiredLanguageConflict(
             String combinedText,
             boolean hasStrongRequiredLanguage,
-            boolean hasOptionalLanguage
+            boolean hasOptionalLanguage,
+            DecisionSignalsConfig decisionSignals
     ) {
         if (!hasStrongRequiredLanguage || !hasOptionalLanguage) {
             return hasStrongRequiredLanguage;
         }
 
-        boolean hasClearRequiredIndicator = containsAny(combinedText, LANGUAGE_HIGH_FRICTION_KEYWORDS)
-                || containsAny(combinedText, LANGUAGE_MEDIUM_HIGH_FRICTION_KEYWORDS)
+        boolean hasClearRequiredIndicator = containsAny(combinedText, decisionSignals.language().highFrictionKeywords())
+                || containsAny(combinedText, decisionSignals.language().mediumHighFrictionKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
 
         if (hasClearRequiredIndicator) {
@@ -1743,7 +1671,7 @@ public final class DecisionEngineV1 {
         return upperBoundYen > NORMALIZED_SCORE_MIN && upperBoundYen <= MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN;
     }
 
-    private boolean hasWorkloadPolicyRisk(String combinedText) {
+    private boolean hasWorkloadPolicyRisk(String combinedText, DecisionSignalsConfig decisionSignals) {
         int matched = 0;
         if (containsAny(combinedText, WORKLOAD_NO_FIXED_HOURS_KEYWORDS)) {
             matched++;
@@ -1752,17 +1680,20 @@ public final class DecisionEngineV1 {
             matched++;
         }
         if (containsAny(combinedText, WORKLOAD_PRESSURE_KEYWORDS)
-                || containsAny(combinedText, OVERTIME_RISK_KEYWORDS)) {
+                || containsAny(combinedText, decisionSignals.workLifeBalance().overtimeRiskKeywords())) {
             matched++;
         }
         return matched >= WORKLOAD_OVERLOAD_SIGNAL_THRESHOLD;
     }
 
-    private boolean hasWorkloadOverloadHardCondition(String combinedText) {
+    private boolean hasWorkloadOverloadHardCondition(
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
         boolean noFixedHours = containsAny(combinedText, WORKLOAD_NO_FIXED_HOURS_KEYWORDS);
         boolean minWeeklyCommitment = containsAny(combinedText, WORKLOAD_MIN_WEEKLY_COMMITMENT_KEYWORDS);
         boolean overtimePressure = containsAny(combinedText, WORKLOAD_PRESSURE_KEYWORDS)
-                || containsAny(combinedText, OVERTIME_RISK_KEYWORDS);
+                || containsAny(combinedText, decisionSignals.workLifeBalance().overtimeRiskKeywords());
         return noFixedHours && minWeeklyCommitment && overtimePressure;
     }
 
@@ -1774,7 +1705,7 @@ public final class DecisionEngineV1 {
         if (orderedValues.size() < 2) {
             return false;
         }
-        return orderedValues.get(0) > orderedValues.get(orderedValues.size() - 1);
+        return orderedValues.get(0) > orderedValues.get(1);
     }
 
     private boolean hasSalaryBelowPersonaFloor(
@@ -1971,13 +1902,18 @@ public final class DecisionEngineV1 {
 
     private void detectCompanyProfileRiskSignals(
             Optional<CompanyConfig> trackedCompany,
-            Set<String> riskSignals
+            String combinedText,
+            Set<String> riskSignals,
+            DecisionSignalsConfig decisionSignals
     ) {
         if (trackedCompany.isEmpty()) {
             return;
         }
         Set<String> tags = normalizeSet(trackedCompany.get().riskTags());
-        if (tags.contains(TAG_RISK_LANGUAGE_FRICTION_HIGH)) {
+        boolean roleLevelEnglishMitigation = hasEnglishSupportEnvironmentSignal(combinedText, decisionSignals)
+                || containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
+                || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
+        if (tags.contains(TAG_RISK_LANGUAGE_FRICTION_HIGH) && !roleLevelEnglishMitigation) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION);
         }
         if (tags.contains(TAG_RISK_OVERTIME)) {
