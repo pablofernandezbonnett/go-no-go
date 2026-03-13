@@ -64,6 +64,45 @@ import picocli.CommandLine.Spec;
         description = "Run full pipeline: raw text normalization, batch evaluation, and weekly digest."
 )
 public final class PipelineRunCommand implements Callable<Integer> {
+    private static final String LABEL_FETCH_WEB_STAGE_SUMMARY = "fetch-web stage summary:";
+    private static final String LABEL_PIPELINE_COMPLETED = "Pipeline completed.";
+    private static final String FIELD_COMPANIES_PROCESSED = "companies_processed";
+    private static final String FIELD_COMPANIES_FAILED = "companies_failed";
+    private static final String FIELD_RAW_FILES_GENERATED = "raw_files_generated";
+    private static final String FIELD_CONTEXT_FILES_GENERATED = "context_files_generated";
+    private static final String FIELD_DURATION_MS = "duration_ms";
+    private static final String FIELD_CACHE_FRESH_HITS = "cache_fresh_hits";
+    private static final String FIELD_CACHE_MISSES = "cache_misses";
+    private static final String FIELD_CACHE_STALE_FALLBACKS = "cache_stale_fallbacks";
+    private static final String FIELD_RETRIES_USED = "retries_used";
+    private static final String FIELD_OUTGOING_REQUESTS = "outgoing_requests";
+    private static final String FIELD_MAX_CONCURRENCY = "max_concurrency";
+    private static final String FIELD_MAX_CONCURRENCY_PER_HOST = "max_concurrency_per_host";
+    private static final String FIELD_RAW_INPUT_DIR = "raw_input_dir";
+    private static final String FIELD_COMPANY_CONTEXT_DIR = "company_context_dir";
+    private static final String FIELD_FETCH_DURATION_MS = "fetch_duration_ms";
+    private static final String FIELD_NORMALIZE_DURATION_MS = "normalize_duration_ms";
+    private static final String FIELD_EVALUATE_DURATION_MS = "evaluate_duration_ms";
+    private static final String FIELD_EVALUATE_MAX_CONCURRENCY = "evaluate_max_concurrency";
+    private static final String FIELD_REPORT_DURATION_MS = "report_duration_ms";
+    private static final String FIELD_TOTAL_RAW_FILES = "total_raw_files";
+    private static final String FIELD_WARNINGS = "warnings";
+    private static final String FIELD_EVALUATED = "evaluated";
+    private static final String FIELD_FAILED = "failed";
+    private static final String FIELD_GO = "go";
+    private static final String FIELD_GO_WITH_CAUTION = "go_with_caution";
+    private static final String FIELD_NO_GO = "no_go";
+    private static final String FIELD_NEW = "new";
+    private static final String FIELD_UPDATED = "updated";
+    private static final String FIELD_UNCHANGED = "unchanged";
+    private static final String FIELD_REMOVED = "removed";
+    private static final String FIELD_BATCH_JSON = "batch_json";
+    private static final String FIELD_BATCH_MARKDOWN = "batch_markdown";
+    private static final String FIELD_WEEKLY_DIGEST = "weekly_digest";
+    private static final String FIELD_TREND_HISTORY = "trend_history";
+    private static final String FIELD_TREND_ALERTS = "trend_alerts";
+    private static final String FIELD_TREND_ALERT_DISPATCH = "trend_alert_dispatch";
+
     private final CareerPageFetchService fetchService;
     private final JobEvaluationService jobEvaluationService;
 
@@ -810,22 +849,22 @@ public final class PipelineRunCommand implements Callable<Integer> {
             System.err.println(message);
         }
 
-        System.out.println("fetch-web stage summary:");
-        System.out.println("companies_processed: " + outcome.selectedCompanies());
-        System.out.println("companies_failed: " + outcome.companiesFailed());
-        System.out.println("raw_files_generated: " + outcome.rawFilesGenerated());
-        System.out.println("context_files_generated: " + outcome.contextFilesGenerated());
-        System.out.println("duration_ms: " + outcome.totalDurationMillis());
-        System.out.println("cache_fresh_hits: " + outcome.freshCacheHitCount());
-        System.out.println("cache_misses: " + outcome.cacheMissCount());
-        System.out.println("cache_stale_fallbacks: " + outcome.staleCacheFallbackCount());
-        System.out.println("retries_used: " + outcome.retryCount());
-        System.out.println("outgoing_requests: " + outcome.outgoingRequestCount());
-        System.out.println("max_concurrency: " + effectiveMaxConcurrency);
-        System.out.println("max_concurrency_per_host: " + effectiveMaxConcurrencyPerHost);
-        System.out.println("raw_input_dir: " + rawInputDir);
+        System.out.println(LABEL_FETCH_WEB_STAGE_SUMMARY);
+        System.out.println(FIELD_COMPANIES_PROCESSED + ": " + outcome.selectedCompanies());
+        System.out.println(FIELD_COMPANIES_FAILED + ": " + outcome.companiesFailed());
+        System.out.println(FIELD_RAW_FILES_GENERATED + ": " + outcome.rawFilesGenerated());
+        System.out.println(FIELD_CONTEXT_FILES_GENERATED + ": " + outcome.contextFilesGenerated());
+        System.out.println(FIELD_DURATION_MS + ": " + outcome.totalDurationMillis());
+        System.out.println(FIELD_CACHE_FRESH_HITS + ": " + outcome.freshCacheHitCount());
+        System.out.println(FIELD_CACHE_MISSES + ": " + outcome.cacheMissCount());
+        System.out.println(FIELD_CACHE_STALE_FALLBACKS + ": " + outcome.staleCacheFallbackCount());
+        System.out.println(FIELD_RETRIES_USED + ": " + outcome.retryCount());
+        System.out.println(FIELD_OUTGOING_REQUESTS + ": " + outcome.outgoingRequestCount());
+        System.out.println(FIELD_MAX_CONCURRENCY + ": " + effectiveMaxConcurrency);
+        System.out.println(FIELD_MAX_CONCURRENCY_PER_HOST + ": " + effectiveMaxConcurrencyPerHost);
+        System.out.println(FIELD_RAW_INPUT_DIR + ": " + rawInputDir);
         if (!disableCompanyContext) {
-            System.out.println("company_context_dir: " + companyContextDir);
+            System.out.println(FIELD_COMPANY_CONTEXT_DIR + ": " + companyContextDir);
         }
 
         return outcome.allSelectedCompaniesFailed() ? 1 : 0;
@@ -1204,35 +1243,35 @@ public final class PipelineRunCommand implements Callable<Integer> {
             long reportDurationMillis,
             int evaluateMaxConcurrencyValue
     ) {
-        System.out.println("Pipeline completed.");
-        System.out.println("persona: " + report.personaId());
-        System.out.println("candidate_profile: " + candidateProfileIdValue);
-        System.out.println("duration_ms: " + totalDurationMillis);
-        System.out.println("fetch_duration_ms: " + fetchDurationMillis);
-        System.out.println("normalize_duration_ms: " + normalizeDurationMillis);
-        System.out.println("evaluate_duration_ms: " + evaluateDurationMillis);
-        System.out.println("evaluate_max_concurrency: " + evaluateMaxConcurrencyValue);
-        System.out.println("report_duration_ms: " + reportDurationMillis);
-        System.out.println("total_raw_files: " + report.totalFiles());
-        System.out.println("warnings: " + warningCount);
-        System.out.println("evaluated: " + report.evaluatedCount());
-        System.out.println("failed: " + report.failedCount());
-        System.out.println("go: " + report.goCount());
-        System.out.println("go_with_caution: " + report.goWithCautionCount());
-        System.out.println("no_go: " + report.noGoCount());
-        System.out.println("new: " + report.newCount());
-        System.out.println("updated: " + report.updatedCount());
-        System.out.println("unchanged: " + report.unchangedCount());
-        System.out.println("removed: " + report.removedCount());
-        System.out.println("batch_json: " + batchJsonPath);
-        System.out.println("batch_markdown: " + batchMarkdownPath);
-        System.out.println("weekly_digest: " + weeklyPath);
+        System.out.println(LABEL_PIPELINE_COMPLETED);
+        System.out.println(EvaluateInputFieldKeys.PERSONA + ": " + report.personaId());
+        System.out.println(EvaluateInputFieldKeys.CANDIDATE_PROFILE + ": " + candidateProfileIdValue);
+        System.out.println(FIELD_DURATION_MS + ": " + totalDurationMillis);
+        System.out.println(FIELD_FETCH_DURATION_MS + ": " + fetchDurationMillis);
+        System.out.println(FIELD_NORMALIZE_DURATION_MS + ": " + normalizeDurationMillis);
+        System.out.println(FIELD_EVALUATE_DURATION_MS + ": " + evaluateDurationMillis);
+        System.out.println(FIELD_EVALUATE_MAX_CONCURRENCY + ": " + evaluateMaxConcurrencyValue);
+        System.out.println(FIELD_REPORT_DURATION_MS + ": " + reportDurationMillis);
+        System.out.println(FIELD_TOTAL_RAW_FILES + ": " + report.totalFiles());
+        System.out.println(FIELD_WARNINGS + ": " + warningCount);
+        System.out.println(FIELD_EVALUATED + ": " + report.evaluatedCount());
+        System.out.println(FIELD_FAILED + ": " + report.failedCount());
+        System.out.println(FIELD_GO + ": " + report.goCount());
+        System.out.println(FIELD_GO_WITH_CAUTION + ": " + report.goWithCautionCount());
+        System.out.println(FIELD_NO_GO + ": " + report.noGoCount());
+        System.out.println(FIELD_NEW + ": " + report.newCount());
+        System.out.println(FIELD_UPDATED + ": " + report.updatedCount());
+        System.out.println(FIELD_UNCHANGED + ": " + report.unchangedCount());
+        System.out.println(FIELD_REMOVED + ": " + report.removedCount());
+        System.out.println(FIELD_BATCH_JSON + ": " + batchJsonPath);
+        System.out.println(FIELD_BATCH_MARKDOWN + ": " + batchMarkdownPath);
+        System.out.println(FIELD_WEEKLY_DIGEST + ": " + weeklyPath);
         if (trendHistoryPath != null) {
-            System.out.println("trend_history: " + trendHistoryPath);
-            System.out.println("trend_alerts: " + trendAlertCount);
+            System.out.println(FIELD_TREND_HISTORY + ": " + trendHistoryPath);
+            System.out.println(FIELD_TREND_ALERTS + ": " + trendAlertCount);
             for (TrendAlertSink.DispatchResult result : trendDispatchResults) {
                 System.out.println(
-                        "trend_alert_dispatch: sink="
+                        FIELD_TREND_ALERT_DISPATCH + ": sink="
                                 + result.sinkId()
                                 + ", delivered="
                                 + result.delivered()

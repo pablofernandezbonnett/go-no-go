@@ -25,12 +25,12 @@ public final class YamlJobInputLoader {
             throw new JobInputLoadException(errors);
         }
 
-        String companyName = readRequiredString(root, "company_name", errors);
-        String title = readRequiredString(root, "title", errors);
-        String location = readRequiredString(root, "location", errors);
-        String salaryRange = readRequiredString(root, "salary_range", errors);
-        String remotePolicy = readRequiredString(root, "remote_policy", errors);
-        String description = readRequiredString(root, "description", errors);
+        String companyName = readRequiredString(root, JobInputFieldKeys.COMPANY_NAME, errors);
+        String title = readRequiredString(root, JobInputFieldKeys.TITLE, errors);
+        String location = readRequiredString(root, JobInputFieldKeys.LOCATION, errors);
+        String salaryRange = readRequiredString(root, JobInputFieldKeys.SALARY_RANGE, errors);
+        String remotePolicy = readRequiredString(root, JobInputFieldKeys.REMOTE_POLICY, errors);
+        String description = readRequiredString(root, JobInputFieldKeys.DESCRIPTION, errors);
 
         if (!errors.isEmpty()) {
             throw new JobInputLoadException(errors);
@@ -55,7 +55,7 @@ public final class YamlJobInputLoader {
                 errors.add("Job YAML root must be a mapping object: " + jobFile);
                 return Map.of();
             }
-            Object jobSection = map.get("job");
+            Object jobSection = map.get(JobInputFieldKeys.JOB);
             if (jobSection instanceof Map<?, ?> jobMap) {
                 return (Map<String, Object>) jobMap;
             }

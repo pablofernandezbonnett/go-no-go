@@ -157,6 +157,11 @@ Salary seriousness rule:
 - Intelligence > scraping
 - No overengineering
 
+Operational expectation:
+
+- Keep market wording data such as keyword lists and simple thresholds in config when practical.
+- Keep decision flow, conflict resolution, and scoring logic in Java.
+
 ---
 
 ## Long-Term Vision

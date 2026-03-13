@@ -1,0 +1,41 @@
+language:
+  required_keywords:
+    - japanese required
+    - business-level japanese
+    - jlpt n2
+  friction_soft_keywords:
+    - japanese proficiency
+    - japanese communication
+  medium_high_friction_keywords:
+    - business-level japanese
+    - jlpt n2
+  high_friction_keywords:
+    - native japanese
+    - jlpt n1
+  optional_or_exempt_keywords:
+    - no japanese required
+    - japanese is a plus
+    - english only
+  english_friendly_keywords:
+    - english-first
+    - international team
+    - global team
+  english_support_environment_keywords:
+    - english is used on a daily basis
+    - fluency in english is not required
+    - support is provided
+  english_support_max_index: 20
+
+work_life_balance:
+  overtime_risk_keywords:
+    - fixed overtime
+    - overtime work may occur
+    - fast-paced
+  holiday_policy_risk_keywords:
+    - national holidays are workdays
+    - public holidays are working days
+
+mobility:
+  location_mobility_risk_keywords:
+    - location may be changed
+    - including overseas

@@ -8,6 +8,16 @@ import java.util.List;
 
 public final class JsonFileTrendAlertSink implements TrendAlertSink {
     private static final int ZERO_ALERTS = 0;
+    private static final String FIELD_PERSONA = "persona";
+    private static final String FIELD_CANDIDATE_PROFILE = "candidate_profile";
+    private static final String FIELD_GENERATED_AT = "generated_at";
+    private static final String FIELD_BATCH_JSON = "batch_json";
+    private static final String FIELD_WEEKLY_DIGEST = "weekly_digest";
+    private static final String FIELD_ALERTS_COUNT = "alerts_count";
+    private static final String FIELD_ALERTS = "alerts";
+    private static final String FIELD_SEVERITY = "severity";
+    private static final String FIELD_CODE = "code";
+    private static final String FIELD_MESSAGE = "message";
     private final Path outputFile;
 
     public JsonFileTrendAlertSink(Path outputFile) {
@@ -33,21 +43,21 @@ public final class JsonFileTrendAlertSink implements TrendAlertSink {
     private String toJson(List<TrendAlert> alerts, TrendAlertDispatchContext context) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\n");
-        appendJsonField(sb, 1, "persona", context.personaId(), true);
-        appendJsonField(sb, 1, "candidate_profile", context.candidateProfileId(), true);
-        appendJsonField(sb, 1, "generated_at", context.generatedAt(), true);
-        appendJsonField(sb, 1, "batch_json", context.batchJsonPath().toString(), true);
-        appendJsonField(sb, 1, "weekly_digest", context.weeklyDigestPath().toString(), true);
-        appendJsonNumberField(sb, 1, "alerts_count", alerts == null ? ZERO_ALERTS : alerts.size(), true);
-        sb.append(indent(1)).append("\"alerts\": [");
+        appendJsonField(sb, 1, FIELD_PERSONA, context.personaId(), true);
+        appendJsonField(sb, 1, FIELD_CANDIDATE_PROFILE, context.candidateProfileId(), true);
+        appendJsonField(sb, 1, FIELD_GENERATED_AT, context.generatedAt(), true);
+        appendJsonField(sb, 1, FIELD_BATCH_JSON, context.batchJsonPath().toString(), true);
+        appendJsonField(sb, 1, FIELD_WEEKLY_DIGEST, context.weeklyDigestPath().toString(), true);
+        appendJsonNumberField(sb, 1, FIELD_ALERTS_COUNT, alerts == null ? ZERO_ALERTS : alerts.size(), true);
+        sb.append(indent(1)).append('"').append(FIELD_ALERTS).append("\": [");
         if (alerts != null && !alerts.isEmpty()) {
             sb.append("\n");
             for (int i = 0; i < alerts.size(); i++) {
                 TrendAlert alert = alerts.get(i);
                 sb.append(indent(2)).append("{\n");
-                appendJsonField(sb, 3, "severity", alert.severity(), true);
-                appendJsonField(sb, 3, "code", alert.code(), true);
-                appendJsonField(sb, 3, "message", alert.message(), false);
+                appendJsonField(sb, 3, FIELD_SEVERITY, alert.severity(), true);
+                appendJsonField(sb, 3, FIELD_CODE, alert.code(), true);
+                appendJsonField(sb, 3, FIELD_MESSAGE, alert.message(), false);
                 sb.append(indent(2)).append("}");
                 if (i < alerts.size() - 1) {
                     sb.append(",");

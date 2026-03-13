@@ -28,8 +28,9 @@ High-level flow:
 3. UI maps artifacts into view models.
 4. UI renders report pages (runs, batch, weekly, context, trends).
 5. Optional ad-hoc evaluation submits URL/raw text to the server.
-6. The server runs `services/engine` `evaluate-input` with JSON output and a YAML analysis artifact.
-7. UI renders the returned evaluation summary and keeps the artifact under the reports root.
+6. The server runs `services/engine` `evaluate-input` with JSON output and a YAML analysis artifact for one persona or all configured personas.
+7. UI renders the returned evaluation summaries and keeps the artifacts under the reports root.
+8. The evaluate page also builds a reusable URL history from processed job YAML and ad-hoc evaluation YAML artifacts.
 
 ## Directory/Data Assumptions
 
@@ -42,6 +43,7 @@ Expected report root structure (evolves with engine):
 - `trend-alerts-*.json`
 - `company-context/*.txt`
 - `ad-hoc-evaluations/*.yaml`
+- `jobs/**/*.yaml`
 
 Target contract improvement:
 
@@ -55,6 +57,7 @@ Target contract improvement:
 - `Views`: Runs, Batch, Job Detail, Weekly, Company Context, Trends/Alerts, Evaluate.
 - `EngineCatalogRepository`: loads persona/candidate-profile selector options from engine config.
 - `EngineEvaluationRunner`: delegates ad-hoc evaluation requests to the engine CLI.
+- `EvaluationUrlHistoryRepository`: builds reusable URL history from processed job and ad-hoc evaluation artifacts.
 
 ## Config
 

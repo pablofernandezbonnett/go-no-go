@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine;
 
+import com.pmfb.gonogo.engine.job.JobInputFieldKeys;
 import com.pmfb.gonogo.engine.job.JobInput;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,55 +29,55 @@ final class EvaluateInputArtifactWriter {
 
     private Map<String, Object> toYamlMap(EvaluateInputAnalysis analysis) {
         LinkedHashMap<String, Object> root = new LinkedHashMap<>();
-        root.put("generated_at", analysis.generatedAt());
-        root.put("persona", analysis.personaId());
-        root.put("candidate_profile", analysis.candidateProfileId());
-        root.put("source", toSourceMap(analysis.source()));
-        root.put("job_input", toJobInputMap(analysis.jobInput()));
-        root.put("evaluation", toEvaluationMap(analysis.evaluation()));
-        root.put("normalization_warnings", analysis.normalizationWarnings());
+        root.put(EvaluateInputFieldKeys.GENERATED_AT, analysis.generatedAt());
+        root.put(EvaluateInputFieldKeys.PERSONA, analysis.personaId());
+        root.put(EvaluateInputFieldKeys.CANDIDATE_PROFILE, analysis.candidateProfileId());
+        root.put(EvaluateInputFieldKeys.SOURCE, toSourceMap(analysis.source()));
+        root.put(EvaluateInputFieldKeys.JOB_INPUT, toJobInputMap(analysis.jobInput()));
+        root.put(EvaluateInputFieldKeys.EVALUATION, toEvaluationMap(analysis.evaluation()));
+        root.put(EvaluateInputFieldKeys.NORMALIZATION_WARNINGS, analysis.normalizationWarnings());
         return root;
     }
 
     private Map<String, Object> toSourceMap(EvaluateInputAnalysis.SourceDetails source) {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-        map.put("kind", source.kind());
+        map.put(EvaluateInputFieldKeys.KIND, source.kind());
         if (!source.url().isBlank()) {
-            map.put("url", source.url());
+            map.put(EvaluateInputFieldKeys.URL, source.url());
         }
         if (!source.file().isBlank()) {
-            map.put("file", source.file());
+            map.put(EvaluateInputFieldKeys.FILE, source.file());
         }
         if (!source.rawText().isBlank()) {
-            map.put("raw_text", source.rawText());
+            map.put(EvaluateInputFieldKeys.RAW_TEXT, source.rawText());
         }
         return map;
     }
 
     private Map<String, Object> toJobInputMap(JobInput jobInput) {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-        map.put("company_name", jobInput.companyName());
-        map.put("title", jobInput.title());
-        map.put("location", jobInput.location());
-        map.put("salary_range", jobInput.salaryRange());
-        map.put("remote_policy", jobInput.remotePolicy());
-        map.put("description", jobInput.description());
+        map.put(JobInputFieldKeys.COMPANY_NAME, jobInput.companyName());
+        map.put(JobInputFieldKeys.TITLE, jobInput.title());
+        map.put(JobInputFieldKeys.LOCATION, jobInput.location());
+        map.put(JobInputFieldKeys.SALARY_RANGE, jobInput.salaryRange());
+        map.put(JobInputFieldKeys.REMOTE_POLICY, jobInput.remotePolicy());
+        map.put(JobInputFieldKeys.DESCRIPTION, jobInput.description());
         return map;
     }
 
     private Map<String, Object> toEvaluationMap(com.pmfb.gonogo.engine.decision.EvaluationResult evaluation) {
         LinkedHashMap<String, Object> map = new LinkedHashMap<>();
-        map.put("verdict", evaluation.verdict().name());
-        map.put("score", evaluation.score());
-        map.put("raw_score", evaluation.rawScore());
-        map.put("raw_score_min", evaluation.rawScoreMin());
-        map.put("raw_score_max", evaluation.rawScoreMax());
-        map.put("language_friction_index", evaluation.languageFrictionIndex());
-        map.put("company_reputation_index", evaluation.companyReputationIndex());
-        map.put("hard_reject_reasons", evaluation.hardRejectReasons());
-        map.put("positive_signals", evaluation.positiveSignals());
-        map.put("risk_signals", evaluation.riskSignals());
-        map.put("reasoning", evaluation.reasoning());
+        map.put(EvaluateInputFieldKeys.VERDICT, evaluation.verdict().name());
+        map.put(EvaluateInputFieldKeys.SCORE, evaluation.score());
+        map.put(EvaluateInputFieldKeys.RAW_SCORE, evaluation.rawScore());
+        map.put(EvaluateInputFieldKeys.RAW_SCORE_MIN, evaluation.rawScoreMin());
+        map.put(EvaluateInputFieldKeys.RAW_SCORE_MAX, evaluation.rawScoreMax());
+        map.put(EvaluateInputFieldKeys.LANGUAGE_FRICTION_INDEX, evaluation.languageFrictionIndex());
+        map.put(EvaluateInputFieldKeys.COMPANY_REPUTATION_INDEX, evaluation.companyReputationIndex());
+        map.put(EvaluateInputFieldKeys.HARD_REJECT_REASONS, evaluation.hardRejectReasons());
+        map.put(EvaluateInputFieldKeys.POSITIVE_SIGNALS, evaluation.positiveSignals());
+        map.put(EvaluateInputFieldKeys.RISK_SIGNALS, evaluation.riskSignals());
+        map.put(EvaluateInputFieldKeys.REASONING, evaluation.reasoning());
         return map;
     }
 }
