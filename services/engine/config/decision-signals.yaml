@@ -116,3 +116,53 @@ mobility:
     - transfer may be required
     - relocation may be required
     - as determined by the company
+
+job_post_quality:
+  generic_marketing_risk_keywords:
+    - industry leading company
+    - industry-leading company
+    - cutting-edge solutions
+    - cutting edge solutions
+    - technical excellence
+    - high-impact systems
+    - high impact systems
+    - innovative technology solutions
+    - vibrant city of tokyo
+  generic_marketing_risk_hit_min: 2
+  conditions_section_keywords:
+    - conditions
+    - benefits
+    - working conditions
+    - what we offer
+    - compensation
+    - 待遇
+    - 条件・待遇
+  vague_conditions_risk_keywords:
+    - opportunity to work
+    - a chance to contribute
+    - innovative technology solutions
+    - vibrant city of tokyo
+    - technical excellence
+    - exciting opportunity
+    - grow with us
+  vague_conditions_risk_hit_min: 2
+  concrete_conditions_keywords:
+    - salary
+    - bonus
+    - annual leave
+    - paid leave
+    - holiday
+    - holidays
+    - insurance
+    - allowance
+    - flextime
+    - remote
+    - hybrid
+    - work from home
+    - overtime
+    - hours
+    - commuter
+    - pension
+    - social insurance
+    - stock option
+    - visa sponsorship

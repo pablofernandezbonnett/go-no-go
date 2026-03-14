@@ -38,6 +38,9 @@ public final class SignalIds {
     public static final String ROLE_MISMATCH_MANAGER_VS_IC_TITLE = "role_mismatch_manager_vs_ic_title";
     public static final String ROLE_IDENTITY_MISMATCH = "role_identity_mismatch";
     public static final String INTERMEDIARY_CONTRACT_RISK = "intermediary_contract_risk";
+    public static final String ANONYMOUS_EMPLOYER_RISK = "anonymous_employer_risk";
+    public static final String GENERIC_MARKETING_POST_RISK = "generic_marketing_post_risk";
+    public static final String VAGUE_CONDITIONS_RISK = "vague_conditions_risk";
     public static final String INCLUSION_CONTRADICTION = "inclusion_contradiction";
     public static final String PRE_IPO_RISK = "pre_ipo_risk";
     public static final String MANAGER_SCOPE_SALARY_MISALIGNED = "manager_scope_salary_misaligned";

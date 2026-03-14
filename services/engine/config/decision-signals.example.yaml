@@ -39,3 +39,23 @@ mobility:
   location_mobility_risk_keywords:
     - location may be changed
     - including overseas
+
+job_post_quality:
+  generic_marketing_risk_keywords:
+    - industry leading company
+    - cutting-edge solutions
+    - vibrant city of tokyo
+  generic_marketing_risk_hit_min: 2
+  conditions_section_keywords:
+    - conditions
+    - benefits
+    - 条件・待遇
+  vague_conditions_risk_keywords:
+    - opportunity to work
+    - a chance to contribute
+    - innovative technology solutions
+  vague_conditions_risk_hit_min: 2
+  concrete_conditions_keywords:
+    - salary
+    - annual leave
+    - hybrid
