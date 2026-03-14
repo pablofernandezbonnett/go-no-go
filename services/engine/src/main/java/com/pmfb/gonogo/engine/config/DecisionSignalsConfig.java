@@ -5,19 +5,22 @@ import java.util.List;
 public record DecisionSignalsConfig(
         LanguageConfig language,
         WorkLifeBalanceConfig workLifeBalance,
-        MobilityConfig mobility
+        MobilityConfig mobility,
+        JobPostQualityConfig jobPostQuality
 ) {
     public DecisionSignalsConfig {
         language = language == null ? LanguageConfig.defaults() : language;
         workLifeBalance = workLifeBalance == null ? WorkLifeBalanceConfig.defaults() : workLifeBalance;
         mobility = mobility == null ? MobilityConfig.defaults() : mobility;
+        jobPostQuality = jobPostQuality == null ? JobPostQualityConfig.defaults() : jobPostQuality;
     }
 
     public static DecisionSignalsConfig defaults() {
         return new DecisionSignalsConfig(
                 LanguageConfig.defaults(),
                 WorkLifeBalanceConfig.defaults(),
-                MobilityConfig.defaults()
+                MobilityConfig.defaults(),
+                JobPostQualityConfig.defaults()
         );
     }
 
@@ -193,6 +196,79 @@ public record DecisionSignalsConfig(
                             "transfer may be required",
                             "relocation may be required",
                             "as determined by the company"
+                    )
+            );
+        }
+    }
+
+    public record JobPostQualityConfig(
+            List<String> genericMarketingRiskKeywords,
+            int genericMarketingRiskHitMin,
+            List<String> conditionsSectionKeywords,
+            List<String> vagueConditionsRiskKeywords,
+            int vagueConditionsRiskHitMin,
+            List<String> concreteConditionsKeywords
+    ) {
+        public JobPostQualityConfig {
+            genericMarketingRiskKeywords = List.copyOf(genericMarketingRiskKeywords);
+            conditionsSectionKeywords = List.copyOf(conditionsSectionKeywords);
+            vagueConditionsRiskKeywords = List.copyOf(vagueConditionsRiskKeywords);
+            concreteConditionsKeywords = List.copyOf(concreteConditionsKeywords);
+        }
+
+        public static JobPostQualityConfig defaults() {
+            return new JobPostQualityConfig(
+                    List.of(
+                            "industry leading company",
+                            "industry-leading company",
+                            "cutting-edge solutions",
+                            "cutting edge solutions",
+                            "technical excellence",
+                            "high-impact systems",
+                            "high impact systems",
+                            "innovative technology solutions",
+                            "vibrant city of tokyo"
+                    ),
+                    2,
+                    List.of(
+                            "conditions",
+                            "benefits",
+                            "working conditions",
+                            "what we offer",
+                            "compensation",
+                            "待遇",
+                            "条件・待遇"
+                    ),
+                    List.of(
+                            "opportunity to work",
+                            "a chance to contribute",
+                            "innovative technology solutions",
+                            "vibrant city of tokyo",
+                            "technical excellence",
+                            "exciting opportunity",
+                            "grow with us"
+                    ),
+                    2,
+                    List.of(
+                            "salary",
+                            "bonus",
+                            "annual leave",
+                            "paid leave",
+                            "holiday",
+                            "holidays",
+                            "insurance",
+                            "allowance",
+                            "flextime",
+                            "remote",
+                            "hybrid",
+                            "work from home",
+                            "overtime",
+                            "hours",
+                            "commuter",
+                            "pension",
+                            "social insurance",
+                            "stock option",
+                            "visa sponsorship"
                     )
             );
         }

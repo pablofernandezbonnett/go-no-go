@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Public catalog of all 55 signals recognized by DecisionEngineV1.
+ * Public catalog of all 58 signals recognized by DecisionEngineV1.
  *
  * <p>Provides metadata (name, type, priority group, default weight) for each signal,
  * enabling YAML config validation and API exposure via GET /api/signals.
@@ -66,7 +66,7 @@ public final class SignalRegistry {
             new SignalDescriptor(SignalIds.REAL_FLEXTIME,                     SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
             new SignalDescriptor(SignalIds.LOW_OVERTIME_DISCLOSED,            SignalType.POSITIVE, PriorityGroupIds.WORK_LIFE_BALANCE,   2),
 
-            // ── Risk signals (31) ─────────────────────────────────────────────────
+            // ── Risk signals (34) ─────────────────────────────────────────────────
             new SignalDescriptor(SignalIds.SALARY_LOW_CONFIDENCE,             SignalType.RISK,     PriorityGroupIds.SALARY,              2),
             new SignalDescriptor(SignalIds.SALARY_BELOW_PERSONA_FLOOR,        SignalType.RISK,     PriorityGroupIds.SALARY,              3),
             new SignalDescriptor(SignalIds.ONSITE_BIAS,                       SignalType.RISK,     PriorityGroupIds.HYBRID_WORK,         2),
@@ -79,6 +79,9 @@ public final class SignalRegistry {
             new SignalDescriptor(SignalIds.ROLE_MISMATCH_MANAGER_VS_IC_TITLE, SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 5),
             new SignalDescriptor(SignalIds.ROLE_IDENTITY_MISMATCH,            SignalType.RISK,     PriorityGroupIds.ENGINEERING_CULTURE, 6),
             new SignalDescriptor(SignalIds.INTERMEDIARY_CONTRACT_RISK,        SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     5),
+            new SignalDescriptor(SignalIds.ANONYMOUS_EMPLOYER_RISK,           SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.GENERIC_MARKETING_POST_RISK,       SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     2),
+            new SignalDescriptor(SignalIds.VAGUE_CONDITIONS_RISK,             SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   2),
             new SignalDescriptor(SignalIds.INCLUSION_CONTRADICTION,           SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 5),
             new SignalDescriptor(SignalIds.PRE_IPO_RISK,                      SignalType.RISK,     PriorityGroupIds.STABILITY,           4),
             new SignalDescriptor(SignalIds.MANAGER_SCOPE_SALARY_MISALIGNED,   SignalType.RISK,     PriorityGroupIds.SALARY,              5),

@@ -43,6 +43,18 @@ final class DecisionSignalsConfigTest {
                         mobility:
                           location_mobility_risk_keywords:
                             - including overseas
+                        job_post_quality:
+                          generic_marketing_risk_keywords:
+                            - industry leading company
+                            - cutting-edge solutions
+                          generic_marketing_risk_hit_min: 3
+                          conditions_section_keywords:
+                            - benefits
+                          vague_conditions_risk_keywords:
+                            - opportunity to work
+                          vague_conditions_risk_hit_min: 2
+                          concrete_conditions_keywords:
+                            - annual leave
                         """
         );
 
@@ -57,6 +69,11 @@ final class DecisionSignalsConfigTest {
         assertEquals(
                 List.of("including overseas"),
                 config.decisionSignals().mobility().locationMobilityRiskKeywords()
+        );
+        assertEquals(3, config.decisionSignals().jobPostQuality().genericMarketingRiskHitMin());
+        assertEquals(
+                List.of("annual leave"),
+                config.decisionSignals().jobPostQuality().concreteConditionsKeywords()
         );
     }
 
@@ -96,7 +113,15 @@ final class DecisionSignalsConfigTest {
                                 List.of(),
                                 List.of("national holidays are workdays", "national holidays are workdays")
                         ),
-                        new DecisionSignalsConfig.MobilityConfig(List.of())
+                        new DecisionSignalsConfig.MobilityConfig(List.of()),
+                        new DecisionSignalsConfig.JobPostQualityConfig(
+                                List.of(),
+                                0,
+                                List.of(),
+                                List.of("opportunity to work", "opportunity to work"),
+                                0,
+                                List.of()
+                        )
                 )
         );
 
@@ -108,6 +133,12 @@ final class DecisionSignalsConfigTest {
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.work_life_balance.overtime_risk_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.work_life_balance.holiday_policy_risk_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.mobility.location_mobility_risk_keywords")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.generic_marketing_risk_keywords")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.generic_marketing_risk_hit_min")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.conditions_section_keywords")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.vague_conditions_risk_keywords")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.vague_conditions_risk_hit_min")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.job_post_quality.concrete_conditions_keywords")));
     }
 
     private void writeBaseConfig(Path configDir) throws IOException {

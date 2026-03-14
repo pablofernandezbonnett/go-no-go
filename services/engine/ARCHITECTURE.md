@@ -37,7 +37,7 @@ Sources:
 - `config/companies.yaml`
 - `config/personas.yaml`
 - `config/blacklist.yaml`
-- `config/candidate-profiles/*.yaml`
+- `config/candidate-profiles/*.yaml` (excluding `*.example.yaml`)
 
 Properties:
 - deterministic loading

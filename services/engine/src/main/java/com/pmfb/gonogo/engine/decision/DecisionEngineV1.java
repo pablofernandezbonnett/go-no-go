@@ -59,6 +59,7 @@ public final class DecisionEngineV1 {
     private static final int REPUTATION_INDEX_HIGH_RISK_THRESHOLD = 20;
     private static final int MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN = 9_000_000;
     private static final int WORKLOAD_OVERLOAD_SIGNAL_THRESHOLD = 2;
+    private static final String UNKNOWN_COMPANY_NAME = "Unknown Company";
 
     private static final List<String> SALARY_MISSING_KEYWORDS = List.of(
             "tbd",
@@ -216,6 +217,7 @@ public final class DecisionEngineV1 {
     private static final List<Pattern> LANGUAGE_REQUIRED_PATTERNS = List.of(
             Pattern.compile("(?i)\\bjapanese\\b.{0,24}\\b(must|required for this role|mandatory)\\b"),
             Pattern.compile("(?i)\\b(must|mandatory)\\b.{0,24}\\bjapanese\\b"),
+            Pattern.compile("(?i)\\bcommunicat(?:e|es|ing|ion)\\b.{0,48}\\bin\\s+japanese\\b"),
             Pattern.compile("(?i)\\bjlpt\\s*n[12]\\b"),
             Pattern.compile("(?i)\\bn[12]\\s*(level\\s*or\\s*above|or\\s*above|\\+)\\b"),
             Pattern.compile("(?i)\\bn[12]\\b.{0,24}\\bjapanese\\b"),
@@ -296,6 +298,14 @@ public final class DecisionEngineV1 {
             "talent network",
             "talent pool",
             "contract and payment terms"
+    );
+    private static final List<String> ANONYMOUS_EMPLOYER_RISK_KEYWORDS = List.of(
+            "the employer is",
+            "our client is",
+            "our client, a",
+            "industry leading company",
+            "industry-leading company",
+            "large organization operating within"
     );
     private static final List<String> APPLICATION_PROCESS_TEMPLATE_KEYWORDS = List.of(
             "application process",
@@ -456,6 +466,9 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE = SignalIds.ROLE_MISMATCH_MANAGER_VS_IC_TITLE;
     private static final String SIGNAL_ROLE_IDENTITY_MISMATCH = SignalIds.ROLE_IDENTITY_MISMATCH;
     private static final String SIGNAL_INTERMEDIARY_CONTRACT_RISK = SignalIds.INTERMEDIARY_CONTRACT_RISK;
+    private static final String SIGNAL_ANONYMOUS_EMPLOYER_RISK = SignalIds.ANONYMOUS_EMPLOYER_RISK;
+    private static final String SIGNAL_GENERIC_MARKETING_POST_RISK = SignalIds.GENERIC_MARKETING_POST_RISK;
+    private static final String SIGNAL_VAGUE_CONDITIONS_RISK = SignalIds.VAGUE_CONDITIONS_RISK;
     private static final String SIGNAL_INCLUSION_CONTRADICTION = SignalIds.INCLUSION_CONTRADICTION;
     private static final String SIGNAL_PRE_IPO_RISK = SignalIds.PRE_IPO_RISK;
     private static final String SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED = SignalIds.MANAGER_SCOPE_SALARY_MISALIGNED;
@@ -644,6 +657,9 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE, PRIORITY_ENGINEERING_CULTURE),
             Map.entry(SIGNAL_ROLE_IDENTITY_MISMATCH, PRIORITY_ENGINEERING_CULTURE),
             Map.entry(SIGNAL_INTERMEDIARY_CONTRACT_RISK, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_ANONYMOUS_EMPLOYER_RISK, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_GENERIC_MARKETING_POST_RISK, PRIORITY_PRODUCT_COMPANY),
+            Map.entry(SIGNAL_VAGUE_CONDITIONS_RISK, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_PRE_IPO_RISK, PRIORITY_STABILITY),
             Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, PRIORITY_SALARY),
@@ -899,6 +915,15 @@ public final class DecisionEngineV1 {
         }
         if (hasIntermediaryContractRisk(combinedText)) {
             riskSignals.add(SIGNAL_INTERMEDIARY_CONTRACT_RISK);
+        }
+        if (hasAnonymousEmployerRisk(job.companyName(), combinedText)) {
+            riskSignals.add(SIGNAL_ANONYMOUS_EMPLOYER_RISK);
+        }
+        if (hasGenericMarketingPostRisk(job, combinedText, decisionSignals)) {
+            riskSignals.add(SIGNAL_GENERIC_MARKETING_POST_RISK);
+        }
+        if (hasVagueConditionsRisk(combinedText, decisionSignals)) {
+            riskSignals.add(SIGNAL_VAGUE_CONDITIONS_RISK);
         }
         if (hasInclusionContradiction(combinedText)) {
             riskSignals.add(SIGNAL_INCLUSION_CONTRADICTION);
@@ -1656,6 +1681,41 @@ public final class DecisionEngineV1 {
         boolean hasJapaneseInternalOnly = containsAny(combinedText, JAPANESE_INTERNAL_ONLY_KEYWORDS)
                 || matchesAnyPattern(combinedText, JAPANESE_INTERNAL_ONLY_PATTERNS);
         return hasForeignWelcome && hasJapaneseInternalOnly;
+    }
+
+    private boolean hasAnonymousEmployerRisk(String companyName, String combinedText) {
+        if (!UNKNOWN_COMPANY_NAME.equals(companyName)) {
+            return false;
+        }
+        return containsAny(combinedText, ANONYMOUS_EMPLOYER_RISK_KEYWORDS);
+    }
+
+    private boolean hasGenericMarketingPostRisk(
+            JobInput job,
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        int matches = countKeywordMatches(
+                combinedText,
+                decisionSignals.jobPostQuality().genericMarketingRiskKeywords()
+        );
+        if (matches >= decisionSignals.jobPostQuality().genericMarketingRiskHitMin()) {
+            return true;
+        }
+        return UNKNOWN_COMPANY_NAME.equals(job.companyName()) && matches >= 1;
+    }
+
+    private boolean hasVagueConditionsRisk(String combinedText, DecisionSignalsConfig decisionSignals) {
+        DecisionSignalsConfig.JobPostQualityConfig jobPostQuality = decisionSignals.jobPostQuality();
+        boolean hasConditionsSection = containsAny(combinedText, jobPostQuality.conditionsSectionKeywords());
+        if (!hasConditionsSection) {
+            return false;
+        }
+        int vagueMatches = countKeywordMatches(combinedText, jobPostQuality.vagueConditionsRiskKeywords());
+        if (vagueMatches < jobPostQuality.vagueConditionsRiskHitMin()) {
+            return false;
+        }
+        return !containsAny(combinedText, jobPostQuality.concreteConditionsKeywords());
     }
 
     private boolean hasManagerScopeSalaryMisaligned(String title, String combinedText, String salaryRange) {
