@@ -1,0 +1,95 @@
+# Candidate Profile Template
+# Copy this file to config/candidate-profiles/<your_id>.yaml for local runtime use.
+# Real candidate profiles should stay local and untracked.
+
+candidate:
+  name: Your Name
+  title: Senior Backend Engineer
+  location: Tokyo, Japan
+  total_experience_years: 10
+  languages:
+    - English: professional_working
+    - Japanese: conversational
+
+stack:
+  production_proven:
+    backend:
+      - Java
+      - Spring Boot
+      - REST APIs
+    frontend_exposure:
+      - TypeScript
+      - React
+    databases:
+      - PostgreSQL
+      - SQL / relational
+    platforms:
+      - AWS
+
+  actively_learning:
+    - Kotlin
+    - Kafka
+
+  gaps_honest:
+    - Kubernetes / infra
+    - Kafka in production
+
+experience:
+  - role: Senior Backend Engineer
+    company: Example Product Company
+    period: "2023-01 / present"
+    duration_months: 36
+    domain: product software
+    highlights:
+      - Backend ownership in production
+      - API design and reliability improvements
+      - Collaboration with product and frontend teams
+    positioning: recent anchor role for interviews
+
+education:
+  - degree: Computer Science
+    institution: Example University
+    year: "2012-2016"
+
+domain_expertise:
+  strong:
+    - ecommerce_platforms
+    - enterprise_java
+  moderate:
+    - distributed_product_systems
+    - system_design
+  limited:
+    - data_pipelines
+
+positioning_definitions:
+  product_engineer:
+    meaning: >
+      Backend-primary engineer who works close to product and business
+      stakeholders and makes technical decisions with product impact in mind.
+    cv_evidence:
+      - Current role with direct product ownership
+      - Experience shipping customer-facing backend features
+    safe_claim: >
+      Product-aware backend engineer with strong delivery ownership.
+
+differentiators:
+  - >
+    Add 3-5 concise bullets that explain what makes this profile distinctive
+    in interviews and offer analysis.
+
+target_roles:
+  ideal:
+    - Senior Backend Engineer
+    - Senior Product Engineer
+  good_fit:
+    - Example Company A
+    - Example Company B
+  requires_reframing:
+    - Pure DevOps roles
+
+star_stories:
+  - id: reliability_project
+    trigger_keywords: [performance, reliability, ownership]
+    summary: >
+      Replace this with a concise STAR anchor story you can reuse in interviews.
+    best_for: [roles focused on ownership and production systems]

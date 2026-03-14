@@ -15,6 +15,7 @@ Templates/examples:
 - `personas.example.yaml`
 - `runtime.example.yaml`
 - `decision-signals.example.yaml`
+- `candidate-profiles/candidate-profile.example.yaml`
 - `candidate-profiles/README.md`
 
 Use the example files as schema guides when adding new entries.
@@ -88,6 +89,8 @@ Runtime behavior:
 - Commands `check`, `evaluate`, `evaluate-input`, `evaluate-batch`, `pipeline run`, and `pipeline run-all` accept `--candidate-profile`.
 - When exactly one profile exists and no explicit `--candidate-profile` is provided, the engine auto-selects it.
 - Use `--candidate-profile none` to disable candidate-aware scoring explicitly.
+- `*.example.yaml` files under `candidate-profiles/` are ignored by the runtime loader.
+- Real candidate profiles are intended to stay local and untracked.
 
 Current candidate-aware signals:
 - positive: `candidate_stack_fit`, `candidate_domain_fit`, `candidate_seniority_fit`
@@ -128,6 +131,7 @@ Current scopes:
 - `language`
 - `work_life_balance`
 - `mobility`
+- `job_post_quality`
 
 Supported `language` fields:
 - `required_keywords`
@@ -145,6 +149,14 @@ Supported `work_life_balance` fields:
 
 Supported `mobility` fields:
 - `location_mobility_risk_keywords`
+
+Supported `job_post_quality` fields:
+- `generic_marketing_risk_keywords`
+- `generic_marketing_risk_hit_min`
+- `conditions_section_keywords`
+- `vague_conditions_risk_keywords`
+- `vague_conditions_risk_hit_min`
+- `concrete_conditions_keywords`
 
 Use this file to tune market wording without recompiling the engine. Keep the rule logic itself in Java.
 

@@ -312,6 +312,38 @@ public final class ConfigValidator {
                     errors
             );
         }
+
+        DecisionSignalsConfig.JobPostQualityConfig jobPostQuality = decisionSignals.jobPostQuality();
+        if (jobPostQuality == null) {
+            errors.add("decision-signals.job_post_quality must be defined");
+        } else {
+            validateDecisionSignalList(
+                    jobPostQuality.genericMarketingRiskKeywords(),
+                    "decision-signals.job_post_quality.generic_marketing_risk_keywords",
+                    errors
+            );
+            if (jobPostQuality.genericMarketingRiskHitMin() < 1) {
+                errors.add("decision-signals.job_post_quality.generic_marketing_risk_hit_min must be at least 1");
+            }
+            validateDecisionSignalList(
+                    jobPostQuality.conditionsSectionKeywords(),
+                    "decision-signals.job_post_quality.conditions_section_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
+                    jobPostQuality.vagueConditionsRiskKeywords(),
+                    "decision-signals.job_post_quality.vague_conditions_risk_keywords",
+                    errors
+            );
+            if (jobPostQuality.vagueConditionsRiskHitMin() < 1) {
+                errors.add("decision-signals.job_post_quality.vague_conditions_risk_hit_min must be at least 1");
+            }
+            validateDecisionSignalList(
+                    jobPostQuality.concreteConditionsKeywords(),
+                    "decision-signals.job_post_quality.concrete_conditions_keywords",
+                    errors
+            );
+        }
     }
 
     private void validateId(String value, String field, List<String> errors) {

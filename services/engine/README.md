@@ -82,8 +82,10 @@ Implemented now:
 - company reputation aggregation + index (`company_reputation_index`, 0-100)
 - engineering environment scoring signals (v1, rule-based from job text)
 - interview-process and Japan-market work-style signals (algorithmic screening risk, casual interview, real flextime, disclosed overtime)
+- job-post quality signals for anonymous recruiter-style posts, generic marketing fluff, and vague conditions sections
 - persona-level salary floor (`minimum_salary_yen`) for candidate-market fit
 - runtime candidate profiles (`config/candidate-profiles/`) with candidate-aware stack/domain/seniority signals
+- tracked candidate profile template plus local untracked candidate profiles for runtime use
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas
 - `gonogo schedule` command to generate non-active scheduled-run artifacts (script + cron file)
@@ -111,7 +113,7 @@ config/
 ├── runtime.yaml
 └── candidate-profiles/
     ├── README.md
-    └── demo_candidate.yaml
+    └── candidate-profile.example.yaml
 
 examples/
 ├── raw-job-text.example.txt

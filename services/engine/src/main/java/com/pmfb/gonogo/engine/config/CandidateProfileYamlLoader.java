@@ -262,6 +262,9 @@ final class CandidateProfileYamlLoader {
 
     private boolean isYamlFile(Path file) {
         String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (name.endsWith(".example.yaml") || name.endsWith(".example.yml")) {
+            return false;
+        }
         return name.endsWith(".yaml") || name.endsWith(".yml");
     }
 
