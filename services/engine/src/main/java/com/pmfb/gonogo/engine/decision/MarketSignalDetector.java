@@ -21,7 +21,7 @@ final class MarketSignalDetector {
             "data structures and algorithms",
             "data structures",
             "problem-solving ability",
-            "strong problem-solving ability"
+            "problem-solving skills"
     );
     private static final List<String> PM_COLLABORATION_KEYWORDS = List.of(
             "product manager",
@@ -84,6 +84,8 @@ final class MarketSignalDetector {
     private static final List<String> PRESSURE_CULTURE_KEYWORDS = List.of(
             "fast-paced environment",
             "fast paced environment",
+            "fast-moving environment",
+            "fast moving environment",
             "dynamic environment",
             "handle multiple tasks",
             "work under pressure",

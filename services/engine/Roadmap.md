@@ -54,7 +54,7 @@ Deliverable status:
 ## Phase 4 - Personalization (in progress, baseline available)
 
 - [x] persona-aware evaluation model (priorities + hard filters)
-- [x] candidate profile reference artifacts stored in repo (`config/candidate-profiles/`)
+- [x] candidate profile template stored in repo with local untracked runtime profiles (`config/candidate-profiles/`)
 - [x] candidate profile loader + schema validation
 - [x] combined evaluation model: persona preferences + candidate evidence
 - [x] candidate-aware fit scoring (stack, seniority, domain)
@@ -201,6 +201,10 @@ Non-goals for this track:
 - no reactive rewrite
 - no microservice split
 - no speculative infra work
+
+Follow-up calibration candidate:
+- [ ] add `selection_process_bloat_risk` for Japan-style hiring friction (`personality test`, `SPI`, `aptitude test`, `skills screening test`, `coding test`, `take-home assignment`, excessive interview rounds)
+- [ ] keep it explainable and rule-based, with low false-positive bias and config-driven wording where practical
 
 ---
 

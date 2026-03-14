@@ -160,6 +160,102 @@ final class DecisionEngineV1Test {
     }
 
     @Test
+    void flagsLanguageFrictionWhenRoleRequiresCommunicationInJapanese() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Communicate requirements, progress, and technical decisions effectively in Japanese. "
+                                + "Communicates confidently in Japanese and collaborates effectively."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("language_friction"));
+        assertEquals(75, result.languageFrictionIndex());
+    }
+
+    @Test
+    void flagsAnonymousEmployerRiskForOpaqueRecruiterStylePost() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Work in an industry leading company. "
+                                + "The employer is a large organization operating within the Technology & Telecoms industry."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("anonymous_employer_risk"));
+    }
+
+    @Test
+    void flagsGenericMarketingPostRiskForBuzzSentenceHeavyAnonymousPost() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Work on large-scale, high-impact systems. Work in an industry leading company. "
+                                + "They are committed to delivering cutting-edge solutions and fostering technical excellence."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("generic_marketing_post_risk"));
+    }
+
+    @Test
+    void flagsVagueConditionsRiskWhenConditionsSectionIsPureMarketing() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Conditions and benefits. Opportunity to work in the vibrant city of Tokyo. "
+                                + "A chance to contribute to innovative technology solutions."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("vague_conditions_risk"));
+    }
+
+    @Test
+    void doesNotFlagVagueConditionsRiskWhenConcreteBenefitsExist() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Hybrid",
+                        "Benefits. Annual leave, social insurance, bonus, hybrid work, and flextime are provided. "
+                                + "A chance to contribute to innovative technology solutions."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("vague_conditions_risk"));
+    }
+
+    @Test
     void appliesCompanyProfileTagsAsPositiveSignals() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(

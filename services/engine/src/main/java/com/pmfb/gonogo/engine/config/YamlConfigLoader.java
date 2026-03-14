@@ -172,7 +172,8 @@ public final class YamlConfigLoader {
         return new DecisionSignalsConfig(
                 loadDecisionSignalLanguage(root, fileName, errors),
                 loadDecisionSignalWorkLifeBalance(root, fileName, errors),
-                loadDecisionSignalMobility(root, fileName, errors)
+                loadDecisionSignalMobility(root, fileName, errors),
+                loadDecisionSignalJobPostQuality(root, fileName, errors)
         );
     }
 
@@ -337,6 +338,60 @@ public final class YamlConfigLoader {
                         map,
                         "location_mobility_risk_keywords",
                         defaults.locationMobilityRiskKeywords(),
+                        context,
+                        errors
+                )
+        );
+    }
+
+    private DecisionSignalsConfig.JobPostQualityConfig loadDecisionSignalJobPostQuality(
+            Map<String, Object> root,
+            String fileName,
+            List<String> errors
+    ) {
+        DecisionSignalsConfig.JobPostQualityConfig defaults = DecisionSignalsConfig.JobPostQualityConfig.defaults();
+        Map<String, Object> map = readOptionalMap(root, "job_post_quality", fileName, errors);
+        String context = fileName + " job_post_quality";
+        return new DecisionSignalsConfig.JobPostQualityConfig(
+                readOptionalStringListWithDefault(
+                        map,
+                        "generic_marketing_risk_keywords",
+                        defaults.genericMarketingRiskKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalIntWithDefault(
+                        map,
+                        "generic_marketing_risk_hit_min",
+                        defaults.genericMarketingRiskHitMin(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "conditions_section_keywords",
+                        defaults.conditionsSectionKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "vague_conditions_risk_keywords",
+                        defaults.vagueConditionsRiskKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalIntWithDefault(
+                        map,
+                        "vague_conditions_risk_hit_min",
+                        defaults.vagueConditionsRiskHitMin(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
+                        "concrete_conditions_keywords",
+                        defaults.concreteConditionsKeywords(),
                         context,
                         errors
                 )
