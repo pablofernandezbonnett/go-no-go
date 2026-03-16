@@ -2,6 +2,7 @@ package com.pmfb.gonogo.engine.decision;
 
 import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileTaxonomy;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.DecisionSignalsConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
@@ -22,6 +23,7 @@ import java.util.regex.Matcher;
 
 public final class DecisionEngineV1 {
     private final MarketSignalDetector marketSignalDetector;
+    private final HumanReadingSynthesizer humanReadingSynthesizer;
     private static final int POSITIVE_PRIORITY_WEIGHT = 2;
     private static final int POSITIVE_DEFAULT_WEIGHT = 1;
     private static final int RISK_PRIORITY_WEIGHT = 3;
@@ -77,11 +79,22 @@ public final class DecisionEngineV1 {
     );
 
     public DecisionEngineV1() {
-        this(new MarketSignalDetector());
+        this(new MarketSignalDetector(), new HumanReadingSynthesizer());
     }
 
     DecisionEngineV1(MarketSignalDetector marketSignalDetector) {
+        this(marketSignalDetector, new HumanReadingSynthesizer());
+    }
+
+    DecisionEngineV1(
+            MarketSignalDetector marketSignalDetector,
+            HumanReadingSynthesizer humanReadingSynthesizer
+    ) {
         this.marketSignalDetector = Objects.requireNonNull(marketSignalDetector, "marketSignalDetector");
+        this.humanReadingSynthesizer = Objects.requireNonNull(
+                humanReadingSynthesizer,
+                "humanReadingSynthesizer"
+        );
     }
 
     private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
@@ -580,60 +593,6 @@ public final class DecisionEngineV1 {
             "principal",
             "architect"
     );
-    private static final Map<String, List<String>> CANDIDATE_SKILL_KEYWORDS = Map.ofEntries(
-            Map.entry("java", List.of("java")),
-            Map.entry("spring boot", List.of("spring boot")),
-            Map.entry("spring framework", List.of("spring framework", "spring")),
-            Map.entry("sap hybris", List.of("sap hybris", "hybris")),
-            Map.entry("sap commerce cloud", List.of("sap commerce cloud", "sap commerce")),
-            Map.entry("rest api", List.of("rest api", "rest apis", "restful api", "restful apis")),
-            Map.entry("flutter", List.of("flutter")),
-            Map.entry("dart", List.of("dart")),
-            Map.entry("typescript", List.of("typescript")),
-            Map.entry("react", List.of("react")),
-            Map.entry("mongodb", List.of("mongodb")),
-            Map.entry("sql", List.of("sql", "relational", "mysql", "postgresql")),
-            Map.entry("h2", List.of("h2")),
-            Map.entry("stripe", List.of("stripe")),
-            Map.entry("shopify", List.of("shopify")),
-            Map.entry("aws", List.of("aws")),
-            Map.entry("kotlin", List.of("kotlin")),
-            Map.entry("kafka", List.of("kafka")),
-            Map.entry("redis", List.of("redis")),
-            Map.entry("android", List.of("android", "jetpack")),
-            Map.entry("kmp", List.of("kmp", "kotlin multiplatform")),
-            Map.entry("riverpod", List.of("riverpod")),
-            Map.entry("kubernetes", List.of("kubernetes", "k8s")),
-            Map.entry("go", List.of("go", "golang")),
-            Map.entry("scala", List.of("scala")),
-            Map.entry("rust", List.of("rust")),
-            Map.entry("c#", List.of("c#")),
-            Map.entry("php", List.of("php")),
-            Map.entry("laravel", List.of("laravel")),
-            Map.entry("python", List.of("python")),
-            Map.entry("docker", List.of("docker")),
-            Map.entry("jpa", List.of("jpa")),
-            Map.entry("nosql", List.of("nosql")),
-            Map.entry("gcp", List.of("gcp")),
-            Map.entry("azure", List.of("azure"))
-    );
-    private static final Map<String, List<String>> CANDIDATE_DOMAIN_KEYWORDS = Map.ofEntries(
-            Map.entry("ecommerce_platforms", List.of("ecommerce", "e-commerce", "commerce", "checkout", "cart", "retail")),
-            Map.entry("commerce_performance", List.of("performance", "scalability", "reliability", "high availability", "load")),
-            Map.entry("payment_integrations", List.of("payment", "payments", "stripe")),
-            Map.entry("omnichannel_retail", List.of("omnichannel", "inventory", "order management", "oms", "retail")),
-            Map.entry("mobile_cross_platform", List.of("flutter", "dart", "mobile")),
-            Map.entry("enterprise_java", List.of("java", "spring", "jpa", "hibernate")),
-            Map.entry("distributed_teams", List.of("international", "global team", "multicultural", "distributed")),
-            Map.entry("event_driven_architecture", List.of("event-driven", "event driven", "kafka", "messaging", "pub/sub")),
-            Map.entry("system_design", List.of("system design", "architecture", "scalability", "reliability")),
-            Map.entry("frontend_fullstack", List.of("react", "typescript", "frontend", "full stack", "full-stack")),
-            Map.entry("cloud_basics", List.of("aws", "gcp", "azure", "cloud")),
-            Map.entry("data_pipelines", List.of("data pipeline", "streaming", "cdc", "kafka streams", "etl")),
-            Map.entry("infrastructure_as_code", List.of("terraform", "cdk", "cloudformation", "infrastructure as code", "iac")),
-            Map.entry("kubernetes", List.of("kubernetes", "k8s"))
-    );
-
     private static final Map<String, String> POSITIVE_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_TRANSPARENCY, PRIORITY_SALARY),
             Map.entry(SIGNAL_HYBRID_WORK, PRIORITY_HYBRID_WORK),
@@ -756,8 +715,8 @@ public final class DecisionEngineV1 {
         String combinedText = normalize(jobText + " " + companyContextText + " " + normalize(externalContext));
         String remotePolicy = normalize(job.remotePolicy());
         String salaryRange = normalize(job.salaryRange());
-        Set<String> personaHardNo = normalizeSet(persona.hardNo());
-        Set<String> personaPriorities = normalizeSet(persona.priorities());
+        Set<String> personaHardNo = persona.index().normalizedHardNo();
+        Set<String> personaPriorities = persona.index().normalizedPriorities();
 
         DecisionSignalsConfig decisionSignals = config.decisionSignals();
         int languageFrictionIndex = computeLanguageFrictionIndex(combinedText, trackedCompany, decisionSignals);
@@ -798,7 +757,7 @@ public final class DecisionEngineV1 {
                 hardRejectReasons
         );
 
-        Map<String, Integer> signalWeights = persona.signalWeights();
+        Map<String, Integer> signalWeights = persona.index().normalizedSignalWeights();
         int rawScore = computeScore(positiveSignals, riskSignals, personaPriorities, signalWeights);
         ScoreRange scoreRange = computeScoreRange(personaPriorities, signalWeights);
         int normalizedScore = normalizeScore(rawScore, scoreRange);
@@ -818,6 +777,16 @@ public final class DecisionEngineV1 {
                 positiveSignals,
                 riskSignals
         );
+        HumanReading humanReading = humanReadingSynthesizer.synthesize(
+                job,
+                candidateProfile,
+                verdict,
+                languageFrictionIndex,
+                companyReputationIndex,
+                hardRejectReasons,
+                positiveSignals,
+                riskSignals
+        );
 
         return new EvaluationResult(
                 verdict,
@@ -830,7 +799,8 @@ public final class DecisionEngineV1 {
                 List.copyOf(hardRejectReasons),
                 List.copyOf(positiveSignals),
                 List.copyOf(riskSignals),
-                reasoning
+                reasoning,
+                humanReading
         );
     }
 
@@ -1058,15 +1028,15 @@ public final class DecisionEngineV1 {
             String combinedText,
             CandidateProfileConfig candidateProfile
     ) {
-        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
+        Set<String> productionSkills = candidateProfile.index().productionSkillIds();
         int explicitRequiredMatches = countExplicitRequiredSkillMatches(job, productionSkills);
         int broadMatches = countCanonicalSkillMatches(combinedText, productionSkills);
         return explicitRequiredMatches >= 1 || broadMatches >= 2;
     }
 
     private boolean hasCandidateStackGap(JobInput job, CandidateProfileConfig candidateProfile) {
-        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
-        Set<String> learningSkills = canonicalizeSkills(candidateProfile.learningSkills());
+        Set<String> productionSkills = candidateProfile.index().productionSkillIds();
+        Set<String> learningSkills = candidateProfile.index().learningSkillIds();
         for (String line : extractRequirementLines(job.description())) {
             Set<String> requiredSkills = extractMentionedTechs(line);
             if (requiredSkills.isEmpty()) {
@@ -1098,13 +1068,13 @@ public final class DecisionEngineV1 {
     }
 
     private boolean hasCandidateDomainFit(String combinedText, CandidateProfileConfig candidateProfile) {
-        int strongMatches = countDomainMatches(combinedText, candidateProfile.strongDomains());
-        int moderateMatches = countDomainMatches(combinedText, candidateProfile.moderateDomains());
+        int strongMatches = countDomainMatches(combinedText, candidateProfile.index().strongDomainIds());
+        int moderateMatches = countDomainMatches(combinedText, candidateProfile.index().moderateDomainIds());
         return strongMatches >= 1 || moderateMatches >= 2;
     }
 
     private boolean hasCandidateDomainGap(String combinedText, CandidateProfileConfig candidateProfile) {
-        int limitedMatches = countDomainMatches(combinedText, candidateProfile.limitedDomains());
+        int limitedMatches = countDomainMatches(combinedText, candidateProfile.index().limitedDomainIds());
         if (limitedMatches == 0) {
             return false;
         }
@@ -1183,7 +1153,7 @@ public final class DecisionEngineV1 {
     private Set<String> extractMentionedTechs(String text) {
         LinkedHashSet<String> matches = new LinkedHashSet<>();
         String normalizedText = normalize(text);
-        for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
+        for (Map.Entry<String, List<String>> entry : CandidateProfileTaxonomy.skillAliasesById().entrySet()) {
             if (matchesAnySkillAlias(normalizedText, entry.getValue())) {
                 matches.add(entry.getKey());
             }
@@ -1191,23 +1161,10 @@ public final class DecisionEngineV1 {
         return matches;
     }
 
-    private Set<String> canonicalizeSkills(List<String> rawSkills) {
-        LinkedHashSet<String> canonical = new LinkedHashSet<>();
-        for (String rawSkill : rawSkills) {
-            String normalizedSkill = normalize(rawSkill);
-            for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
-                if (matchesAnySkillAlias(normalizedSkill, entry.getValue())) {
-                    canonical.add(entry.getKey());
-                }
-            }
-        }
-        return canonical;
-    }
-
     private int countCanonicalSkillMatches(String text, Set<String> canonicalSkills) {
         int matches = 0;
         for (String skill : canonicalSkills) {
-            List<String> aliases = CANDIDATE_SKILL_KEYWORDS.getOrDefault(skill, List.of(skill));
+            List<String> aliases = CandidateProfileTaxonomy.skillAliases(skill);
             if (matchesAnySkillAlias(text, aliases)) {
                 matches++;
             }
@@ -1231,10 +1188,10 @@ public final class DecisionEngineV1 {
         return normalizedLine.contains(" or ");
     }
 
-    private int countDomainMatches(String combinedText, List<String> domainKeys) {
+    private int countDomainMatches(String combinedText, Set<String> domainIds) {
         int matches = 0;
-        for (String domainKey : domainKeys) {
-            List<String> aliases = CANDIDATE_DOMAIN_KEYWORDS.get(normalize(domainKey));
+        for (String domainId : domainIds) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
             if (aliases != null && containsAny(combinedText, aliases)) {
                 matches++;
             }

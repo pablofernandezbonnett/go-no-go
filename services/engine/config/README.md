@@ -96,6 +96,13 @@ Current candidate-aware signals:
 - positive: `candidate_stack_fit`, `candidate_domain_fit`, `candidate_seniority_fit`
 - risk: `candidate_stack_gap`, `candidate_domain_gap`, `candidate_seniority_mismatch`
 
+Optional narrative profile fields now used by the engine:
+- `education`
+- `target_roles`
+- `differentiators`
+
+These do not affect the hard scoring directly. They support the deterministic human-reading layer by surfacing adjacent-fit and transferability context.
+
 ## runtime.yaml
 
 Top-level key:

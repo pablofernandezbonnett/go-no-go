@@ -109,6 +109,7 @@ The system evaluates:
 - Company context
 - Language friction
 - Interview ROI
+- Candidate transferability and adjacent-fit evidence
 
 And provides:
 
@@ -116,7 +117,7 @@ And provides:
 - NO-GO
 - GO with caution
 
-With explanation.
+With explanation and a deterministic human-reading layer.
 
 ---
 
@@ -127,6 +128,17 @@ With explanation.
 3. Positive signals
 4. Persona alignment
 5. Verdict generation
+
+Human-reading layer:
+
+- access fit
+- execution fit
+- domain fit
+- opportunity quality
+- interview ROI
+
+These dimensions are derived from scored signals and candidate profile evidence.
+They do not replace the verdict; they explain it in more human terms.
 
 Current hard-filter baseline:
 

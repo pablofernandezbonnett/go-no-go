@@ -2,6 +2,8 @@ package com.pmfb.gonogo.engine.report;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.pmfb.gonogo.engine.decision.HumanReading;
+import com.pmfb.gonogo.engine.decision.HumanReadingLevel;
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
 import com.pmfb.gonogo.engine.decision.Verdict;
 import com.pmfb.gonogo.engine.job.JobInput;
@@ -46,7 +48,17 @@ final class BatchReportWriterTest {
                                         List.of(),
                                         List.of("salary_transparency", "hybrid_work"),
                                         List.of(),
-                                        List.of("Normalized score: 82/100.")
+                                        List.of("Normalized score: 82/100."),
+                                        new HumanReading(
+                                                HumanReadingLevel.STRONG,
+                                                HumanReadingLevel.STRONG,
+                                                HumanReadingLevel.MIXED,
+                                                HumanReadingLevel.STRONG,
+                                                HumanReadingLevel.STRONG,
+                                                "Worth serious consideration: strong backend and work-style fit.",
+                                                List.of("Strong backend fit.", "Hybrid policy matches preferences."),
+                                                List.of()
+                                        )
                                 )
                         )
                 ),
@@ -71,6 +83,7 @@ final class BatchReportWriterTest {
         assertTrue(markdown.contains("candidate_profile: pmfb"));
         assertTrue(markdown.contains("language_friction_index: 10/100"));
         assertTrue(markdown.contains("company_reputation_index: 74/100"));
+        assertTrue(markdown.contains("human_summary: Worth serious consideration: strong backend and work-style fit."));
         assertTrue(markdown.contains("job-b.yaml"));
         assertTrue(json.contains("\"persona\": \"product_expat_engineer\""));
         assertTrue(json.contains("\"candidate_profile\": \"pmfb\""));
@@ -78,5 +91,8 @@ final class BatchReportWriterTest {
         assertTrue(json.contains("\"raw_score\": 9"));
         assertTrue(json.contains("\"language_friction_index\": 10"));
         assertTrue(json.contains("\"company_reputation_index\": 74"));
+        assertTrue(json.contains("\"human_reading\": {"));
+        assertTrue(json.contains("\"access_fit\": \"strong\""));
+        assertTrue(json.contains("\"human_summary\": \"Worth serious consideration: strong backend and work-style fit.\""));
     }
 }

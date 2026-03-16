@@ -587,6 +587,90 @@ final class DecisionEngineV1Test {
     }
 
     @Test
+    void usesEducationBackedAffinityInHumanReadingForAdjacentDomainRoles() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "PMFB",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "AWS"),
+                List.of(),
+                List.of("Unity"),
+                List.of("ecommerce_platforms", "payment_integrations"),
+                List.of("frontend_fullstack"),
+                List.of("mobile_cross_platform"),
+                List.of(
+                        "Master's in Game Design and Development",
+                        "UNIR",
+                        "Kotlin and game-development context"
+                ),
+                List.of("Game backend engineer", "Entertainment systems"),
+                List.of("Interested in game-related backend roles")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Game Platform Co",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 12,000,000",
+                        "Hybrid",
+                        """
+                                Build backend services for online game and entertainment systems.
+                                Java, Spring Boot, AWS, APIs, and distributed systems experience required.
+                                """
+                ),
+                pragmaticPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertEquals(HumanReadingLevel.MIXED, result.humanReading().domainFit());
+        assertTrue(result.humanReading().whyStillInteresting().stream()
+                .anyMatch(entry -> entry.contains("adjacent domain potential")));
+    }
+
+    @Test
+    void marksInterviewRoiWeakWhenHardRejectExistsEvenWithSomeUpside() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "PMFB",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "AWS"),
+                List.of(),
+                List.of(),
+                List.of("enterprise_java", "ecommerce_platforms"),
+                List.of("distributed_product_systems"),
+                List.of()
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Structured Product Co",
+                        "Senior Backend Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Hybrid",
+                        """
+                                English-first global product team with code reviews and flexible hours.
+                                Annual leave, bonus, social insurance, and commuting allowance are provided.
+                                Java, Spring Boot, AWS, and system design experience required.
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertEquals(HumanReadingLevel.WEAK, result.humanReading().interviewRoi());
+        assertTrue(result.humanReading().whyWasteOfTime().stream()
+                .anyMatch(entry -> entry.contains("Salary is opaque")));
+    }
+
+    @Test
     void detectsAlgorithmicInterviewRiskFromCombinedSignals() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
