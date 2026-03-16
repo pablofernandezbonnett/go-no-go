@@ -230,6 +230,20 @@ public final class DecisionEngineV1 {
             Pattern.compile("(?i)\\b(no japanese required|japanese not required|english only)\\b"),
             Pattern.compile("日本語.*(不問|歓迎|必須ではありません)")
     );
+    private static final List<Pattern> LANGUAGE_ASSIGNMENT_DEPENDENCY_PATTERNS = List.of(
+            Pattern.compile(
+                    "(?i)\\bjapanese\\b.{0,80}\\b(considered|taken into consideration|used to determine)\\b"
+                            + ".{0,80}\\b(assignment|team|placement|work content|role scope)\\b"
+            ),
+            Pattern.compile(
+                    "(?i)\\b(assignment|team|placement|work content|role scope)\\b.{0,80}"
+                            + "\\b(depend|depends|determined|based)\\b.{0,40}\\bjapanese\\b"
+            ),
+            Pattern.compile("(?i)\\bdepending on your japanese level\\b"),
+            Pattern.compile("(?i)\\bbased on your japanese level\\b"),
+            Pattern.compile("日本語.*(考慮|判断).*(配属|担当|業務内容|チーム)"),
+            Pattern.compile("(配属|担当|業務内容|チーム).*(日本語).*(考慮|判断)")
+    );
     private static final List<Pattern> JAPANESE_INTERNAL_ONLY_PATTERNS = List.of(
             Pattern.compile("(?i)all\\s+internal\\s+communications?.{0,60}\\bjapanese\\b"),
             Pattern.compile("(?i)all\\s+internal\\s+documents?.{0,60}\\bjapanese\\b"),
@@ -457,6 +471,7 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_SALARY_LOW_CONFIDENCE = SignalIds.SALARY_LOW_CONFIDENCE;
     private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = SignalIds.SALARY_BELOW_PERSONA_FLOOR;
     private static final String SIGNAL_ONSITE_BIAS = SignalIds.ONSITE_BIAS;
+    private static final String SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY = SignalIds.JAPANESE_ASSIGNMENT_DEPENDENCY;
     private static final String SIGNAL_LANGUAGE_FRICTION = SignalIds.LANGUAGE_FRICTION;
     private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = SignalIds.LANGUAGE_FRICTION_CRITICAL;
     private static final String SIGNAL_CONSULTING_RISK = SignalIds.CONSULTING_RISK;
@@ -649,6 +664,7 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_SALARY_LOW_CONFIDENCE, PRIORITY_SALARY),
             Map.entry(SIGNAL_SALARY_BELOW_PERSONA_FLOOR, PRIORITY_SALARY),
             Map.entry(SIGNAL_ONSITE_BIAS, PRIORITY_HYBRID_WORK),
+            Map.entry(SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_CONSULTING_RISK, PRIORITY_PRODUCT_COMPANY),
@@ -894,6 +910,9 @@ public final class DecisionEngineV1 {
         }
         if (isOnsiteBias(remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
+        }
+        if (hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals)) {
+            riskSignals.add(SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY);
         }
         if (hasLanguageFrictionSignal(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION);
@@ -1486,6 +1505,7 @@ public final class DecisionEngineV1 {
     private boolean hasLanguageFrictionSignal(String combinedText, DecisionSignalsConfig decisionSignals) {
         boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
+        boolean hasAssignmentDependentLanguage = hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals);
         boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
@@ -1495,6 +1515,9 @@ public final class DecisionEngineV1 {
                 decisionSignals
         );
         if (hasStrongRequiredLanguage) {
+            return true;
+        }
+        if (hasAssignmentDependentLanguage) {
             return true;
         }
         if (hasOptionalLanguage) {
@@ -1524,6 +1547,7 @@ public final class DecisionEngineV1 {
     ) {
         boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
+        boolean hasAssignmentDependentLanguage = hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals);
         boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         boolean hasSoftLanguage = containsAny(combinedText, decisionSignals.language().frictionSoftKeywords());
@@ -1537,6 +1561,8 @@ public final class DecisionEngineV1 {
         int index = 0;
         if (hasStrongRequiredLanguage) {
             index = LANGUAGE_INDEX_REQUIRED_BASE;
+        } else if (hasAssignmentDependentLanguage) {
+            index = decisionSignals.language().assignmentDependentBaseIndex();
         } else if (hasOptionalLanguage) {
             index = LANGUAGE_INDEX_OPTIONAL_BASE;
         } else if (hasSoftLanguage) {
@@ -1580,6 +1606,9 @@ public final class DecisionEngineV1 {
         if (hasOptionalLanguage && !hasStrongRequiredLanguage) {
             index = Math.min(index, LANGUAGE_INDEX_OPTIONAL_MAX);
         }
+        if (hasAssignmentDependentLanguage && !hasStrongRequiredLanguage) {
+            index = Math.max(index, decisionSignals.language().assignmentDependentMinIndex());
+        }
 
         if (index < NORMALIZED_SCORE_MIN) {
             return NORMALIZED_SCORE_MIN;
@@ -1608,6 +1637,14 @@ public final class DecisionEngineV1 {
             return true;
         }
         return false;
+    }
+
+    private boolean hasJapaneseAssignmentDependencySignal(
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        return containsAny(combinedText, decisionSignals.language().assignmentDependentKeywords())
+                || matchesAnyPattern(combinedText, LANGUAGE_ASSIGNMENT_DEPENDENCY_PATTERNS);
     }
 
     private boolean hasEngineeringEnvironmentPositiveSignal(String combinedText) {

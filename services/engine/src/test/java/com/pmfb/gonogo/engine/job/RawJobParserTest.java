@@ -101,4 +101,29 @@ final class RawJobParserTest {
 
         assertEquals("Unspecified", result.jobInput().remotePolicy());
     }
+
+    @Test
+    void infersCompanyAndTitleFromLeadingBilingualLines() {
+        String rawText = """
+                Preferred Networks
+                Product and Service Development Engineer / プロダクト・サービス開発エンジニア
+                勤務地: Otemachi, Tokyo
+                勤務形態: Remote work system available (limited to work in Japan)
+                給与: Experience, performance, skills, contribution are taken into consideration.
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, null, null);
+
+        assertEquals("Preferred Networks", result.jobInput().companyName());
+        assertEquals(
+                "Product and Service Development Engineer / プロダクト・サービス開発エンジニア",
+                result.jobInput().title()
+        );
+        assertEquals("Otemachi, Tokyo", result.jobInput().location());
+        assertEquals(
+                "Experience, performance, skills, contribution are taken into consideration.",
+                result.jobInput().salaryRange()
+        );
+        assertEquals("Remote", result.jobInput().remotePolicy());
+    }
 }

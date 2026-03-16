@@ -12,6 +12,10 @@ language:
   high_friction_keywords:
     - native japanese
     - jlpt n1
+  assignment_dependent_keywords:
+    - japanese communication ability will be considered
+    - depending on your japanese level
+    - 日本語能力に応じて
   optional_or_exempt_keywords:
     - no japanese required
     - japanese is a plus
@@ -25,6 +29,8 @@ language:
     - fluency in english is not required
     - support is provided
   english_support_max_index: 20
+  assignment_dependent_base_index: 35
+  assignment_dependent_min_index: 20
 
 work_life_balance:
   overtime_risk_keywords:

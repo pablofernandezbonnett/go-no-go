@@ -270,6 +270,13 @@ public final class YamlConfigLoader {
                 ),
                 readOptionalStringListWithDefault(
                         map,
+                        "assignment_dependent_keywords",
+                        defaults.assignmentDependentKeywords(),
+                        context,
+                        errors
+                ),
+                readOptionalStringListWithDefault(
+                        map,
                         "optional_or_exempt_keywords",
                         defaults.optionalOrExemptKeywords(),
                         context,
@@ -293,6 +300,20 @@ public final class YamlConfigLoader {
                         map,
                         "english_support_max_index",
                         defaults.englishSupportMaxIndex(),
+                        context,
+                        errors
+                ),
+                readOptionalIntWithDefault(
+                        map,
+                        "assignment_dependent_base_index",
+                        defaults.assignmentDependentBaseIndex(),
+                        context,
+                        errors
+                ),
+                readOptionalIntWithDefault(
+                        map,
+                        "assignment_dependent_min_index",
+                        defaults.assignmentDependentMinIndex(),
                         context,
                         errors
                 )

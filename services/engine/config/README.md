@@ -138,10 +138,13 @@ Supported `language` fields:
 - `friction_soft_keywords`
 - `medium_high_friction_keywords`
 - `high_friction_keywords`
+- `assignment_dependent_keywords`
 - `optional_or_exempt_keywords`
 - `english_friendly_keywords`
 - `english_support_environment_keywords`
 - `english_support_max_index`
+- `assignment_dependent_base_index`
+- `assignment_dependent_min_index`
 
 Supported `work_life_balance` fields:
 - `overtime_risk_keywords`

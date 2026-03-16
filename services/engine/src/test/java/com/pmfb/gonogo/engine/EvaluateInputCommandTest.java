@@ -20,6 +20,51 @@ import picocli.CommandLine;
 
 final class EvaluateInputCommandTest {
     @Test
+    void autoSelectsSingleCandidateProfileWhenNoneIsSpecified() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-evaluate-input-profile-auto-test");
+        Path configDir = tempDir.resolve("config");
+        writeConfig(configDir);
+        writeCandidateProfile(configDir);
+
+        String rawText = """
+                Company: Money Forward
+                Title: Backend Engineer
+                Location: Tokyo
+                Salary: JPY 9,000,000 - 12,000,000
+                Work style: Hybrid
+                English-first team with product ownership and code review.
+                """;
+
+        ByteArrayInputStream stdin = new ByteArrayInputStream(rawText.getBytes(StandardCharsets.UTF_8));
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        java.io.InputStream originalIn = System.in;
+        try {
+            System.setIn(stdin);
+            System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
+
+            int exitCode = new CommandLine(new EvaluateInputCommand()).execute(
+                    "--persona", "product_expat_engineer",
+                    "--config-dir", configDir.toString(),
+                    "--stdin",
+                    "--output-format", "json"
+            );
+
+            assertEquals(0, exitCode, stderr.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setIn(originalIn);
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
+
+        String json = stdout.toString(StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"candidate_profile\":\"pmfb\""));
+    }
+
+    @Test
     void writesJsonAndYamlArtifactWhenReadingRawTextFromStdin() throws IOException {
         Path tempDir = Files.createTempDirectory("gonogo-evaluate-input-test");
         Path configDir = tempDir.resolve("config");
@@ -226,6 +271,38 @@ final class EvaluateInputCommandTest {
                 configDir.resolve("blacklist.yaml"),
                 """
                         blacklisted_companies: []
+                        """,
+                StandardCharsets.UTF_8
+        );
+    }
+
+    private void writeCandidateProfile(Path configDir) throws IOException {
+        Path profilesDir = configDir.resolve("candidate-profiles");
+        Files.createDirectories(profilesDir);
+        Files.writeString(
+                profilesDir.resolve("pmfb.yaml"),
+                """
+                        candidate:
+                          name: Pablo Miguel Fernandez Bonnett
+                          title: Senior Product Backend Engineer
+                          location: Gamagori, Aichi, Japan
+                          total_experience_years: 20
+                        stack:
+                          production_proven:
+                            backend:
+                              - Java
+                              - Spring Boot
+                          actively_learning:
+                            - Kotlin
+                          gaps_honest:
+                            - Kafka in production
+                        domain_expertise:
+                          strong:
+                            - ecommerce_platforms
+                          moderate:
+                            - cloud_basics
+                          limited:
+                            - kubernetes
                         """,
                 StandardCharsets.UTF_8
         );

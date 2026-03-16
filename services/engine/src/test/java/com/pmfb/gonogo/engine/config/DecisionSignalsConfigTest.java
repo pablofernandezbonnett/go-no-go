@@ -27,6 +27,8 @@ final class DecisionSignalsConfigTest {
                             - business-level japanese
                           high_friction_keywords:
                             - native japanese
+                          assignment_dependent_keywords:
+                            - japanese communication ability will be considered
                           optional_or_exempt_keywords:
                             - no japanese required
                           english_friendly_keywords:
@@ -34,6 +36,8 @@ final class DecisionSignalsConfigTest {
                           english_support_environment_keywords:
                             - english is used on a daily basis
                           english_support_max_index: 17
+                          assignment_dependent_base_index: 33
+                          assignment_dependent_min_index: 19
                         work_life_balance:
                           overtime_risk_keywords:
                             - fixed overtime
@@ -62,6 +66,8 @@ final class DecisionSignalsConfigTest {
 
         assertEquals(2, config.decisionSignals().language().requiredKeywords().size());
         assertEquals(17, config.decisionSignals().language().englishSupportMaxIndex());
+        assertEquals(33, config.decisionSignals().language().assignmentDependentBaseIndex());
+        assertEquals(19, config.decisionSignals().language().assignmentDependentMinIndex());
         assertEquals(
                 List.of("fixed overtime", "overtime work may occur"),
                 config.decisionSignals().workLifeBalance().overtimeRiskKeywords()
@@ -104,10 +110,13 @@ final class DecisionSignalsConfigTest {
                                 List.of("japanese communication", "japanese communication"),
                                 List.of("business-level japanese"),
                                 List.of("native japanese"),
+                                List.of("日本語能力に応じて", "日本語能力に応じて"),
                                 List.of("no japanese required"),
                                 List.of("english-first"),
                                 List.of("english is used on a daily basis"),
-                                101
+                                101,
+                                10,
+                                11
                         ),
                         new DecisionSignalsConfig.WorkLifeBalanceConfig(
                                 List.of(),
@@ -130,6 +139,8 @@ final class DecisionSignalsConfigTest {
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.language.required_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.language.friction_soft_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.language.english_support_max_index")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.language.assignment_dependent_keywords")));
+        assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.language.assignment_dependent_min_index")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.work_life_balance.overtime_risk_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.work_life_balance.holiday_policy_risk_keywords")));
         assertTrue(errors.stream().anyMatch(item -> item.contains("decision-signals.mobility.location_mobility_risk_keywords")));

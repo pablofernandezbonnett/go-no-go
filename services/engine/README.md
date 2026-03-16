@@ -77,6 +77,7 @@ Implemented now:
 - job change detection (`NEW`/`UPDATED`/`UNCHANGED`/`REMOVED`) with persisted state in pipeline
 - incremental pipeline mode (`--incremental-only`) to evaluate only changed jobs
 - enhanced language-friction detection (EN/JP required vs optional patterns)
+- conditional Japanese assignment-dependency detection (`Japanese affects assignment/team`, distinct from hard requirement)
 - language friction index (`language_friction_index`, 0-100)
 - company profiling + reputation signals from `config/companies.yaml` tags
 - company reputation aggregation + index (`company_reputation_index`, 0-100)

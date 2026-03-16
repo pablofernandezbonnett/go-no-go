@@ -29,16 +29,20 @@ public record DecisionSignalsConfig(
             List<String> frictionSoftKeywords,
             List<String> mediumHighFrictionKeywords,
             List<String> highFrictionKeywords,
+            List<String> assignmentDependentKeywords,
             List<String> optionalOrExemptKeywords,
             List<String> englishFriendlyKeywords,
             List<String> englishSupportEnvironmentKeywords,
-            int englishSupportMaxIndex
+            int englishSupportMaxIndex,
+            int assignmentDependentBaseIndex,
+            int assignmentDependentMinIndex
     ) {
         public LanguageConfig {
             requiredKeywords = List.copyOf(requiredKeywords);
             frictionSoftKeywords = List.copyOf(frictionSoftKeywords);
             mediumHighFrictionKeywords = List.copyOf(mediumHighFrictionKeywords);
             highFrictionKeywords = List.copyOf(highFrictionKeywords);
+            assignmentDependentKeywords = List.copyOf(assignmentDependentKeywords);
             optionalOrExemptKeywords = List.copyOf(optionalOrExemptKeywords);
             englishFriendlyKeywords = List.copyOf(englishFriendlyKeywords);
             englishSupportEnvironmentKeywords = List.copyOf(englishSupportEnvironmentKeywords);
@@ -103,6 +107,21 @@ public record DecisionSignalsConfig(
                             "日本語能力試験Ｎ１"
                     ),
                     List.of(
+                            "japanese communication ability will be considered",
+                            "japanese ability will be considered",
+                            "japanese proficiency will be considered",
+                            "depending on your japanese level",
+                            "based on your japanese level",
+                            "team assignment will depend on japanese",
+                            "assignment will depend on japanese",
+                            "日本語能力に応じて",
+                            "日本語レベルに応じて",
+                            "日本語力に応じて",
+                            "日本語能力を考慮して",
+                            "配属先は日本語",
+                            "業務内容は日本語"
+                    ),
+                    List.of(
                             "no japanese required",
                             "japanese not required",
                             "japanese is a plus",
@@ -140,6 +159,8 @@ public record DecisionSignalsConfig(
                             "comfortable with english",
                             "support is provided"
                     ),
+                    20,
+                    35,
                     20
             );
         }

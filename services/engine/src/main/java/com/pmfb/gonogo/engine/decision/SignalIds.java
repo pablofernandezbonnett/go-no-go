@@ -29,6 +29,7 @@ public final class SignalIds {
     public static final String SALARY_LOW_CONFIDENCE = "salary_low_confidence";
     public static final String SALARY_BELOW_PERSONA_FLOOR = "salary_below_persona_floor";
     public static final String ONSITE_BIAS = "onsite_bias";
+    public static final String JAPANESE_ASSIGNMENT_DEPENDENCY = "japanese_assignment_dependency";
     public static final String LANGUAGE_FRICTION = "language_friction";
     public static final String LANGUAGE_FRICTION_CRITICAL = "language_friction_critical";
     public static final String CONSULTING_RISK = "consulting_risk";
