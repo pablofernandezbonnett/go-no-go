@@ -2,6 +2,7 @@ package com.pmfb.gonogo.engine.decision;
 
 import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileTaxonomy;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.DecisionSignalsConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
@@ -22,6 +23,7 @@ import java.util.regex.Matcher;
 
 public final class DecisionEngineV1 {
     private final MarketSignalDetector marketSignalDetector;
+    private final HumanReadingSynthesizer humanReadingSynthesizer;
     private static final int POSITIVE_PRIORITY_WEIGHT = 2;
     private static final int POSITIVE_DEFAULT_WEIGHT = 1;
     private static final int RISK_PRIORITY_WEIGHT = 3;
@@ -77,11 +79,22 @@ public final class DecisionEngineV1 {
     );
 
     public DecisionEngineV1() {
-        this(new MarketSignalDetector());
+        this(new MarketSignalDetector(), new HumanReadingSynthesizer());
     }
 
     DecisionEngineV1(MarketSignalDetector marketSignalDetector) {
+        this(marketSignalDetector, new HumanReadingSynthesizer());
+    }
+
+    DecisionEngineV1(
+            MarketSignalDetector marketSignalDetector,
+            HumanReadingSynthesizer humanReadingSynthesizer
+    ) {
         this.marketSignalDetector = Objects.requireNonNull(marketSignalDetector, "marketSignalDetector");
+        this.humanReadingSynthesizer = Objects.requireNonNull(
+                humanReadingSynthesizer,
+                "humanReadingSynthesizer"
+        );
     }
 
     private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
@@ -229,6 +242,20 @@ public final class DecisionEngineV1 {
             Pattern.compile("(?i)\\bjapanese\\b.{0,24}\\b(optional|preferred|plus|nice to have|welcome)\\b"),
             Pattern.compile("(?i)\\b(no japanese required|japanese not required|english only)\\b"),
             Pattern.compile("日本語.*(不問|歓迎|必須ではありません)")
+    );
+    private static final List<Pattern> LANGUAGE_ASSIGNMENT_DEPENDENCY_PATTERNS = List.of(
+            Pattern.compile(
+                    "(?i)\\bjapanese\\b.{0,80}\\b(considered|taken into consideration|used to determine)\\b"
+                            + ".{0,80}\\b(assignment|team|placement|work content|role scope)\\b"
+            ),
+            Pattern.compile(
+                    "(?i)\\b(assignment|team|placement|work content|role scope)\\b.{0,80}"
+                            + "\\b(depend|depends|determined|based)\\b.{0,40}\\bjapanese\\b"
+            ),
+            Pattern.compile("(?i)\\bdepending on your japanese level\\b"),
+            Pattern.compile("(?i)\\bbased on your japanese level\\b"),
+            Pattern.compile("日本語.*(考慮|判断).*(配属|担当|業務内容|チーム)"),
+            Pattern.compile("(配属|担当|業務内容|チーム).*(日本語).*(考慮|判断)")
     );
     private static final List<Pattern> JAPANESE_INTERNAL_ONLY_PATTERNS = List.of(
             Pattern.compile("(?i)all\\s+internal\\s+communications?.{0,60}\\bjapanese\\b"),
@@ -457,6 +484,7 @@ public final class DecisionEngineV1 {
     private static final String SIGNAL_SALARY_LOW_CONFIDENCE = SignalIds.SALARY_LOW_CONFIDENCE;
     private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = SignalIds.SALARY_BELOW_PERSONA_FLOOR;
     private static final String SIGNAL_ONSITE_BIAS = SignalIds.ONSITE_BIAS;
+    private static final String SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY = SignalIds.JAPANESE_ASSIGNMENT_DEPENDENCY;
     private static final String SIGNAL_LANGUAGE_FRICTION = SignalIds.LANGUAGE_FRICTION;
     private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = SignalIds.LANGUAGE_FRICTION_CRITICAL;
     private static final String SIGNAL_CONSULTING_RISK = SignalIds.CONSULTING_RISK;
@@ -565,60 +593,6 @@ public final class DecisionEngineV1 {
             "principal",
             "architect"
     );
-    private static final Map<String, List<String>> CANDIDATE_SKILL_KEYWORDS = Map.ofEntries(
-            Map.entry("java", List.of("java")),
-            Map.entry("spring boot", List.of("spring boot")),
-            Map.entry("spring framework", List.of("spring framework", "spring")),
-            Map.entry("sap hybris", List.of("sap hybris", "hybris")),
-            Map.entry("sap commerce cloud", List.of("sap commerce cloud", "sap commerce")),
-            Map.entry("rest api", List.of("rest api", "rest apis", "restful api", "restful apis")),
-            Map.entry("flutter", List.of("flutter")),
-            Map.entry("dart", List.of("dart")),
-            Map.entry("typescript", List.of("typescript")),
-            Map.entry("react", List.of("react")),
-            Map.entry("mongodb", List.of("mongodb")),
-            Map.entry("sql", List.of("sql", "relational", "mysql", "postgresql")),
-            Map.entry("h2", List.of("h2")),
-            Map.entry("stripe", List.of("stripe")),
-            Map.entry("shopify", List.of("shopify")),
-            Map.entry("aws", List.of("aws")),
-            Map.entry("kotlin", List.of("kotlin")),
-            Map.entry("kafka", List.of("kafka")),
-            Map.entry("redis", List.of("redis")),
-            Map.entry("android", List.of("android", "jetpack")),
-            Map.entry("kmp", List.of("kmp", "kotlin multiplatform")),
-            Map.entry("riverpod", List.of("riverpod")),
-            Map.entry("kubernetes", List.of("kubernetes", "k8s")),
-            Map.entry("go", List.of("go", "golang")),
-            Map.entry("scala", List.of("scala")),
-            Map.entry("rust", List.of("rust")),
-            Map.entry("c#", List.of("c#")),
-            Map.entry("php", List.of("php")),
-            Map.entry("laravel", List.of("laravel")),
-            Map.entry("python", List.of("python")),
-            Map.entry("docker", List.of("docker")),
-            Map.entry("jpa", List.of("jpa")),
-            Map.entry("nosql", List.of("nosql")),
-            Map.entry("gcp", List.of("gcp")),
-            Map.entry("azure", List.of("azure"))
-    );
-    private static final Map<String, List<String>> CANDIDATE_DOMAIN_KEYWORDS = Map.ofEntries(
-            Map.entry("ecommerce_platforms", List.of("ecommerce", "e-commerce", "commerce", "checkout", "cart", "retail")),
-            Map.entry("commerce_performance", List.of("performance", "scalability", "reliability", "high availability", "load")),
-            Map.entry("payment_integrations", List.of("payment", "payments", "stripe")),
-            Map.entry("omnichannel_retail", List.of("omnichannel", "inventory", "order management", "oms", "retail")),
-            Map.entry("mobile_cross_platform", List.of("flutter", "dart", "mobile")),
-            Map.entry("enterprise_java", List.of("java", "spring", "jpa", "hibernate")),
-            Map.entry("distributed_teams", List.of("international", "global team", "multicultural", "distributed")),
-            Map.entry("event_driven_architecture", List.of("event-driven", "event driven", "kafka", "messaging", "pub/sub")),
-            Map.entry("system_design", List.of("system design", "architecture", "scalability", "reliability")),
-            Map.entry("frontend_fullstack", List.of("react", "typescript", "frontend", "full stack", "full-stack")),
-            Map.entry("cloud_basics", List.of("aws", "gcp", "azure", "cloud")),
-            Map.entry("data_pipelines", List.of("data pipeline", "streaming", "cdc", "kafka streams", "etl")),
-            Map.entry("infrastructure_as_code", List.of("terraform", "cdk", "cloudformation", "infrastructure as code", "iac")),
-            Map.entry("kubernetes", List.of("kubernetes", "k8s"))
-    );
-
     private static final Map<String, String> POSITIVE_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_TRANSPARENCY, PRIORITY_SALARY),
             Map.entry(SIGNAL_HYBRID_WORK, PRIORITY_HYBRID_WORK),
@@ -649,6 +623,7 @@ public final class DecisionEngineV1 {
             Map.entry(SIGNAL_SALARY_LOW_CONFIDENCE, PRIORITY_SALARY),
             Map.entry(SIGNAL_SALARY_BELOW_PERSONA_FLOOR, PRIORITY_SALARY),
             Map.entry(SIGNAL_ONSITE_BIAS, PRIORITY_HYBRID_WORK),
+            Map.entry(SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_CONSULTING_RISK, PRIORITY_PRODUCT_COMPANY),
@@ -740,8 +715,8 @@ public final class DecisionEngineV1 {
         String combinedText = normalize(jobText + " " + companyContextText + " " + normalize(externalContext));
         String remotePolicy = normalize(job.remotePolicy());
         String salaryRange = normalize(job.salaryRange());
-        Set<String> personaHardNo = normalizeSet(persona.hardNo());
-        Set<String> personaPriorities = normalizeSet(persona.priorities());
+        Set<String> personaHardNo = persona.index().normalizedHardNo();
+        Set<String> personaPriorities = persona.index().normalizedPriorities();
 
         DecisionSignalsConfig decisionSignals = config.decisionSignals();
         int languageFrictionIndex = computeLanguageFrictionIndex(combinedText, trackedCompany, decisionSignals);
@@ -782,7 +757,7 @@ public final class DecisionEngineV1 {
                 hardRejectReasons
         );
 
-        Map<String, Integer> signalWeights = persona.signalWeights();
+        Map<String, Integer> signalWeights = persona.index().normalizedSignalWeights();
         int rawScore = computeScore(positiveSignals, riskSignals, personaPriorities, signalWeights);
         ScoreRange scoreRange = computeScoreRange(personaPriorities, signalWeights);
         int normalizedScore = normalizeScore(rawScore, scoreRange);
@@ -802,6 +777,16 @@ public final class DecisionEngineV1 {
                 positiveSignals,
                 riskSignals
         );
+        HumanReading humanReading = humanReadingSynthesizer.synthesize(
+                job,
+                candidateProfile,
+                verdict,
+                languageFrictionIndex,
+                companyReputationIndex,
+                hardRejectReasons,
+                positiveSignals,
+                riskSignals
+        );
 
         return new EvaluationResult(
                 verdict,
@@ -814,7 +799,8 @@ public final class DecisionEngineV1 {
                 List.copyOf(hardRejectReasons),
                 List.copyOf(positiveSignals),
                 List.copyOf(riskSignals),
-                reasoning
+                reasoning,
+                humanReading
         );
     }
 
@@ -894,6 +880,9 @@ public final class DecisionEngineV1 {
         }
         if (isOnsiteBias(remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
+        }
+        if (hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals)) {
+            riskSignals.add(SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY);
         }
         if (hasLanguageFrictionSignal(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION);
@@ -1039,15 +1028,15 @@ public final class DecisionEngineV1 {
             String combinedText,
             CandidateProfileConfig candidateProfile
     ) {
-        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
+        Set<String> productionSkills = candidateProfile.index().productionSkillIds();
         int explicitRequiredMatches = countExplicitRequiredSkillMatches(job, productionSkills);
         int broadMatches = countCanonicalSkillMatches(combinedText, productionSkills);
         return explicitRequiredMatches >= 1 || broadMatches >= 2;
     }
 
     private boolean hasCandidateStackGap(JobInput job, CandidateProfileConfig candidateProfile) {
-        Set<String> productionSkills = canonicalizeSkills(candidateProfile.productionSkills());
-        Set<String> learningSkills = canonicalizeSkills(candidateProfile.learningSkills());
+        Set<String> productionSkills = candidateProfile.index().productionSkillIds();
+        Set<String> learningSkills = candidateProfile.index().learningSkillIds();
         for (String line : extractRequirementLines(job.description())) {
             Set<String> requiredSkills = extractMentionedTechs(line);
             if (requiredSkills.isEmpty()) {
@@ -1079,13 +1068,13 @@ public final class DecisionEngineV1 {
     }
 
     private boolean hasCandidateDomainFit(String combinedText, CandidateProfileConfig candidateProfile) {
-        int strongMatches = countDomainMatches(combinedText, candidateProfile.strongDomains());
-        int moderateMatches = countDomainMatches(combinedText, candidateProfile.moderateDomains());
+        int strongMatches = countDomainMatches(combinedText, candidateProfile.index().strongDomainIds());
+        int moderateMatches = countDomainMatches(combinedText, candidateProfile.index().moderateDomainIds());
         return strongMatches >= 1 || moderateMatches >= 2;
     }
 
     private boolean hasCandidateDomainGap(String combinedText, CandidateProfileConfig candidateProfile) {
-        int limitedMatches = countDomainMatches(combinedText, candidateProfile.limitedDomains());
+        int limitedMatches = countDomainMatches(combinedText, candidateProfile.index().limitedDomainIds());
         if (limitedMatches == 0) {
             return false;
         }
@@ -1164,7 +1153,7 @@ public final class DecisionEngineV1 {
     private Set<String> extractMentionedTechs(String text) {
         LinkedHashSet<String> matches = new LinkedHashSet<>();
         String normalizedText = normalize(text);
-        for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
+        for (Map.Entry<String, List<String>> entry : CandidateProfileTaxonomy.skillAliasesById().entrySet()) {
             if (matchesAnySkillAlias(normalizedText, entry.getValue())) {
                 matches.add(entry.getKey());
             }
@@ -1172,23 +1161,10 @@ public final class DecisionEngineV1 {
         return matches;
     }
 
-    private Set<String> canonicalizeSkills(List<String> rawSkills) {
-        LinkedHashSet<String> canonical = new LinkedHashSet<>();
-        for (String rawSkill : rawSkills) {
-            String normalizedSkill = normalize(rawSkill);
-            for (Map.Entry<String, List<String>> entry : CANDIDATE_SKILL_KEYWORDS.entrySet()) {
-                if (matchesAnySkillAlias(normalizedSkill, entry.getValue())) {
-                    canonical.add(entry.getKey());
-                }
-            }
-        }
-        return canonical;
-    }
-
     private int countCanonicalSkillMatches(String text, Set<String> canonicalSkills) {
         int matches = 0;
         for (String skill : canonicalSkills) {
-            List<String> aliases = CANDIDATE_SKILL_KEYWORDS.getOrDefault(skill, List.of(skill));
+            List<String> aliases = CandidateProfileTaxonomy.skillAliases(skill);
             if (matchesAnySkillAlias(text, aliases)) {
                 matches++;
             }
@@ -1212,10 +1188,10 @@ public final class DecisionEngineV1 {
         return normalizedLine.contains(" or ");
     }
 
-    private int countDomainMatches(String combinedText, List<String> domainKeys) {
+    private int countDomainMatches(String combinedText, Set<String> domainIds) {
         int matches = 0;
-        for (String domainKey : domainKeys) {
-            List<String> aliases = CANDIDATE_DOMAIN_KEYWORDS.get(normalize(domainKey));
+        for (String domainId : domainIds) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
             if (aliases != null && containsAny(combinedText, aliases)) {
                 matches++;
             }
@@ -1486,6 +1462,7 @@ public final class DecisionEngineV1 {
     private boolean hasLanguageFrictionSignal(String combinedText, DecisionSignalsConfig decisionSignals) {
         boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
+        boolean hasAssignmentDependentLanguage = hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals);
         boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         hasStrongRequiredLanguage = resolveRequiredLanguageConflict(
@@ -1495,6 +1472,9 @@ public final class DecisionEngineV1 {
                 decisionSignals
         );
         if (hasStrongRequiredLanguage) {
+            return true;
+        }
+        if (hasAssignmentDependentLanguage) {
             return true;
         }
         if (hasOptionalLanguage) {
@@ -1524,6 +1504,7 @@ public final class DecisionEngineV1 {
     ) {
         boolean hasStrongRequiredLanguage = containsAny(combinedText, decisionSignals.language().requiredKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_REQUIRED_PATTERNS);
+        boolean hasAssignmentDependentLanguage = hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals);
         boolean hasOptionalLanguage = containsAny(combinedText, decisionSignals.language().optionalOrExemptKeywords())
                 || matchesAnyPattern(combinedText, LANGUAGE_OPTIONAL_PATTERNS);
         boolean hasSoftLanguage = containsAny(combinedText, decisionSignals.language().frictionSoftKeywords());
@@ -1537,6 +1518,8 @@ public final class DecisionEngineV1 {
         int index = 0;
         if (hasStrongRequiredLanguage) {
             index = LANGUAGE_INDEX_REQUIRED_BASE;
+        } else if (hasAssignmentDependentLanguage) {
+            index = decisionSignals.language().assignmentDependentBaseIndex();
         } else if (hasOptionalLanguage) {
             index = LANGUAGE_INDEX_OPTIONAL_BASE;
         } else if (hasSoftLanguage) {
@@ -1580,6 +1563,9 @@ public final class DecisionEngineV1 {
         if (hasOptionalLanguage && !hasStrongRequiredLanguage) {
             index = Math.min(index, LANGUAGE_INDEX_OPTIONAL_MAX);
         }
+        if (hasAssignmentDependentLanguage && !hasStrongRequiredLanguage) {
+            index = Math.max(index, decisionSignals.language().assignmentDependentMinIndex());
+        }
 
         if (index < NORMALIZED_SCORE_MIN) {
             return NORMALIZED_SCORE_MIN;
@@ -1608,6 +1594,14 @@ public final class DecisionEngineV1 {
             return true;
         }
         return false;
+    }
+
+    private boolean hasJapaneseAssignmentDependencySignal(
+            String combinedText,
+            DecisionSignalsConfig decisionSignals
+    ) {
+        return containsAny(combinedText, decisionSignals.language().assignmentDependentKeywords())
+                || matchesAnyPattern(combinedText, LANGUAGE_ASSIGNMENT_DEPENDENCY_PATTERNS);
     }
 
     private boolean hasEngineeringEnvironmentPositiveSignal(String combinedText) {

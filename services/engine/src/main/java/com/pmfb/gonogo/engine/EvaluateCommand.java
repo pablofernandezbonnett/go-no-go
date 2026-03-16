@@ -124,6 +124,7 @@ public final class EvaluateCommand implements Callable<Integer> {
         printList(EvaluateInputFieldKeys.POSITIVE_SIGNALS, result.positiveSignals());
         printList(EvaluateInputFieldKeys.RISK_SIGNALS, result.riskSignals());
         printList(EvaluateInputFieldKeys.REASONING, result.reasoning());
+        printHumanReading(result.humanReading());
     }
 
     private void printList(String key, List<String> values) {
@@ -141,6 +142,30 @@ public final class EvaluateCommand implements Callable<Integer> {
         System.err.println(title + " with " + errors.size() + " error(s):");
         for (String error : errors) {
             System.err.println(" - " + error);
+        }
+    }
+
+    private void printHumanReading(com.pmfb.gonogo.engine.decision.HumanReading humanReading) {
+        System.out.println(EvaluateInputFieldKeys.HUMAN_READING + ":");
+        System.out.println(" - " + EvaluateInputFieldKeys.ACCESS_FIT + ": " + humanReading.accessFit().serialized());
+        System.out.println(" - " + EvaluateInputFieldKeys.EXECUTION_FIT + ": " + humanReading.executionFit().serialized());
+        System.out.println(" - " + EvaluateInputFieldKeys.DOMAIN_FIT + ": " + humanReading.domainFit().serialized());
+        System.out.println(" - " + EvaluateInputFieldKeys.OPPORTUNITY_QUALITY + ": "
+                + humanReading.opportunityQuality().serialized());
+        System.out.println(" - " + EvaluateInputFieldKeys.INTERVIEW_ROI + ": " + humanReading.interviewRoi().serialized());
+        System.out.println(" - " + EvaluateInputFieldKeys.SUMMARY + ": " + humanReading.summary());
+        printNestedList(EvaluateInputFieldKeys.WHY_STILL_INTERESTING, humanReading.whyStillInteresting());
+        printNestedList(EvaluateInputFieldKeys.WHY_WASTE_OF_TIME, humanReading.whyWasteOfTime());
+    }
+
+    private void printNestedList(String key, List<String> values) {
+        if (values.isEmpty()) {
+            System.out.println(" - " + key + ": []");
+            return;
+        }
+        System.out.println(" - " + key + ":");
+        for (String value : values) {
+            System.out.println("   - " + value);
         }
     }
 

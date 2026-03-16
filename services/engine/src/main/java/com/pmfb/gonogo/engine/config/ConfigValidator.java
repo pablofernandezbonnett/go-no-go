@@ -115,7 +115,7 @@ public final class ConfigValidator {
                 errors.add(context + ".minimum_salary_yen must be non-negative");
             }
 
-            Set<String> hardNoSet = normalizeSet(persona.hardNo());
+            Set<String> hardNoSet = persona.index().normalizedHardNo();
             for (String required : REQUIRED_PERSONA_HARD_NO) {
                 if (!hardNoSet.contains(required)) {
                     errors.add(context + ".hard_no must include '" + required + "'");
@@ -179,9 +179,42 @@ public final class ConfigValidator {
             checkDuplicates(profile.productionSkills(), context + ".production_skills", errors);
             checkDuplicates(profile.learningSkills(), context + ".learning_skills", errors);
             checkDuplicates(profile.gapSkills(), context + ".gap_skills", errors);
-            checkDuplicates(profile.strongDomains(), context + ".strong_domains", errors);
-            checkDuplicates(profile.moderateDomains(), context + ".moderate_domains", errors);
-            checkDuplicates(profile.limitedDomains(), context + ".limited_domains", errors);
+            checkDuplicateDomainIds(profile.strongDomains(), context + ".strong_domains", errors);
+            checkDuplicateDomainIds(profile.moderateDomains(), context + ".moderate_domains", errors);
+            checkDuplicateDomainIds(profile.limitedDomains(), context + ".limited_domains", errors);
+            validateEducation(profile.education(), context + ".education", errors);
+        }
+    }
+
+    private void checkDuplicateDomainIds(
+            List<ProfileDomain> domains,
+            String context,
+            List<String> errors
+    ) {
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < domains.size(); i++) {
+            ProfileDomain domain = domains.get(i);
+            String id = normalize(domain.id());
+            if (id.isBlank()) {
+                errors.add(context + "[" + i + "].id cannot be blank");
+                continue;
+            }
+            if (!seen.add(id)) {
+                errors.add(context + " contains duplicate domain id '" + domain.id() + "'");
+            }
+        }
+    }
+
+    private void validateEducation(
+            List<EducationItem> education,
+            String context,
+            List<String> errors
+    ) {
+        for (int i = 0; i < education.size(); i++) {
+            EducationItem item = education.get(i);
+            if (item.isBlank()) {
+                errors.add(context + "[" + i + "] cannot be blank");
+            }
         }
     }
 
@@ -267,6 +300,11 @@ public final class ConfigValidator {
                     errors
             );
             validateDecisionSignalList(
+                    language.assignmentDependentKeywords(),
+                    "decision-signals.language.assignment_dependent_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
                     language.optionalOrExemptKeywords(),
                     "decision-signals.language.optional_or_exempt_keywords",
                     errors
@@ -283,6 +321,17 @@ public final class ConfigValidator {
             );
             if (language.englishSupportMaxIndex() < 0 || language.englishSupportMaxIndex() > 100) {
                 errors.add("decision-signals.language.english_support_max_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentBaseIndex() < 0 || language.assignmentDependentBaseIndex() > 100) {
+                errors.add("decision-signals.language.assignment_dependent_base_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentMinIndex() < 0 || language.assignmentDependentMinIndex() > 100) {
+                errors.add("decision-signals.language.assignment_dependent_min_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentMinIndex() > language.assignmentDependentBaseIndex()) {
+                errors.add(
+                        "decision-signals.language.assignment_dependent_min_index must be <= assignment_dependent_base_index"
+                );
             }
         }
 

@@ -16,6 +16,7 @@ Current runtime use:
 - seniority-fit scoring
 - domain-fit scoring
 - recommendation explanations grounded in actual profile evidence
+- human-reading synthesis using optional narrative fields such as `education`, `target_roles`, and `differentiators`
 
 Still planned:
 

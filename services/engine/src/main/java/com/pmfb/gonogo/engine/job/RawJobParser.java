@@ -9,12 +9,18 @@ import java.util.regex.Pattern;
 
 public final class RawJobParser {
     private static final String OPTIONAL_LIST_PREFIX_REGEX = "^\\s*[•・*\\-]?\\s*";
+    private static final int LEADING_CANDIDATE_LIMIT = 6;
+    private static final Pattern COMPANY_NAME_CANDIDATE_PATTERN = Pattern.compile(
+            "^[A-Z][\\w&+,.()'/-]*(?:\\s+[A-Z][\\w&+,.()'/-]*){0,5}$"
+    );
     private static final List<Pattern> TITLE_PATTERNS = List.of(
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(title|role|position)\\s*:\\s*(.+)$"),
-            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "job\\s+title\\s*:\\s*(.+)$")
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "job\\s+title\\s*:\\s*(.+)$"),
+            Pattern.compile(OPTIONAL_LIST_PREFIX_REGEX + "(職種|募集職種|ポジション|求人名)\\s*[:：]\\s*(.+)$")
     );
     private static final List<Pattern> COMPANY_PATTERNS = List.of(
-            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(company|company name|employer)\\s*:\\s*(.+)$")
+            Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(company|company name|employer)\\s*:\\s*(.+)$"),
+            Pattern.compile(OPTIONAL_LIST_PREFIX_REGEX + "(会社名|企業名|雇用主)\\s*[:：]\\s*(.+)$")
     );
     private static final List<Pattern> LOCATION_PATTERNS = List.of(
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(location|office|based in)\\s*:\\s*(.+)$"),
@@ -23,15 +29,17 @@ public final class RawJobParser {
     private static final List<Pattern> SALARY_LABEL_PATTERNS = List.of(
             Pattern.compile(
                     "(?i)" + OPTIONAL_LIST_PREFIX_REGEX
-                            + "(salary|compensation|pay range|annual salary range|annual salary|年収|給与)"
+                            + "(salary|compensation|pay range|annual salary range|annual salary|年収|給与|想定年収|月給|年俸|報酬)"
                             + "\\s*[:：]\\s*(.+)$"
             )
     );
     private static final List<Pattern> REMOTE_POLICY_PATTERNS = List.of(
             Pattern.compile(
                     "(?i)" + OPTIONAL_LIST_PREFIX_REGEX
-                            + "(remote policy|work style|working style|work mode|remote/hybrid)\\s*[:：]\\s*(.+)$"
-            )
+                            + "(remote policy|work style|working style|work mode|remote/hybrid|employment type|work location)"
+                            + "\\s*[:：]\\s*(.+)$"
+            ),
+            Pattern.compile(OPTIONAL_LIST_PREFIX_REGEX + "(勤務形態|働き方|リモートワーク)\\s*[:：]\\s*(.+)$")
     );
     private static final List<String> ONSITE_ONLY_KEYWORDS = List.of(
             "onsite",
@@ -42,7 +50,69 @@ public final class RawJobParser {
             "work from office",
             "in office",
             "office-based",
-            "office based"
+            "office based",
+            "出社",
+            "出社必須"
+    );
+    private static final List<String> REMOTE_KEYWORDS = List.of(
+            "remote",
+            "work from home",
+            "wfh",
+            "remote work system available",
+            "remote available",
+            "fully remote",
+            "在宅",
+            "リモート",
+            "在宅勤務"
+    );
+    private static final List<String> HYBRID_KEYWORDS = List.of(
+            "hybrid",
+            "remote and office",
+            "office and remote",
+            "ハイブリッド"
+    );
+    private static final List<String> TITLE_CANDIDATE_KEYWORDS = List.of(
+            "engineer",
+            "developer",
+            "architect",
+            "scientist",
+            "designer",
+            "manager",
+            "backend",
+            "front-end",
+            "frontend",
+            "full-stack",
+            "full stack",
+            "mobile",
+            "ios",
+            "android",
+            "platform",
+            "sre",
+            "qa",
+            "server-side",
+            "serverside",
+            "client-side",
+            "clientside",
+            "エンジニア",
+            "開発",
+            "設計",
+            "デザイナー",
+            "マネージャ",
+            "バックエンド",
+            "フロントエンド",
+            "サーバサイド",
+            "クライアントサイド"
+    );
+    private static final List<String> TITLE_NOISE_KEYWORDS = List.of(
+            "requirements",
+            "responsibilities",
+            "qualifications",
+            "benefits",
+            "conditions",
+            "待遇",
+            "福利厚生",
+            "勤務地",
+            "給与"
     );
     private static final Pattern CURRENCY_RANGE_PATTERN = Pattern.compile(
             "(?i)(?:JPY|USD|EUR|¥|\\$|€)\\s*\\d[\\d,]*(?:\\.\\d+)?(?:\\s*(?:million|m))?"
@@ -59,18 +129,17 @@ public final class RawJobParser {
         if (company.isBlank()) {
             company = detectFirstMatchingValue(lines, COMPANY_PATTERNS).orElse("");
         }
-        if (company.isBlank()) {
-            company = "Unknown Company";
-            warnings.add("Company name not found in raw text; using 'Unknown Company'.");
-        }
-
         String title = normalizeOverride(titleOverride);
         if (title.isBlank()) {
             title = detectFirstMatchingValue(lines, TITLE_PATTERNS).orElse("");
         }
         if (title.isBlank()) {
-            title = inferTitleFromHeading(lines).orElse("Unknown Role");
+            title = inferTitle(lines).orElse("Unknown Role");
             warnings.add("Title not found in labeled fields; using inferred/fallback title.");
+        }
+        if (company.isBlank()) {
+            company = inferCompany(lines, title).orElse("Unknown Company");
+            warnings.add("Company name not found in labeled fields; using inferred/fallback company.");
         }
 
         String location = detectFirstMatchingValue(lines, LOCATION_PATTERNS).orElseGet(
@@ -133,15 +202,36 @@ public final class RawJobParser {
         return Optional.empty();
     }
 
+    private Optional<String> inferTitle(List<String> lines) {
+        Optional<String> fromHeading = inferTitleFromHeading(lines);
+        if (fromHeading.isPresent()) {
+            return fromHeading;
+        }
+        List<String> leadingLines = collectLeadingMeaningfulLines(lines);
+        for (int i = 0; i < leadingLines.size(); i++) {
+            String line = leadingLines.get(i);
+            if (looksLikeTitleCandidate(line)) {
+                return Optional.of(line);
+            }
+            if (looksLikeCompanyCandidate(line) && i + 1 < leadingLines.size()) {
+                String nextLine = leadingLines.get(i + 1);
+                if (looksLikeTitleCandidate(nextLine)) {
+                    return Optional.of(nextLine);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     private Optional<String> inferTitleFromHeading(List<String> lines) {
         for (String line : lines) {
-            String trimmed = line.trim();
+            String trimmed = normalizeCandidateLine(line);
             if (trimmed.isBlank()) {
                 continue;
             }
             if (trimmed.startsWith("#")) {
                 String heading = trimmed.replaceFirst("^#+\\s*", "").trim();
-                if (!heading.isBlank()) {
+                if (!heading.isBlank() && looksLikeTitleCandidate(heading)) {
                     return Optional.of(heading);
                 }
             }
@@ -149,7 +239,24 @@ public final class RawJobParser {
         return Optional.empty();
     }
 
+    private Optional<String> inferCompany(List<String> lines, String title) {
+        List<String> leadingLines = collectLeadingMeaningfulLines(lines);
+        for (int i = 0; i < leadingLines.size(); i++) {
+            String line = leadingLines.get(i);
+            if (line.equals(title)) {
+                continue;
+            }
+            if (looksLikeCompanyCandidate(line)) {
+                return Optional.of(line);
+            }
+        }
+        return Optional.empty();
+    }
+
     private String inferLocation(String loweredText) {
+        if (loweredText.contains("otemachi") || loweredText.contains("東京") || loweredText.contains("tokyo")) {
+            return "Tokyo";
+        }
         if (loweredText.contains("tokyo")) {
             return "Tokyo";
         }
@@ -162,17 +269,21 @@ public final class RawJobParser {
         if (loweredText.contains("japan")) {
             return "Japan";
         }
+        if (loweredText.contains("日本国内")) {
+            return "Japan";
+        }
         if (loweredText.contains("remote")) {
+            return "Remote";
+        }
+        if (containsAny(loweredText, REMOTE_KEYWORDS)) {
             return "Remote";
         }
         return "";
     }
 
     private String inferRemotePolicy(String loweredText) {
-        boolean hasRemote = loweredText.contains("remote")
-                || loweredText.contains("work from home")
-                || loweredText.contains("wfh");
-        boolean hasHybrid = loweredText.contains("hybrid");
+        boolean hasRemote = containsAny(loweredText, REMOTE_KEYWORDS);
+        boolean hasHybrid = containsAny(loweredText, HYBRID_KEYWORDS);
         boolean hasOnsite = containsAny(loweredText, ONSITE_ONLY_KEYWORDS);
 
         if (hasHybrid || (hasRemote && hasOnsite)) {
@@ -189,8 +300,8 @@ public final class RawJobParser {
 
     private String normalizeRemotePolicyLabelValue(String rawValue) {
         String lowered = normalize(rawValue);
-        boolean hasRemote = lowered.contains("remote") || lowered.contains("wfh");
-        boolean hasHybrid = lowered.contains("hybrid");
+        boolean hasRemote = containsAny(lowered, REMOTE_KEYWORDS);
+        boolean hasHybrid = containsAny(lowered, HYBRID_KEYWORDS);
         boolean hasOnsite = containsAny(lowered, ONSITE_ONLY_KEYWORDS) || "office".equals(lowered);
         if (hasHybrid || (hasRemote && hasOnsite)) {
             return "Hybrid";
@@ -219,6 +330,62 @@ public final class RawJobParser {
 
     private String normalize(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT);
+    }
+
+    private List<String> collectLeadingMeaningfulLines(List<String> lines) {
+        List<String> candidates = new ArrayList<>();
+        for (String line : lines) {
+            String normalized = normalizeCandidateLine(line);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            if (normalized.contains(":") || normalized.contains("：")) {
+                continue;
+            }
+            candidates.add(normalized);
+            if (candidates.size() >= LEADING_CANDIDATE_LIMIT) {
+                break;
+            }
+        }
+        return candidates;
+    }
+
+    private String normalizeCandidateLine(String line) {
+        String normalized = line == null ? "" : line.trim();
+        normalized = normalized.replaceFirst("^#+\\s*", "");
+        normalized = normalized.replaceFirst("^\\s*[•・*\\-]+\\s*", "");
+        return normalized.trim();
+    }
+
+    private boolean looksLikeTitleCandidate(String line) {
+        String normalized = normalizeCandidateLine(line);
+        if (normalized.isBlank() || normalized.length() > 140) {
+            return false;
+        }
+        if (containsAny(normalize(normalized), TITLE_NOISE_KEYWORDS)) {
+            return false;
+        }
+        return containsAny(normalize(normalized), TITLE_CANDIDATE_KEYWORDS);
+    }
+
+    private boolean looksLikeCompanyCandidate(String line) {
+        String normalized = normalizeCandidateLine(line);
+        if (normalized.isBlank() || normalized.length() > 100) {
+            return false;
+        }
+        if (looksLikeTitleCandidate(normalized)) {
+            return false;
+        }
+        if (normalized.contains(":") || normalized.contains("：")) {
+            return false;
+        }
+        if (normalized.startsWith("https://") || normalized.startsWith("http://")) {
+            return false;
+        }
+        if (normalized.contains("株式会社")) {
+            return true;
+        }
+        return COMPANY_NAME_CANDIDATE_PATTERN.matcher(normalized).matches();
     }
 
     private boolean containsAny(String text, List<String> keywords) {
