@@ -46,6 +46,15 @@ public final class BatchReportWriter {
     private static final String FIELD_POSITIVE_SIGNALS = "positive_signals";
     private static final String FIELD_RISK_SIGNALS = "risk_signals";
     private static final String FIELD_REASONING = "reasoning";
+    private static final String FIELD_HUMAN_READING = "human_reading";
+    private static final String FIELD_HUMAN_SUMMARY = "human_summary";
+    private static final String FIELD_ACCESS_FIT = "access_fit";
+    private static final String FIELD_EXECUTION_FIT = "execution_fit";
+    private static final String FIELD_DOMAIN_FIT = "domain_fit";
+    private static final String FIELD_OPPORTUNITY_QUALITY = "opportunity_quality";
+    private static final String FIELD_INTERVIEW_ROI = "interview_roi";
+    private static final String FIELD_WHY_STILL_INTERESTING = "why_still_interesting";
+    private static final String FIELD_WHY_WASTE_OF_TIME = "why_waste_of_time";
 
     public void writeJson(Path outputFile, BatchEvaluationReport report) throws IOException {
         ensureParentDirectory(outputFile);
@@ -104,7 +113,8 @@ public final class BatchReportWriter {
             appendJsonArrayField(sb, 3, FIELD_HARD_REJECT_REASONS, item.evaluation().hardRejectReasons(), true);
             appendJsonArrayField(sb, 3, FIELD_POSITIVE_SIGNALS, item.evaluation().positiveSignals(), true);
             appendJsonArrayField(sb, 3, FIELD_RISK_SIGNALS, item.evaluation().riskSignals(), true);
-            appendJsonArrayField(sb, 3, FIELD_REASONING, item.evaluation().reasoning(), false);
+            appendJsonArrayField(sb, 3, FIELD_REASONING, item.evaluation().reasoning(), true);
+            appendJsonHumanReadingField(sb, 3, item.evaluation().humanReading(), false);
             sb.append(indent(2)).append("}");
             if (!isLast) {
                 sb.append(",");
@@ -195,6 +205,7 @@ public final class BatchReportWriter {
                 sb.append("- company_reputation_index: ")
                         .append(item.evaluation().companyReputationIndex())
                         .append("/100\n");
+                sb.append("- human_summary: ").append(item.evaluation().humanReading().summary()).append("\n");
                 sb.append("- positive_signals: ").append(formatInlineList(item.evaluation().positiveSignals())).append("\n");
                 sb.append("- risk_signals: ").append(formatInlineList(item.evaluation().riskSignals())).append("\n");
                 sb.append("- hard_reject_reasons: ")
@@ -318,6 +329,29 @@ public final class BatchReportWriter {
         } else {
             sb.append("]");
         }
+        if (comma) {
+            sb.append(",");
+        }
+        sb.append("\n");
+    }
+
+    private void appendJsonHumanReadingField(
+            StringBuilder sb,
+            int level,
+            com.pmfb.gonogo.engine.decision.HumanReading humanReading,
+            boolean comma
+    ) {
+        sb.append(indent(level))
+                .append("\"").append(escapeJson(FIELD_HUMAN_READING)).append("\": {\n");
+        appendJsonField(sb, level + 1, FIELD_ACCESS_FIT, humanReading.accessFit().serialized(), true);
+        appendJsonField(sb, level + 1, FIELD_EXECUTION_FIT, humanReading.executionFit().serialized(), true);
+        appendJsonField(sb, level + 1, FIELD_DOMAIN_FIT, humanReading.domainFit().serialized(), true);
+        appendJsonField(sb, level + 1, FIELD_OPPORTUNITY_QUALITY, humanReading.opportunityQuality().serialized(), true);
+        appendJsonField(sb, level + 1, FIELD_INTERVIEW_ROI, humanReading.interviewRoi().serialized(), true);
+        appendJsonField(sb, level + 1, FIELD_HUMAN_SUMMARY, humanReading.summary(), true);
+        appendJsonArrayField(sb, level + 1, FIELD_WHY_STILL_INTERESTING, humanReading.whyStillInteresting(), true);
+        appendJsonArrayField(sb, level + 1, FIELD_WHY_WASTE_OF_TIME, humanReading.whyWasteOfTime(), false);
+        sb.append(indent(level)).append("}");
         if (comma) {
             sb.append(",");
         }

@@ -11,7 +11,7 @@ Reduce low-ROI interview processes by:
 - discovering relevant opportunities from selected companies
 - extracting useful hiring and work-condition signals
 - applying persona-aware GO / NO-GO logic
-- explaining every recommendation clearly
+- explaining every recommendation clearly, including a deterministic human-reading layer
 
 ## Initial Persona
 
@@ -77,6 +77,8 @@ Implemented now:
 - job change detection (`NEW`/`UPDATED`/`UNCHANGED`/`REMOVED`) with persisted state in pipeline
 - incremental pipeline mode (`--incremental-only`) to evaluate only changed jobs
 - enhanced language-friction detection (EN/JP required vs optional patterns)
+- conditional Japanese assignment-dependency detection (`Japanese affects assignment/team`, distinct from hard requirement)
+- derived human-reading dimensions (`access_fit`, `execution_fit`, `domain_fit`, `opportunity_quality`, `interview_roi`)
 - language friction index (`language_friction_index`, 0-100)
 - company profiling + reputation signals from `config/companies.yaml` tags
 - company reputation aggregation + index (`company_reputation_index`, 0-100)
@@ -85,6 +87,7 @@ Implemented now:
 - job-post quality signals for anonymous recruiter-style posts, generic marketing fluff, and vague conditions sections
 - persona-level salary floor (`minimum_salary_yen`) for candidate-market fit
 - runtime candidate profiles (`config/candidate-profiles/`) with candidate-aware stack/domain/seniority signals
+- profile-backed human-reading synthesis using candidate evidence such as education, target roles, and differentiators
 - tracked candidate profile template plus local untracked candidate profiles for runtime use
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas

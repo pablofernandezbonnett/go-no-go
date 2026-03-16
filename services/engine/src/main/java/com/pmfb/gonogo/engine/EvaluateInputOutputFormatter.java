@@ -40,6 +40,7 @@ final class EvaluateInputOutputFormatter {
         appendList(sb, EvaluateInputFieldKeys.POSITIVE_SIGNALS, result.positiveSignals());
         appendList(sb, EvaluateInputFieldKeys.RISK_SIGNALS, result.riskSignals());
         appendList(sb, EvaluateInputFieldKeys.REASONING, result.reasoning());
+        appendHumanReading(sb, result.humanReading());
         if (!analysis.normalizationWarnings().isEmpty()) {
             appendList(sb, EvaluateInputFieldKeys.NORMALIZATION_WARNINGS, analysis.normalizationWarnings());
         }
@@ -83,6 +84,7 @@ final class EvaluateInputOutputFormatter {
         evaluation.put(EvaluateInputFieldKeys.POSITIVE_SIGNALS, analysis.evaluation().positiveSignals());
         evaluation.put(EvaluateInputFieldKeys.RISK_SIGNALS, analysis.evaluation().riskSignals());
         evaluation.put(EvaluateInputFieldKeys.REASONING, analysis.evaluation().reasoning());
+        evaluation.put(EvaluateInputFieldKeys.HUMAN_READING, toHumanReadingMap(analysis.evaluation().humanReading()));
         root.put(EvaluateInputFieldKeys.EVALUATION, evaluation);
 
         root.put(EvaluateInputFieldKeys.NORMALIZATION_WARNINGS, analysis.normalizationWarnings());
@@ -109,6 +111,48 @@ final class EvaluateInputOutputFormatter {
         sb.append(key).append(":\n");
         for (String line : value.split("\\R")) {
             sb.append(" | ").append(line).append("\n");
+        }
+    }
+
+    private void appendHumanReading(StringBuilder sb, com.pmfb.gonogo.engine.decision.HumanReading humanReading) {
+        sb.append(EvaluateInputFieldKeys.HUMAN_READING).append(":\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.ACCESS_FIT).append(": ")
+                .append(humanReading.accessFit().serialized()).append("\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.EXECUTION_FIT).append(": ")
+                .append(humanReading.executionFit().serialized()).append("\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.DOMAIN_FIT).append(": ")
+                .append(humanReading.domainFit().serialized()).append("\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.OPPORTUNITY_QUALITY).append(": ")
+                .append(humanReading.opportunityQuality().serialized()).append("\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.INTERVIEW_ROI).append(": ")
+                .append(humanReading.interviewRoi().serialized()).append("\n");
+        sb.append(" - ").append(EvaluateInputFieldKeys.SUMMARY).append(": ")
+                .append(humanReading.summary()).append("\n");
+        appendNestedList(sb, EvaluateInputFieldKeys.WHY_STILL_INTERESTING, humanReading.whyStillInteresting());
+        appendNestedList(sb, EvaluateInputFieldKeys.WHY_WASTE_OF_TIME, humanReading.whyWasteOfTime());
+    }
+
+    private Map<String, Object> toHumanReadingMap(com.pmfb.gonogo.engine.decision.HumanReading humanReading) {
+        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
+        map.put(EvaluateInputFieldKeys.ACCESS_FIT, humanReading.accessFit().serialized());
+        map.put(EvaluateInputFieldKeys.EXECUTION_FIT, humanReading.executionFit().serialized());
+        map.put(EvaluateInputFieldKeys.DOMAIN_FIT, humanReading.domainFit().serialized());
+        map.put(EvaluateInputFieldKeys.OPPORTUNITY_QUALITY, humanReading.opportunityQuality().serialized());
+        map.put(EvaluateInputFieldKeys.INTERVIEW_ROI, humanReading.interviewRoi().serialized());
+        map.put(EvaluateInputFieldKeys.SUMMARY, humanReading.summary());
+        map.put(EvaluateInputFieldKeys.WHY_STILL_INTERESTING, humanReading.whyStillInteresting());
+        map.put(EvaluateInputFieldKeys.WHY_WASTE_OF_TIME, humanReading.whyWasteOfTime());
+        return map;
+    }
+
+    private void appendNestedList(StringBuilder sb, String key, List<String> values) {
+        if (values.isEmpty()) {
+            sb.append(" - ").append(key).append(": []\n");
+            return;
+        }
+        sb.append(" - ").append(key).append(":\n");
+        for (String value : values) {
+            sb.append("   - ").append(value).append("\n");
         }
     }
 
