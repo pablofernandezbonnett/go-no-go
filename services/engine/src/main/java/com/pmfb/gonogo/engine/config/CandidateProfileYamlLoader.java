@@ -104,19 +104,34 @@ final class CandidateProfileYamlLoader {
         List<String> productionSkills = flattenNestedStringLists(production, context + ".stack.production_proven", errors);
         List<String> learningSkills = readOptionalStringList(stack, "actively_learning", context + ".stack", errors);
         List<String> gapSkills = readOptionalStringList(stack, "gaps_honest", context + ".stack", errors);
-        List<String> strongDomains = readOptionalStringList(domainExpertise, "strong", context + ".domain_expertise", errors);
-        List<String> moderateDomains = readOptionalStringList(
+        List<ProfileDomain> strongDomains = readDomainList(
+                domainExpertise,
+                "strong",
+                ProfileDomainStrength.STRONG,
+                context + ".domain_expertise",
+                errors
+        );
+        List<ProfileDomain> moderateDomains = readDomainList(
                 domainExpertise,
                 "moderate",
+                ProfileDomainStrength.MODERATE,
                 context + ".domain_expertise",
                 errors
         );
-        List<String> limitedDomains = readOptionalStringList(
+        List<ProfileDomain> limitedDomains = readDomainList(
                 domainExpertise,
                 "limited",
+                ProfileDomainStrength.LIMITED,
                 context + ".domain_expertise",
                 errors
         );
+        List<EducationItem> education = readEducationItems(root, "education", context, errors);
+        List<String> targetRoleHints = flattenNestedStringLists(
+                readOptionalMap(root, "target_roles", context, errors),
+                context + ".target_roles",
+                errors
+        );
+        List<String> differentiators = readOptionalStringList(root, "differentiators", context, errors);
 
         return new CandidateProfileConfig(
                 id,
@@ -129,7 +144,11 @@ final class CandidateProfileYamlLoader {
                 gapSkills,
                 strongDomains,
                 moderateDomains,
-                limitedDomains
+                limitedDomains,
+                education,
+                targetRoleHints,
+                differentiators,
+                null
         );
     }
 
@@ -181,6 +200,24 @@ final class CandidateProfileYamlLoader {
             return "";
         }
         return text.trim();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> readOptionalMap(
+            Map<String, Object> map,
+            String key,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return Map.of();
+        }
+        if (!(value instanceof Map<?, ?> rawMap)) {
+            errors.add(context + " field '" + key + "' must be a map");
+            return Map.of();
+        }
+        return (Map<String, Object>) rawMap;
     }
 
     private int readRequiredInt(
@@ -258,6 +295,65 @@ final class CandidateProfileYamlLoader {
             errors.add(fieldContext + " must be a list or nested map");
         }
         return List.copyOf(values);
+    }
+
+    private List<ProfileDomain> readDomainList(
+            Map<String, Object> map,
+            String key,
+            ProfileDomainStrength strength,
+            String context,
+            List<String> errors
+    ) {
+        List<String> domainIds = readOptionalStringList(map, key, context, errors);
+        List<ProfileDomain> domains = new ArrayList<>();
+        for (String domainId : domainIds) {
+            domains.add(ProfileDomain.of(domainId, strength));
+        }
+        return List.copyOf(domains);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<EducationItem> readEducationItems(
+            Map<String, Object> map,
+            String key,
+            String context,
+            List<String> errors
+    ) {
+        Object value = map.get(key);
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> list)) {
+            errors.add(context + " field '" + key + "' must be a list");
+            return List.of();
+        }
+
+        List<EducationItem> items = new ArrayList<>();
+        for (int i = 0; i < list.size(); i++) {
+            Object item = list.get(i);
+            if (!(item instanceof Map<?, ?> rawItem)) {
+                errors.add(context + " field '" + key + "' item[" + i + "] must be a map");
+                continue;
+            }
+            Map<String, Object> itemMap = (Map<String, Object>) rawItem;
+            EducationItem educationItem = new EducationItem(
+                    readMapString(itemMap, "degree"),
+                    readMapString(itemMap, "institution"),
+                    readMapString(itemMap, "note")
+            );
+            if (!educationItem.isBlank()) {
+                items.add(educationItem);
+            }
+        }
+        return List.copyOf(items);
+    }
+
+    private String readMapString(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof String text) {
+            return text.trim();
+        }
+        return "";
     }
 
     private boolean isYamlFile(Path file) {

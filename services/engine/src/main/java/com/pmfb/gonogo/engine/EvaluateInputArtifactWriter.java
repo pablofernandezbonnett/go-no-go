@@ -78,6 +78,20 @@ final class EvaluateInputArtifactWriter {
         map.put(EvaluateInputFieldKeys.POSITIVE_SIGNALS, evaluation.positiveSignals());
         map.put(EvaluateInputFieldKeys.RISK_SIGNALS, evaluation.riskSignals());
         map.put(EvaluateInputFieldKeys.REASONING, evaluation.reasoning());
+        map.put(EvaluateInputFieldKeys.HUMAN_READING, toHumanReadingMap(evaluation.humanReading()));
+        return map;
+    }
+
+    private Map<String, Object> toHumanReadingMap(com.pmfb.gonogo.engine.decision.HumanReading humanReading) {
+        LinkedHashMap<String, Object> map = new LinkedHashMap<>();
+        map.put(EvaluateInputFieldKeys.ACCESS_FIT, humanReading.accessFit().serialized());
+        map.put(EvaluateInputFieldKeys.EXECUTION_FIT, humanReading.executionFit().serialized());
+        map.put(EvaluateInputFieldKeys.DOMAIN_FIT, humanReading.domainFit().serialized());
+        map.put(EvaluateInputFieldKeys.OPPORTUNITY_QUALITY, humanReading.opportunityQuality().serialized());
+        map.put(EvaluateInputFieldKeys.INTERVIEW_ROI, humanReading.interviewRoi().serialized());
+        map.put(EvaluateInputFieldKeys.SUMMARY, humanReading.summary());
+        map.put(EvaluateInputFieldKeys.WHY_STILL_INTERESTING, humanReading.whyStillInteresting());
+        map.put(EvaluateInputFieldKeys.WHY_WASTE_OF_TIME, humanReading.whyWasteOfTime());
         return map;
     }
 }
