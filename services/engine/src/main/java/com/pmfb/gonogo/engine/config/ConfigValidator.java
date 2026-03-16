@@ -267,6 +267,11 @@ public final class ConfigValidator {
                     errors
             );
             validateDecisionSignalList(
+                    language.assignmentDependentKeywords(),
+                    "decision-signals.language.assignment_dependent_keywords",
+                    errors
+            );
+            validateDecisionSignalList(
                     language.optionalOrExemptKeywords(),
                     "decision-signals.language.optional_or_exempt_keywords",
                     errors
@@ -283,6 +288,17 @@ public final class ConfigValidator {
             );
             if (language.englishSupportMaxIndex() < 0 || language.englishSupportMaxIndex() > 100) {
                 errors.add("decision-signals.language.english_support_max_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentBaseIndex() < 0 || language.assignmentDependentBaseIndex() > 100) {
+                errors.add("decision-signals.language.assignment_dependent_base_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentMinIndex() < 0 || language.assignmentDependentMinIndex() > 100) {
+                errors.add("decision-signals.language.assignment_dependent_min_index must be between 0 and 100");
+            }
+            if (language.assignmentDependentMinIndex() > language.assignmentDependentBaseIndex()) {
+                errors.add(
+                        "decision-signals.language.assignment_dependent_min_index must be <= assignment_dependent_base_index"
+                );
             }
         }
 

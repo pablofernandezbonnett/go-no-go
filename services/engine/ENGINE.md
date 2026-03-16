@@ -10,6 +10,7 @@ Problems:
 - Consulting disguised as product roles
 - Opaque salary structures
 - "English OK" that still requires Japanese
+- "Japanese ability influences assignment/team placement" even when it is not phrased as a hard requirement
 - Excessive overtime culture
 - Tokyo-centric bias
 - Wasted interview processes

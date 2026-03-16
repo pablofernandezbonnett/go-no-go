@@ -180,6 +180,28 @@ final class DecisionEngineV1Test {
     }
 
     @Test
+    void treatsAssignmentDependentJapaneseAsModerateRisk() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Preferred Networks",
+                        "Product and Service Development Engineer",
+                        "Tokyo",
+                        "JPY 9,000,000 - 11,000,000",
+                        "Remote",
+                        "Global team with English communication. Japanese communication ability will be considered "
+                                + "when determining work content, assignment destination, and team."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("japanese_assignment_dependency"));
+        assertTrue(result.riskSignals().contains("language_friction"));
+        assertTrue(result.languageFrictionIndex() >= 20);
+        assertTrue(result.languageFrictionIndex() <= 35);
+    }
+
+    @Test
     void flagsAnonymousEmployerRiskForOpaqueRecruiterStylePost() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
