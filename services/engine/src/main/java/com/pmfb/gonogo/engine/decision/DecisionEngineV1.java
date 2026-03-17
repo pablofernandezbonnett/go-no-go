@@ -562,7 +562,11 @@ public final class DecisionEngineV1 {
             "selection process",
             "benefits",
             "nice to have",
+            "nice to haves",
+            "nice-to-have",
+            "nice-to-haves",
             "preferred",
+            "preferred qualifications",
             "bonus"
     );
     private static final List<String> CANDIDATE_REQUIREMENT_LINE_HINTS = List.of(
@@ -1045,22 +1049,23 @@ public final class DecisionEngineV1 {
 
             boolean productionMatch = containsAnyCanonicalSkill(requiredSkills, productionSkills);
             boolean learningMatch = containsAnyCanonicalSkill(requiredSkills, learningSkills);
+            boolean technicalShapeCoverage = hasTechnicalShapeCoverage(requiredSkills, candidateProfile);
             boolean alternativeLine = isAlternativeSkillLine(line);
 
             if (alternativeLine) {
-                if (!productionMatch && learningMatch) {
+                if (!productionMatch && !technicalShapeCoverage && learningMatch) {
                     return true;
                 }
-                if (!productionMatch && !learningMatch) {
+                if (!productionMatch && !learningMatch && !technicalShapeCoverage) {
                     return true;
                 }
                 continue;
             }
 
-            if (!productionMatch && !requiredSkills.isEmpty()) {
+            if (!productionMatch && !technicalShapeCoverage && !requiredSkills.isEmpty()) {
                 return true;
             }
-            if (!productionMatch && learningMatch) {
+            if (!productionMatch && !technicalShapeCoverage && learningMatch) {
                 return true;
             }
         }
@@ -1068,13 +1073,13 @@ public final class DecisionEngineV1 {
     }
 
     private boolean hasCandidateDomainFit(String combinedText, CandidateProfileConfig candidateProfile) {
-        int strongMatches = countDomainMatches(combinedText, candidateProfile.index().strongDomainIds());
-        int moderateMatches = countDomainMatches(combinedText, candidateProfile.index().moderateDomainIds());
+        int strongMatches = countDomainMatches(combinedText, candidateProfile.index().strongDirectDomainIds());
+        int moderateMatches = countDomainMatches(combinedText, candidateProfile.index().moderateDirectDomainIds());
         return strongMatches >= 1 || moderateMatches >= 2;
     }
 
     private boolean hasCandidateDomainGap(String combinedText, CandidateProfileConfig candidateProfile) {
-        int limitedMatches = countDomainMatches(combinedText, candidateProfile.index().limitedDomainIds());
+        int limitedMatches = countDomainMatches(combinedText, candidateProfile.index().limitedDirectDomainIds());
         if (limitedMatches == 0) {
             return false;
         }
@@ -1125,6 +1130,7 @@ public final class DecisionEngineV1 {
         List<String> lines = splitDescriptionLines(description);
         List<String> requirementLines = new ArrayList<>();
         boolean withinRequirementsSection = false;
+        boolean withinOptionalSection = false;
         for (String line : lines) {
             String normalizedLine = normalize(line);
             if (normalizedLine.isBlank()) {
@@ -1132,11 +1138,14 @@ public final class DecisionEngineV1 {
             }
             if (containsAny(normalizedLine, CANDIDATE_NON_REQUIREMENT_SECTION_KEYWORDS)) {
                 withinRequirementsSection = false;
+                withinOptionalSection = true;
             }
             if (containsAny(normalizedLine, CANDIDATE_REQUIREMENT_SECTION_KEYWORDS)) {
                 withinRequirementsSection = true;
+                withinOptionalSection = false;
             }
-            if (withinRequirementsSection || containsAny(normalizedLine, CANDIDATE_REQUIREMENT_LINE_HINTS)) {
+            if (withinRequirementsSection
+                    || (!withinOptionalSection && containsAny(normalizedLine, CANDIDATE_REQUIREMENT_LINE_HINTS))) {
                 requirementLines.add(normalizedLine);
             }
         }
@@ -1186,6 +1195,20 @@ public final class DecisionEngineV1 {
             return true;
         }
         return normalizedLine.contains(" or ");
+    }
+
+    private boolean hasTechnicalShapeCoverage(Set<String> requiredSkills, CandidateProfileConfig candidateProfile) {
+        if (requiredSkills.contains("microservices")) {
+            Set<String> strongDomainIds = candidateProfile.index().strongDomainIds();
+            Set<String> moderateDomainIds = candidateProfile.index().moderateDomainIds();
+            if (strongDomainIds.contains("distributed_product_systems")
+                    || strongDomainIds.contains("system_design")
+                    || moderateDomainIds.contains("distributed_product_systems")
+                    || moderateDomainIds.contains("system_design")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int countDomainMatches(String combinedText, Set<String> domainIds) {

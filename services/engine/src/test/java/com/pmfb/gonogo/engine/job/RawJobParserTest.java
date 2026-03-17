@@ -126,4 +126,21 @@ final class RawJobParserTest {
         );
         assertEquals("Remote", result.jobInput().remotePolicy());
     }
+
+    @Test
+    void infersCompanyFromAboutHeadingAndTitleFromNarrativeSentence() {
+        String rawText = """
+                About the job
+                About Woven By Toyota
+
+                TEAM
+                We are looking for an experienced Software Engineer to help build and evolve our Experimentation Platform.
+                Work Hours - Flexible working time
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, null, null);
+
+        assertEquals("Woven By Toyota", result.jobInput().companyName());
+        assertEquals("Software Engineer", result.jobInput().title());
+    }
 }

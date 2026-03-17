@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine.decision;
 
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
+import com.pmfb.gonogo.engine.config.CandidateProfileTaxonomy;
 import com.pmfb.gonogo.engine.job.JobInput;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -343,6 +344,9 @@ final class HumanReadingSynthesizer {
         if (candidateProfile == null) {
             return false;
         }
+        if (hasGenericShapeAffinity(combinedText, candidateProfile)) {
+            return true;
+        }
         String profileNarratives = candidateProfile.index().narrativeTextNormalized();
         for (List<String> themeKeywords : AFFINITY_THEMES.values()) {
             if (containsAny(profileNarratives, themeKeywords) && containsAny(combinedText, themeKeywords)) {
@@ -350,6 +354,30 @@ final class HumanReadingSynthesizer {
             }
         }
         return false;
+    }
+
+    private boolean hasGenericShapeAffinity(String combinedText, CandidateProfileConfig candidateProfile) {
+        Set<String> strongGenericIds = CandidateProfileTaxonomy.genericShapeDomainIds(
+                candidateProfile.index().strongDomainIds()
+        );
+        if (countDomainMatches(combinedText, strongGenericIds) >= 1) {
+            return true;
+        }
+        Set<String> moderateGenericIds = CandidateProfileTaxonomy.genericShapeDomainIds(
+                candidateProfile.index().moderateDomainIds()
+        );
+        return countDomainMatches(combinedText, moderateGenericIds) >= 2;
+    }
+
+    private int countDomainMatches(String combinedText, Set<String> domainIds) {
+        int matches = 0;
+        for (String domainId : domainIds) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matches++;
+            }
+        }
+        return matches;
     }
 
     private List<String> limit(Set<String> reasons, int maxItems) {
