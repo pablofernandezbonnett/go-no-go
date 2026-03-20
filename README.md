@@ -2,6 +2,12 @@
 
 Monorepo for the Go No-Go system.
 
+## Stack
+
+- `services/engine`: Java 25 + Gradle + Picocli
+- `services/engine/ops-ui`: Jaspr + Dart
+- `apps/reports-ui`: Jaspr + Dart
+
 ## Repository Map
 
 - `services/engine`: core engine and CLI-driven workflows
@@ -36,6 +42,12 @@ jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
 - Cross-project repository rules live in `AGENTS.md` at the repository root.
 - Pull requests for this repository use the root `.github/PULL_REQUEST_TEMPLATE.md`.
 - Child project documentation remains inside each imported project directory when present.
+
+## Verification Entry Point
+
+```bash
+./scripts/verify.sh
+```
 
 ## Migration Note
 
