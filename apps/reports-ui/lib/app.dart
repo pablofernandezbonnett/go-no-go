@@ -268,7 +268,7 @@ class App extends StatelessComponent {
     css('.collapsible-header').styles(
       display: .flex,
       justifyContent: JustifyContent.spaceBetween,
-      alignItems: .flexStart,
+      alignItems: .start,
       gap: Gap.all(0.8.rem),
       margin: Spacing.only(bottom: 0.4.rem),
     ),

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TUI Launcher Screenshot</title>
+    <link rel="stylesheet" href="terminal.css" />
+  </head>
+  <body>
+    <div class="frame">
+      <section class="terminal">
+        <div class="terminal-bar">
+          <div class="traffic"><span></span><span></span><span></span></div>
+          <div class="title">Go No-Go Terminal Launcher</div>
+        </div>
+        <div class="content">
+          <p class="command">$ ./gradlew run --args="tui"</p>
+          <pre><span class="warn">JLine TUI unavailable, falling back to line-based prompts.</span>
+<span class="muted">For the full terminal UI, use:</span>
+<span class="muted">./gradlew installDist</span>
+<span class="muted">./build/install/go-no-go-engine/bin/go-no-go-engine tui</span>
+
+Go No-Go TUI
+ config: config
+ personas: 3 | companies: 11 | candidate profiles: 1
+
+Action:
+ 1. run-all - Run all personas and companies
+ 2. pipeline-run - Run one persona pipeline
+ 3. quick-check - Quick check a URL, file, or raw text
+ 4. fetch-web - Fetch career pages into raw files
+ 5. config-validate - Validate config
+ 6. quit - Quit
+ Type the number or id, then press Enter.
+
+Action [run-all] (number/id + Enter):</pre>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

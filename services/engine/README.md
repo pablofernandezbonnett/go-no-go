@@ -47,6 +47,7 @@ Abusive overtime signals remain an unconditional reject.
 - Java 25 (default, configurable)
 - Gradle (wrapper)
 - Picocli (CLI)
+- JLine (terminal UI)
 - JUnit 5 (test structure ready)
 
 Spring Boot is intentionally deferred until API/persistence/multi-user needs appear.
@@ -92,6 +93,7 @@ Implemented now:
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas
 - `gonogo schedule` command to generate non-active scheduled-run artifacts (script + cron file)
+- `gonogo tui` interactive terminal launcher for common commands with config-backed defaults
 - embedded Ops UI (`ops-ui`, Jaspr) with left navigation and dedicated screens (`Create Run`, `Runs`, `Company`, `Persona`, `Settings`)
 - Ops UI API endpoint to add companies into YAML config (`POST /api/config/companies`)
 - Ops UI API endpoint to add personas into YAML config (`POST /api/config/personas`)
@@ -153,12 +155,40 @@ Show CLI help:
 ./gradlew run --args="--help"
 ```
 
+Launch the full terminal launcher:
+
+```bash
+./gradlew installDist
+./build/install/go-no-go-engine/bin/go-no-go-engine tui
+```
+
+The JLine launcher is keyboard-driven: use arrows to move, `Space` to toggle multi-select items, and `Enter` to confirm.
+
+Surface preview:
+
+![CLI screenshot](../../docs/screenshots/cli-check.png)
+
+![Terminal launcher screenshot](../../docs/screenshots/tui-launcher.png)
+
+If you are iterating on the code and just want the fallback prompt launcher during development, you can still run:
+
+```bash
+./gradlew run --args="tui"
+```
+
 ## Quick Start Commands
 
 Validate configuration:
 
 ```bash
 ./gradlew run --args="config validate"
+```
+
+Run common flows from the terminal launcher:
+
+```bash
+./gradlew installDist
+./build/install/go-no-go-engine/bin/go-no-go-engine tui
 ```
 
 Quick smart evaluation (auto-detects URL, raw text file, job YAML, or inline text):
@@ -252,7 +282,7 @@ Use the CLI summaries to compare:
 Operations UI (MVP, in this repo):
 
 ```bash
-cd ops-ui
+cd services/engine/ops-ui
 dart pub get
 jaspr serve
 ```
