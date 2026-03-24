@@ -81,6 +81,61 @@ Avoid early introduction of:
 - `build()` methods must not exceed 60 lines. Extract named private `StatelessComponent`
   sub-classes for large content sections.
 
+## Repository Stack
+
+- Jaspr
+- Dart
+
+## Run/Test Commands
+
+- Install deps: `dart pub get`
+- Static analysis: `dart analyze`
+- Run app: `jaspr serve`
+
+## Verification Guardrails
+
+- Verify engine artifact structure before changing report parsing, route assumptions, or ad-hoc evaluation wiring.
+- Treat engine-produced files as the source of truth; do not invent fields, sections, or status values in the UI.
+
+## Source of Truth
+
+- `pubspec.yaml` for runtime and package choices.
+- `lib/report_access/*`, `lib/services/*`, and `lib/constants/evaluation_contract.dart` for report loading and evaluation-facing contracts.
+- `lib/models/*` and `lib/backend/*` for payload shape expectations and engine orchestration.
+- Engine-produced artifacts and engine docs remain authoritative for report data shape.
+- `README.md` and `ARCHITECTURE.md` for setup, routes, and UI boundaries.
+
+## Preferred Skills
+
+- Use `jaspr-ui-slice` for Jaspr page/component/service work and report-to-UI wiring.
+
+## Preferred MCPs
+
+- Use Context7 for Jaspr and Dart API verification.
+- Use chrome-devtools for browser UI validation and responsive checks.
+
+## Engineering Heuristics
+
+- DRY: prefer one source of truth for stable logic, contracts, and constants. Extract shared behavior when repetition is real and the same fix would otherwise need to be repeated.
+- YAGNI: do not add speculative features, extension points, flags, or abstractions for hypothetical future needs.
+- KISS: choose the simplest implementation that is easy to explain, test, and change.
+- Simple is not easy: invest in small focused functions and clear structure instead of the fastest large-function shortcut.
+- Accept small local duplication temporarily when the right abstraction is not yet clear. Extract only when it improves readability and maintainability.
+
+## NEVER Rules
+
+- NEVER reimplement engine scoring, decision rules, or artifact generation in the UI.
+- NEVER mutate engine-owned artifacts from the UI.
+- NEVER parse artifacts directly inside page components.
+
+## Incorrect vs Correct
+
+- Incorrect: reimplement scoring or decision heuristics in the UI because a field is missing from the artifact.
+- Correct: keep the UI thin and push engine-owned logic back to the engine project.
+
+- Incorrect: parse engine artifacts directly inside pages or components.
+- Correct: keep artifact parsing and mapping inside dedicated services so the UI stays readable and deterministic.
+
 ---
 
 ## Contribution Style
@@ -106,3 +161,13 @@ Potential future features (not current default):
 - auth/roles
 
 Do not implement these by default unless requested.
+
+## Definition of Done
+
+- `dart analyze` passes or failures are explained.
+- UI remains a thin consumer of engine-owned artifacts and flows.
+
+## Docs Update Matrix
+
+- Update `README.md` for run instructions, environment variables, or visible report flows.
+- Update `AGENTS.md` when UI operating rules or artifact contracts change.

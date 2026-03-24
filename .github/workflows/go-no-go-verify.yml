@@ -1,0 +1,39 @@
+name: go-no-go-verify
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+
+      - name: Install ops-ui dependencies
+        working-directory: services/engine/ops-ui
+        run: dart pub get
+
+      - name: Install reports-ui dependencies
+        working-directory: apps/reports-ui
+        run: dart pub get
+
+      - name: Install Jaspr CLI
+        run: dart pub global activate jaspr_cli
+
+      - name: Run repository verification
+        run: ./scripts/verify.sh

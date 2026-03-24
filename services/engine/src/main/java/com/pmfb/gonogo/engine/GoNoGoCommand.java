@@ -21,6 +21,7 @@ import picocli.CommandLine.Model.CommandSpec;
                 BatchEvaluateCommand.class,
                 WeeklyDigestCommand.class,
                 PipelineCommand.class,
+                TuiCommand.class,
                 ScheduleCommand.class,
                 RunCommand.class
         }
