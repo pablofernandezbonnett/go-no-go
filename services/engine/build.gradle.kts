@@ -28,6 +28,7 @@ repositories {
 
 dependencies {
     implementation("info.picocli:picocli:4.7.7")
+    implementation("org.jline:jline-console-ui:3.30.6")
     implementation("org.yaml:snakeyaml:2.4")
     implementation("org.jsoup:jsoup:1.19.1")
 
@@ -38,6 +39,7 @@ dependencies {
 
 application {
     mainClass = "com.pmfb.gonogo.engine.Main"
+    applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.test {
@@ -46,6 +48,7 @@ tasks.test {
 
 tasks.named<JavaExec>("run") {
     standardInput = System.`in`
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 tasks.withType<JavaCompile>().configureEach {

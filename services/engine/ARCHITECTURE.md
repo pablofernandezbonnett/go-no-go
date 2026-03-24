@@ -10,11 +10,12 @@ UI supports operations, but decision quality remains the core.
 
 ## Runtime Topology
 
-1. CLI engine (`src/main/java/...`)
+1. CLI engine (`src/main/java/...`) with scriptable commands and an optional JLine-backed TUI launcher
 2. YAML config/state (`config/`, output state files)
 3. Ops UI server/client (`ops-ui`, Jaspr SSR)
 
 The Ops UI is a companion layer for operating the CLI pipeline. It is not a replacement for the CLI.
+The TUI is also a companion layer. It simplifies command execution, but it still delegates to the same CLI flows and contracts.
 
 ---
 
