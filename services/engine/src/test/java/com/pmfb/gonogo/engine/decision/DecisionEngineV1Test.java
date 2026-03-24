@@ -514,7 +514,7 @@ final class DecisionEngineV1Test {
                 List.of("Java", "Spring Boot", "AWS", "JPA"),
                 List.of("Kubernetes"),
                 List.of(),
-                List.of("enterprise_java", "system_design"),
+                List.of("ecommerce_platforms", "payment_integrations"),
                 List.of("cloud_basics"),
                 List.of("mobile_cross_platform")
         );
@@ -530,6 +530,7 @@ final class DecisionEngineV1Test {
                                 Requirements:
                                 - 5+ years of experience in Java and Spring Boot backend development
                                 - Experience with AWS and system design
+                                - Experience building commerce, checkout, or payment platform workflows
                                 Responsibilities:
                                 - Build scalable services in a global team
                                 """
@@ -542,6 +543,121 @@ final class DecisionEngineV1Test {
         assertTrue(result.positiveSignals().contains("candidate_stack_fit"));
         assertTrue(result.positiveSignals().contains("candidate_domain_fit"));
         assertTrue(result.positiveSignals().contains("candidate_seniority_fit"));
+        assertFalse(result.riskSignals().contains("candidate_stack_gap"));
+    }
+
+    @Test
+    void doesNotTreatGenericTechnicalShapeAsDirectDomainFit() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "AWS", "MongoDB"),
+                List.of("Kafka", "Kubernetes"),
+                List.of("Terraform"),
+                List.of("enterprise_java", "distributed_teams"),
+                List.of("system_design", "cloud_basics", "distributed_product_systems"),
+                List.of("data_pipelines")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Woven by Toyota",
+                        "Software Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Hybrid",
+                        """
+                                Build scalable backend services and data pipelines for an experimentation platform.
+                                Strong experience with Java/Kotlin or similar backend languages is required.
+                                Collaborate with other teams in English across a global environment.
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertFalse(result.positiveSignals().contains("candidate_domain_fit"));
+        assertEquals(HumanReadingLevel.MIXED, result.humanReading().domainFit());
+    }
+
+    @Test
+    void doesNotFlagCandidateStackGapFromNiceToHavesSection() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "AWS", "MongoDB", "Docker"),
+                List.of("Kafka"),
+                List.of("Terraform"),
+                List.of("enterprise_java"),
+                List.of("cloud_basics"),
+                List.of("data_pipelines")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Woven by Toyota",
+                        "Software Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Hybrid",
+                        """
+                                Minimum Qualifications:
+                                - Strong experience with Java/Kotlin backend development
+                                - Expertise with Docker, MongoDB, and AWS
+                                NICE TO HAVES:
+                                - Experience with Spark or Flink
+                                - Experience with Kafka
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("candidate_stack_gap"));
+    }
+
+    @Test
+    void doesNotTreatMicroservicesAsHardStackGapWhenProfileShowsDistributedSystemsContext() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "pmfb",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "AWS", "MongoDB"),
+                List.of(),
+                List.of(),
+                List.of("enterprise_java"),
+                List.of("distributed_product_systems", "system_design"),
+                List.of("data_pipelines")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Woven by Toyota",
+                        "Software Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Hybrid",
+                        """
+                                Minimum Qualifications:
+                                - Strong experience with Java/Kotlin backend development
+                                - Expertise building microservices architecture in cloud environments
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
         assertFalse(result.riskSignals().contains("candidate_stack_gap"));
     }
 

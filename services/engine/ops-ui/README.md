@@ -8,6 +8,8 @@ This app is intentionally lightweight and CLI-first:
 - Lets you configure and trigger runs from a form.
 - Shows run status, command, output folder, and live logs.
 
+![Operations UI screenshot](../../../docs/screenshots/ops-ui-home.png)
+
 ## Features (MVP)
 
 - Load personas, candidate profiles, and company list from `../config`.
@@ -25,10 +27,15 @@ This app is intentionally lightweight and CLI-first:
 - Default engine root: parent folder (`..`)
 - Default command: `./gradlew run --args="pipeline run ..."`
 
-## Start
+Prerequisites:
+
+- Dart SDK installed
+- `jaspr_cli` available on your `PATH`
+
+## Quick Start
 
 ```bash
-cd ops-ui
+cd services/engine/ops-ui
 dart pub get
 jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
 ```

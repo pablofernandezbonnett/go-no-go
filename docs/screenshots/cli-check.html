@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLI Check Screenshot</title>
+    <link rel="stylesheet" href="terminal.css" />
+  </head>
+  <body>
+    <div class="frame">
+      <section class="terminal">
+        <div class="terminal-bar">
+          <div class="traffic"><span></span><span></span><span></span></div>
+          <div class="title">Go No-Go Engine CLI</div>
+        </div>
+        <div class="content">
+          <p class="command">$ ./build/install/go-no-go-engine/bin/go-no-go-engine check examples/raw-job-text.example.txt</p>
+          <pre>verdict: <span class="good">GO</span>
+score: 83/100
+raw_score: 15 (range -143..48)
+language_friction_index: 0/100
+company_reputation_index: 78/100
+persona: product_expat_engineer
+candidate_profile: pmfb
+source_kind: raw_text_file
+source_file: examples/raw-job-text.example.txt
+company: Money Forward
+role: Senior Backend Engineer
+hard_reject_reasons: []
+positive_signals:
+ - salary_transparency
+ - hybrid_work
+ - english_environment
+ - product_company
+ - engineering_culture
+ - global_team_collaboration
+ - stability
+ - candidate_seniority_fit
+ - company_reputation_positive
+risk_signals:
+ - fake_flextime_risk
+human_reading:
+ - access_fit: strong
+ - execution_fit: mixed
+ - opportunity_quality: strong
+ - interview_roi: mixed</pre>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

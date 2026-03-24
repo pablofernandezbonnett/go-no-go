@@ -8,6 +8,8 @@ This app is primarily read-only:
 - It does not implement scoring logic itself.
 - Its ad-hoc evaluation page delegates URL/raw-text evaluation to the engine CLI and stores the resulting analysis artifact under the reports root.
 
+![Reports UI batch screenshot](../../docs/screenshots/reports-ui-batch.png)
+
 ## Scope
 
 - Visualize each report type generated in `output/`.
@@ -47,15 +49,24 @@ Short-term contract:
 - Add and consume a run manifest (`runs/index.json`) once available.
 - Store ad-hoc evaluation artifacts under `ad-hoc-evaluations/`.
 
-## Local Development
+Prerequisites:
+
+- Dart SDK installed
+- `jaspr_cli` available on your `PATH`
+
+## Quick Start
 
 ```bash
-jaspr serve
+cd apps/reports-ui
+dart pub get
+jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
 ```
 
 Default local URL:
 
 - `http://localhost:8792`
+
+## Local Development
 
 This default is intentionally different from `services/engine/ops-ui` so both Jaspr UIs can run at the same time.
 

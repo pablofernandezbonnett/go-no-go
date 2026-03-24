@@ -12,6 +12,9 @@ public record CandidateProfileIndex(
         Set<String> strongDomainIds,
         Set<String> moderateDomainIds,
         Set<String> limitedDomainIds,
+        Set<String> strongDirectDomainIds,
+        Set<String> moderateDirectDomainIds,
+        Set<String> limitedDirectDomainIds,
         String narrativeTextNormalized
 ) {
     public CandidateProfileIndex {
@@ -21,6 +24,9 @@ public record CandidateProfileIndex(
         strongDomainIds = strongDomainIds == null ? Set.of() : Set.copyOf(strongDomainIds);
         moderateDomainIds = moderateDomainIds == null ? Set.of() : Set.copyOf(moderateDomainIds);
         limitedDomainIds = limitedDomainIds == null ? Set.of() : Set.copyOf(limitedDomainIds);
+        strongDirectDomainIds = strongDirectDomainIds == null ? Set.of() : Set.copyOf(strongDirectDomainIds);
+        moderateDirectDomainIds = moderateDirectDomainIds == null ? Set.of() : Set.copyOf(moderateDirectDomainIds);
+        limitedDirectDomainIds = limitedDirectDomainIds == null ? Set.of() : Set.copyOf(limitedDirectDomainIds);
         narrativeTextNormalized = narrativeTextNormalized == null ? "" : narrativeTextNormalized;
     }
 
@@ -35,13 +41,19 @@ public record CandidateProfileIndex(
             List<String> targetRoleHints,
             List<String> differentiators
     ) {
+        Set<String> strongDomainIds = CandidateProfileTaxonomy.normalizeDomainIds(strongDomains);
+        Set<String> moderateDomainIds = CandidateProfileTaxonomy.normalizeDomainIds(moderateDomains);
+        Set<String> limitedDomainIds = CandidateProfileTaxonomy.normalizeDomainIds(limitedDomains);
         return new CandidateProfileIndex(
                 CandidateProfileTaxonomy.canonicalizeSkillIds(productionSkills),
                 CandidateProfileTaxonomy.canonicalizeSkillIds(learningSkills),
                 CandidateProfileTaxonomy.canonicalizeSkillIds(gapSkills),
-                CandidateProfileTaxonomy.normalizeDomainIds(strongDomains),
-                CandidateProfileTaxonomy.normalizeDomainIds(moderateDomains),
-                CandidateProfileTaxonomy.normalizeDomainIds(limitedDomains),
+                strongDomainIds,
+                moderateDomainIds,
+                limitedDomainIds,
+                CandidateProfileTaxonomy.directSpecializationDomainIds(strongDomainIds),
+                CandidateProfileTaxonomy.directSpecializationDomainIds(moderateDomainIds),
+                CandidateProfileTaxonomy.directSpecializationDomainIds(limitedDomainIds),
                 normalizeNarrative(education, targetRoleHints, differentiators)
         );
     }

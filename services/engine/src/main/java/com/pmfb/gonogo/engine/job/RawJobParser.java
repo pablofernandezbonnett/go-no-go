@@ -13,6 +13,11 @@ public final class RawJobParser {
     private static final Pattern COMPANY_NAME_CANDIDATE_PATTERN = Pattern.compile(
             "^[A-Z][\\w&+,.()'/-]*(?:\\s+[A-Z][\\w&+,.()'/-]*){0,5}$"
     );
+    private static final Pattern ABOUT_COMPANY_HEADING_PATTERN = Pattern.compile("(?i)^about\\s+(.+)$");
+    private static final Pattern LOOKING_FOR_TITLE_PATTERN = Pattern.compile(
+            "(?i)looking\\s+for\\s+(?:an?|the)?\\s*(?:experienced|senior|staff|lead|principal|talented)?\\s*"
+                    + "([a-z][a-z0-9/+&\\- ]{1,80}?(?:engineer|developer|architect|scientist|manager|designer))\\b"
+    );
     private static final List<Pattern> TITLE_PATTERNS = List.of(
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(title|role|position)\\s*:\\s*(.+)$"),
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "job\\s+title\\s*:\\s*(.+)$"),
@@ -207,6 +212,10 @@ public final class RawJobParser {
         if (fromHeading.isPresent()) {
             return fromHeading;
         }
+        Optional<String> fromNarrative = inferTitleFromNarrative(lines);
+        if (fromNarrative.isPresent()) {
+            return fromNarrative;
+        }
         List<String> leadingLines = collectLeadingMeaningfulLines(lines);
         for (int i = 0; i < leadingLines.size(); i++) {
             String line = leadingLines.get(i);
@@ -218,6 +227,20 @@ public final class RawJobParser {
                 if (looksLikeTitleCandidate(nextLine)) {
                     return Optional.of(nextLine);
                 }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> inferTitleFromNarrative(List<String> lines) {
+        for (String line : lines) {
+            String normalized = normalizeCandidateLine(line);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            Matcher matcher = LOOKING_FOR_TITLE_PATTERN.matcher(normalized);
+            if (matcher.find()) {
+                return Optional.of(toDisplayCase(matcher.group(1)));
             }
         }
         return Optional.empty();
@@ -240,6 +263,10 @@ public final class RawJobParser {
     }
 
     private Optional<String> inferCompany(List<String> lines, String title) {
+        Optional<String> aboutHeadingCompany = inferCompanyFromAboutHeading(lines);
+        if (aboutHeadingCompany.isPresent()) {
+            return aboutHeadingCompany;
+        }
         List<String> leadingLines = collectLeadingMeaningfulLines(lines);
         for (int i = 0; i < leadingLines.size(); i++) {
             String line = leadingLines.get(i);
@@ -248,6 +275,28 @@ public final class RawJobParser {
             }
             if (looksLikeCompanyCandidate(line)) {
                 return Optional.of(line);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> inferCompanyFromAboutHeading(List<String> lines) {
+        for (String line : lines) {
+            String normalized = normalizeCandidateLine(line);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            Matcher matcher = ABOUT_COMPANY_HEADING_PATTERN.matcher(normalized);
+            if (!matcher.matches()) {
+                continue;
+            }
+            String candidate = matcher.group(1).trim();
+            String lowered = normalize(candidate);
+            if (candidate.isBlank() || "the job".equals(lowered) || "job".equals(lowered)) {
+                continue;
+            }
+            if (looksLikeCompanyCandidate(candidate) || candidate.length() <= 80) {
+                return Optional.of(candidate);
             }
         }
         return Optional.empty();
@@ -395,5 +444,18 @@ public final class RawJobParser {
             }
         }
         return false;
+    }
+
+    private String toDisplayCase(String value) {
+        String[] parts = value.trim().split("\\s+");
+        List<String> formatted = new ArrayList<>(parts.length);
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            String lowered = part.toLowerCase(Locale.ROOT);
+            formatted.add(Character.toUpperCase(lowered.charAt(0)) + lowered.substring(1));
+        }
+        return String.join(" ", formatted);
     }
 }

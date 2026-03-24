@@ -55,6 +55,16 @@ public final class CandidateProfileTaxonomy {
             Map.entry("infrastructure_as_code", List.of("terraform", "cdk", "cloudformation", "infrastructure as code", "iac")),
             Map.entry("kubernetes", List.of("kubernetes", "k8s"))
     );
+    private static final Set<String> GENERIC_SHAPE_DOMAIN_IDS = Set.of(
+            "enterprise_java",
+            "distributed_teams",
+            "distributed_product_systems",
+            "event_driven_architecture",
+            "system_design",
+            "frontend_fullstack",
+            "cloud_basics",
+            "commerce_performance"
+    );
 
     private CandidateProfileTaxonomy() {
     }
@@ -99,6 +109,34 @@ public final class CandidateProfileTaxonomy {
             }
         }
         return Set.copyOf(normalized);
+    }
+
+    public static Set<String> directSpecializationDomainIds(Set<String> domainIds) {
+        LinkedHashSet<String> directIds = new LinkedHashSet<>();
+        if (domainIds == null) {
+            return Set.of();
+        }
+        for (String domainId : domainIds) {
+            String normalizedId = normalizeId(domainId);
+            if (!normalizedId.isBlank() && !GENERIC_SHAPE_DOMAIN_IDS.contains(normalizedId)) {
+                directIds.add(normalizedId);
+            }
+        }
+        return Set.copyOf(directIds);
+    }
+
+    public static Set<String> genericShapeDomainIds(Set<String> domainIds) {
+        LinkedHashSet<String> genericIds = new LinkedHashSet<>();
+        if (domainIds == null) {
+            return Set.of();
+        }
+        for (String domainId : domainIds) {
+            String normalizedId = normalizeId(domainId);
+            if (!normalizedId.isBlank() && GENERIC_SHAPE_DOMAIN_IDS.contains(normalizedId)) {
+                genericIds.add(normalizedId);
+            }
+        }
+        return Set.copyOf(genericIds);
     }
 
     static String normalizeId(String value) {
