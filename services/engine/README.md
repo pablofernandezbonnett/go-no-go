@@ -240,7 +240,7 @@ Run one persona pipeline (still defaults to all companies when fetch stage runs)
 Run with an explicit candidate profile:
 
 ```bash
-./gradlew run --args="check --persona product_expat_engineer_pragmatic --candidate-profile pmfb --stdin"
+./gradlew run --args="check --persona product_expat_engineer_pragmatic --candidate-profile demo_candidate --stdin"
 ```
 
 ## Local Benchmarking

@@ -506,7 +506,7 @@ final class DecisionEngineV1Test {
     @Test
     void addsCandidateFitSignalsWhenProfileMatchesRole() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Tokyo",
@@ -549,7 +549,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotTreatGenericTechnicalShapeAsDirectDomainFit() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -587,7 +587,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotFlagCandidateStackGapFromNiceToHavesSection() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -627,7 +627,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotTreatMicroservicesAsHardStackGapWhenProfileShowsDistributedSystemsContext() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -664,7 +664,7 @@ final class DecisionEngineV1Test {
     @Test
     void addsCandidateGapSignalsWhenProfileDoesNotMatchRole() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Tokyo",
@@ -705,7 +705,7 @@ final class DecisionEngineV1Test {
     @Test
     void usesEducationBackedAffinityInHumanReadingForAdjacentDomainRoles() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -750,7 +750,7 @@ final class DecisionEngineV1Test {
     @Test
     void marksInterviewRoiWeakWhenHardRejectExistsEvenWithSomeUpside() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",

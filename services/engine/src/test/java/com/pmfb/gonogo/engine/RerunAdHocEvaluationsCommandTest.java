@@ -26,7 +26,7 @@ final class RerunAdHocEvaluationsCommandTest {
                 """
                         generated_at: '2026-03-13T00:00:00Z'
                         persona: product_expat_engineer
-                        candidate_profile: pmfb
+                        candidate_profile: demo_candidate
                         source:
                           kind: url
                           url: https://example.com/jobs/backend-engineer
@@ -54,7 +54,7 @@ final class RerunAdHocEvaluationsCommandTest {
         assertTrue(args.contains("--persona"));
         assertTrue(args.contains("product_expat_engineer"));
         assertTrue(args.contains("--candidate-profile"));
-        assertTrue(args.contains("pmfb"));
+        assertTrue(args.contains("demo_candidate"));
         assertTrue(args.contains("--job-url"));
         assertTrue(args.contains("https://example.com/jobs/backend-engineer"));
         assertTrue(args.contains("--output-analysis-file"));
