@@ -61,7 +61,7 @@ final class EvaluateInputCommandTest {
         }
 
         String json = stdout.toString(StandardCharsets.UTF_8);
-        assertTrue(json.contains("\"candidate_profile\":\"pmfb\""));
+        assertTrue(json.contains("\"candidate_profile\":\"demo_candidate\""));
     }
 
     @Test
@@ -280,13 +280,13 @@ final class EvaluateInputCommandTest {
         Path profilesDir = configDir.resolve("candidate-profiles");
         Files.createDirectories(profilesDir);
         Files.writeString(
-                profilesDir.resolve("pmfb.yaml"),
+                profilesDir.resolve("demo_candidate.yaml"),
                 """
                         candidate:
-                          name: Pablo Miguel Fernandez Bonnett
+                          name: Example Candidate
                           title: Senior Product Backend Engineer
-                          location: Gamagori, Aichi, Japan
-                          total_experience_years: 20
+                          location: Tokyo, Japan
+                          total_experience_years: 12
                         stack:
                           production_proven:
                             backend:

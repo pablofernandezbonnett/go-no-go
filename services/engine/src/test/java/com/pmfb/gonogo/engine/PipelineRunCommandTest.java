@@ -297,12 +297,12 @@ final class PipelineRunCommandTest {
                 "--weekly-output-file", weeklyPath.toString()
         );
 
-        Path batchJsonPath = outputDir.resolve("batch-evaluation-product_expat_engineer--pmfb.json");
+        Path batchJsonPath = outputDir.resolve("batch-evaluation-product_expat_engineer--demo_candidate.json");
 
         assertEquals(0, exitCode);
         assertTrue(Files.exists(batchJsonPath));
-        assertTrue(Files.readString(batchJsonPath).contains("\"candidate_profile\": \"pmfb\""));
-        assertTrue(Files.readString(weeklyPath).contains("candidate_profile: pmfb"));
+        assertTrue(Files.readString(batchJsonPath).contains("\"candidate_profile\": \"demo_candidate\""));
+        assertTrue(Files.readString(weeklyPath).contains("candidate_profile: demo_candidate"));
     }
 
     @Test
@@ -472,10 +472,10 @@ final class PipelineRunCommandTest {
         Path candidateProfilesDir = configDir.resolve("candidate-profiles");
         Files.createDirectories(candidateProfilesDir);
         Files.writeString(
-                candidateProfilesDir.resolve("pmfb.yaml"),
+                candidateProfilesDir.resolve("demo_candidate.yaml"),
                 """
                         candidate:
-                          name: "PMFB"
+                          name: "Demo Candidate"
                           title: "Senior Backend Engineer"
                           location: "Tokyo"
                           total_experience_years: 8
