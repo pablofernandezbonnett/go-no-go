@@ -19,7 +19,7 @@ final class BatchReportWriterTest {
         BatchEvaluationReport report = new BatchEvaluationReport(
                 "2026-02-22T10:15:30Z",
                 "product_expat_engineer",
-                "pmfb",
+                "demo_candidate",
                 2,
                 1,
                 1,
@@ -80,13 +80,13 @@ final class BatchReportWriterTest {
 
         assertTrue(markdown.contains("Batch Evaluation Report"));
         assertTrue(markdown.contains("GO - Money Forward - Backend Engineer"));
-        assertTrue(markdown.contains("candidate_profile: pmfb"));
+        assertTrue(markdown.contains("candidate_profile: demo_candidate"));
         assertTrue(markdown.contains("language_friction_index: 10/100"));
         assertTrue(markdown.contains("company_reputation_index: 74/100"));
         assertTrue(markdown.contains("human_summary: Worth serious consideration: strong backend and work-style fit."));
         assertTrue(markdown.contains("job-b.yaml"));
         assertTrue(json.contains("\"persona\": \"product_expat_engineer\""));
-        assertTrue(json.contains("\"candidate_profile\": \"pmfb\""));
+        assertTrue(json.contains("\"candidate_profile\": \"demo_candidate\""));
         assertTrue(json.contains("\"source_file\": \"job-a.yaml\""));
         assertTrue(json.contains("\"raw_score\": 9"));
         assertTrue(json.contains("\"language_friction_index\": 10"));

@@ -61,7 +61,7 @@ final class EvaluateInputCommandTest {
         }
 
         String json = stdout.toString(StandardCharsets.UTF_8);
-        assertTrue(json.contains("\"candidate_profile\":\"pmfb\""));
+        assertTrue(json.contains("\"candidate_profile\":\"demo_candidate\""));
     }
 
     @Test
@@ -286,7 +286,7 @@ final class EvaluateInputCommandTest {
                           name: Example Candidate
                           title: Senior Product Backend Engineer
                           location: Tokyo, Japan
-                          total_experience_years: 20
+                          total_experience_years: 12
                         stack:
                           production_proven:
                             backend:
