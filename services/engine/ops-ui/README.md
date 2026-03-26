@@ -40,11 +40,18 @@ Prerequisites:
 
 ## Quick Start
 
+From the monorepo root:
+
 ```bash
-cd services/engine/ops-ui
-dart pub get
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
+
+The root helper script:
+
+- starts from the monorepo root
+- `cd`s into `services/engine/ops-ui`
+- pins `--web-port 5467` and `--proxy-port 5567`
+- sets `ENGINE_ROOT` to the engine project by default
 
 Open:
 
@@ -55,6 +62,8 @@ This default is intentionally different from `apps/reports-ui` so both Jaspr UIs
 ## Optional env vars
 
 - `OPS_UI_PORT`: override the Operations UI port explicitly.
+- `OPS_UI_WEB_PORT`: override the internal Jaspr webdev port.
+- `OPS_UI_PROXY_PORT`: override the internal Jaspr proxy port.
 - `ENGINE_ROOT`: override engine repository path.
 - `ENGINE_GRADLEW`: override gradle wrapper command path.
 
@@ -64,8 +73,8 @@ If `apps/reports-ui` is also running, keep distinct Jaspr dev ports for each app
 
 Recommended split:
 
-- `ops-ui`: `--port 8791 --web-port 5467 --proxy-port 5567`
-- `reports-ui`: `--port 8792 --web-port 5468 --proxy-port 5568`
+- `ops-ui`: `./scripts/run-ops-ui.sh`
+- `reports-ui`: `./scripts/run-reports-ui.sh`
 
 If you see `Address already in use` on `5467` or `5567`, the conflict is in Jaspr's internal dev servers, not in the final app URL.
 
