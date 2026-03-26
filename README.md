@@ -4,6 +4,16 @@ Monorepo for the Go No-Go system.
 
 The engine remains the source of truth. The browser UIs are companion layers for operations and report consumption, not replacements for the CLI contracts.
 
+## Public Status
+
+This repository is published as a personal read-only project for reference.
+
+- License: [MIT](LICENSE)
+- Contribution policy: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+
+Personal candidate profiles, CVs, and other private job-search inputs are local-only runtime files and must not be committed. The tracked repository keeps templates and examples only.
+
 ## Stack
 
 - `services/engine`: Java 25 + Gradle + Picocli
@@ -102,6 +112,7 @@ jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
 - Cross-project repository rules live in `AGENTS.md` at the repository root.
 - Pull requests for this repository use the root `.github/PULL_REQUEST_TEMPLATE.md`.
 - Child project documentation remains inside each imported project directory when present.
+- Browser UIs intentionally avoid exposing local profile YAML, filesystem paths, shell commands, or live execution logs.
 
 ## Verification Entry Point
 

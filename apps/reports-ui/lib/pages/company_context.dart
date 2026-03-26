@@ -106,7 +106,6 @@ class _CompanyContextBody extends StatelessComponent {
               child: .text(report.companyId),
             ),
         ]),
-        p([.text('File: ${selected.relativePath}')]),
         pre(classes: 'context-text', [.text(selected.textContent)]),
       ]),
     ]);

@@ -71,10 +71,6 @@ class _RunsBody extends StatelessComponent {
     return section(classes: 'page', [
       h1([.text('Runs')]),
       card([
-        p([
-          .text('Reports root: '),
-          code([.text(index.reportsRoot)]),
-        ]),
         p([.text(index.reportsRootExists ? 'Reports root is available.' : 'Reports root does not exist.')]),
         if (!index.reportsRootExists)
           p([

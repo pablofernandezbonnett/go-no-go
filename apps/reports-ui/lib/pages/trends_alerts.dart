@@ -88,7 +88,6 @@ class _TrendsAlertsBody extends StatelessComponent {
         if (trendHistory == null)
           p([.text('No trend history YAML found for this run.')])
         else ...[
-          p([.text('File: ${trendHistory.relativePath}')]),
           pre(classes: 'artifact', [.text(trendHistory.yamlContent)]),
         ],
       ]),
@@ -97,7 +96,6 @@ class _TrendsAlertsBody extends StatelessComponent {
         if (trendAlerts == null)
           p([.text('No trend alerts JSON found for this run.')])
         else ...[
-          p([.text('File: ${trendAlerts.relativePath}')]),
           pre(classes: 'artifact', [.text(_renderAlertsPayload(trendAlerts))]),
         ],
       ]),

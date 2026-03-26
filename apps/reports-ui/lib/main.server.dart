@@ -161,8 +161,6 @@ void main() async {
   router.mount(
     '/',
     serveApp((request, render) {
-      // Optionally do something with `request`
-      print("Request uri is ${request.requestedUri} (${request.url})");
       // Return a server-rendered response by calling `render()` with your root component
       return render(
         Document(
