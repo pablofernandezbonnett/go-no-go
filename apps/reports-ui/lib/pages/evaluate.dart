@@ -624,10 +624,6 @@ class _EvaluateResultCard extends StatelessComponent {
       onToggle: onToggle,
       children: [
         p([
-          .text('Artifact: '),
-          code([.text(result.analysisFile.isEmpty ? 'not written' : result.analysisFile)]),
-        ]),
-        p([
           .text('Generated at: ${formatFriendlyDateTime(result.generatedAt)}'),
           if (result.generatedAt.isNotEmpty) ...[
             .text(' '),
@@ -651,7 +647,6 @@ class _EvaluateResultCard extends StatelessComponent {
       'candidate_profile: ${payload.candidateProfile}',
       'source_kind: ${payload.source.kind}',
       if (payload.source.url.isNotEmpty) 'source_url: ${payload.source.url}',
-      if (payload.source.file.isNotEmpty) 'source_file: ${payload.source.file}',
       if (payload.source.rawText.isNotEmpty) _multilineSourceText(payload.source.rawText),
       'company: ${payload.jobInput.companyName}',
       'role: ${payload.jobInput.title}',

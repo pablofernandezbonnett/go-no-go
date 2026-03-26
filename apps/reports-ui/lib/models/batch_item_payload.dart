@@ -1,7 +1,6 @@
 class BatchItemPayload {
   const BatchItemPayload({
     required this.jobId,
-    required this.sourceFile,
     required this.company,
     required this.title,
     required this.location,
@@ -22,7 +21,6 @@ class BatchItemPayload {
   });
 
   final String jobId;
-  final String sourceFile;
   final String company;
   final String title;
   final String location;
@@ -43,13 +41,11 @@ class BatchItemPayload {
 
   factory BatchItemPayload.fromJson(Map<String, dynamic> json) {
     final jobKey = _asString(json['job_key']);
-    final sourceFile = _asString(json['source_file']);
-    final fallbackId = sourceFile.isNotEmpty ? sourceFile : '${_asString(json['company'])}:${_asString(json['title'])}';
+    final fallbackId = '${_asString(json['company'])}:${_asString(json['title'])}';
     final rawScoreRange = _asMap(json['raw_score_range']);
 
     return BatchItemPayload(
       jobId: jobKey.isNotEmpty ? jobKey : fallbackId,
-      sourceFile: sourceFile,
       company: _asString(json['company']),
       title: _asString(json['title']),
       location: _asString(json['location']),

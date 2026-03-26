@@ -174,21 +174,6 @@ class OpsApiClient {
     return decoded;
   }
 
-  Future<CandidateProfileDetailPayload> fetchCandidateProfileDetail(String id) async {
-    final response = await http.get(Uri.parse('/api/config/candidate-profiles/$id'));
-    if (response.statusCode == 404) {
-      throw StateError('Candidate profile not found: $id');
-    }
-    if (response.statusCode != 200) {
-      throw StateError('Failed to load candidate profile detail (${response.statusCode}).');
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) {
-      throw StateError('Invalid candidate profile detail response format.');
-    }
-    return CandidateProfileDetailPayload.fromJson(decoded);
-  }
-
   Future<Map<String, dynamic>> updatePersonaTuning(
     String id,
     Map<String, int> weights,

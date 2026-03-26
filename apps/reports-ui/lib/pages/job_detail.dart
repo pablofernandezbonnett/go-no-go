@@ -166,8 +166,6 @@ class _JobSignalsCard extends StatelessComponent {
       _listOrFallback(selected.hardRejectReasons, 'No hard reject reasons.'),
       h3([.text('Reasoning')]),
       _listOrFallback(selected.reasoning, 'No reasoning details.'),
-      h3([.text('Source')]),
-      p([code([.text(selected.sourceFile.isEmpty ? selected.jobId : selected.sourceFile)])]),
     ]);
   }
 

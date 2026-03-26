@@ -177,12 +177,6 @@ public final class BatchEvaluateCommand implements Callable<Integer> {
                         e.errors()
                 ));
                 continue;
-            } catch (RuntimeException e) {
-                errors.add(new BatchEvaluationError(
-                        relativizeToInputDir(file),
-                        List.of("Unexpected error while reading file: " + e.getMessage())
-                ));
-                continue;
             }
 
             EvaluationResult result = engine.evaluate(

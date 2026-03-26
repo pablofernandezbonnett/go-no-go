@@ -51,12 +51,10 @@ class AppState extends State<App> {
   List<RunPayload> _runs = const [];
 
   String? _selectedRunId;
-  String _selectedCandidateProfileViewId = '';
   bool _isLoading = true;
   bool _isSubmittingRun = false;
   bool _isSubmittingCompany = false;
   bool _isSubmittingPersona = false;
-  bool _isLoadingCandidateProfileDetail = false;
 
   String? _errorMessage;
   String? _successMessage;
@@ -101,8 +99,6 @@ class AppState extends State<App> {
   String _tuningRankingStrategy = 'by_score';
   String _tuningMinimumSalaryYen = '';
   final List<(String, String)> _tuningSignalWeights = [];
-
-  CandidateProfileDetailPayload? _candidateProfileDetail;
 
   bool _autoRefreshRuns = true;
   int _pollIntervalSeconds = 3;
@@ -156,19 +152,15 @@ class AppState extends State<App> {
           _selectedCandidateProfileId,
           config,
         );
-        if (_selectedCandidateProfileViewId.isEmpty && config.candidateProfileIds.isNotEmpty) {
-          _selectedCandidateProfileViewId = config.candidateProfileIds.first;
-        }
         _selectedRunId = _selectedRunId ?? (runs.isEmpty ? null : runs.first.runId);
         _isLoading = false;
       });
 
       await _refreshSelectedRunDetails();
-      await _ensureCandidateProfileDetailLoaded();
     } catch (error) {
       setState(() {
         _isLoading = false;
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to load operations data.');
       });
     }
   }
@@ -202,7 +194,7 @@ class AppState extends State<App> {
     } catch (error) {
       if (!silent) {
         setState(() {
-          _errorMessage = error.toString();
+          _errorMessage = _resolveErrorMessage(error, 'Failed to refresh runs.');
         });
       }
     }
@@ -236,15 +228,10 @@ class AppState extends State<App> {
           _selectedCandidateProfileId,
           config,
         );
-        if (!config.candidateProfileIds.contains(_selectedCandidateProfileViewId)) {
-          _selectedCandidateProfileViewId = config.candidateProfileIds.isEmpty ? '' : config.candidateProfileIds.first;
-          _candidateProfileDetail = null;
-        }
       });
-      await _ensureCandidateProfileDetailLoaded();
     } catch (error) {
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to reload configuration.');
       });
     }
   }
@@ -310,7 +297,7 @@ class AppState extends State<App> {
       await _refreshRuns();
     } catch (error) {
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to create run.');
       });
     } finally {
       setState(() {
@@ -354,7 +341,7 @@ class AppState extends State<App> {
       });
     } catch (error) {
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to create company.');
       });
     } finally {
       setState(() {
@@ -406,7 +393,7 @@ class AppState extends State<App> {
       });
     } catch (error) {
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to create persona.');
       });
     } finally {
       setState(() {
@@ -443,7 +430,7 @@ class AppState extends State<App> {
     } catch (error) {
       setState(() {
         _isLoadingTuning = false;
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to load persona tuning.');
       });
     }
   }
@@ -483,7 +470,7 @@ class AppState extends State<App> {
       });
     } catch (error) {
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _resolveErrorMessage(error, 'Failed to save persona tuning.');
         _isSavingTuning = false;
       });
     }
@@ -518,44 +505,20 @@ class AppState extends State<App> {
     return value;
   }
 
-  Future<void> _ensureCandidateProfileDetailLoaded() async {
-    final config = _config;
-    if (config == null || config.candidateProfileIds.isEmpty) {
-      return;
+  String _resolveErrorMessage(Object error, String fallback) {
+    final rawMessage = switch (error) {
+      StateError() => error.message.toString(),
+      FormatException() => error.message,
+      _ => error.toString(),
+    };
+    final message = rawMessage.trim();
+    if (message.isEmpty) {
+      return fallback;
     }
-    final selectedId = _selectedCandidateProfileViewId.isEmpty
-        ? config.candidateProfileIds.first
-        : _selectedCandidateProfileViewId;
-    if (_candidateProfileDetail?.id == selectedId) {
-      return;
+    if (message.contains('/') || message.contains('\\')) {
+      return fallback;
     }
-    await _loadCandidateProfileDetail(selectedId);
-  }
-
-  Future<void> _loadCandidateProfileDetail(String id) async {
-    if (id.isEmpty) {
-      return;
-    }
-
-    setState(() {
-      _selectedCandidateProfileViewId = id;
-      _isLoadingCandidateProfileDetail = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final detail = await _api.fetchCandidateProfileDetail(id);
-      setState(() {
-        _candidateProfileDetail = detail;
-        _isLoadingCandidateProfileDetail = false;
-      });
-    } catch (error) {
-      setState(() {
-        _candidateProfileDetail = null;
-        _isLoadingCandidateProfileDetail = false;
-        _errorMessage = error.toString();
-      });
-    }
+    return message;
   }
 
   RunPayload? _findRun(String? runId) {
@@ -576,9 +539,6 @@ class AppState extends State<App> {
       _errorMessage = null;
       _successMessage = null;
     });
-    if (screen == OpsScreen.candidateProfile) {
-      _ensureCandidateProfileDetailLoaded();
-    }
   }
 
   @override
@@ -850,20 +810,29 @@ class AppState extends State<App> {
       section(classes: 'panel', [
         h2([.text('Run Details')]),
         if (selectedRun == null)
-          p([.text('Select a run to inspect details and logs.')])
+          p([.text('Select a run to inspect its summary.')])
         else ...[
-          p([
-            .text('Output directory: '),
-            code([.text(selectedRun.outputDir)]),
-          ]),
-          p([
-            .text('Command: '),
-            code([.text('${selectedRun.command} ${selectedRun.arguments.join(' ')}')]),
-          ]),
+          p([.text('Status: ${selectedRun.status}')]),
+          p([.text('Created: ${selectedRun.createdAt}')]),
+          p([.text('Started: ${selectedRun.startedAt ?? '-'}')]),
+          p([.text('Finished: ${selectedRun.finishedAt ?? '-'}')]),
           p([.text('Exit code: ${selectedRun.exitCode?.toString() ?? '-'}')]),
+          p([.text('Persona: ${selectedRun.request.personaId}')]),
           p([.text('Candidate profile: ${_candidateProfileLabel(selectedRun.request.candidateProfileId)}')]),
-          pre(classes: 'logs', [
-            .text(selectedRun.logs.isEmpty ? 'No logs yet.' : selectedRun.logs.join('\n')),
+          p([
+            .text('Companies: '),
+            code([.text(selectedRun.request.companyIds.isEmpty ? 'ALL' : selectedRun.request.companyIds.join(', '))]),
+          ]),
+          p([.text('Mode: ${selectedRun.request.fetchWebFirst ? 'Fetch + Evaluate' : 'Evaluate only'}')]),
+          p([.text('Robots mode: ${selectedRun.request.robotsMode}')]),
+          p([.text('Max jobs / company: ${selectedRun.request.maxJobsPerCompany}')]),
+          p([.text('Timeout seconds: ${selectedRun.request.timeoutSeconds}')]),
+          p([.text('Retries: ${selectedRun.request.retries}')]),
+          p([.text('Backoff millis: ${selectedRun.request.backoffMillis}')]),
+          p([.text('Request delay millis: ${selectedRun.request.requestDelayMillis}')]),
+          p([.text('Top per section: ${selectedRun.request.topPerSection}')]),
+          p(classes: 'muted-copy', [
+            .text('Filesystem paths, shell commands, and live logs stay server-side and are not exposed in the browser UI.'),
           ]),
         ],
       ]),
@@ -1081,294 +1050,25 @@ class AppState extends State<App> {
   }
 
   Component _buildCandidateProfileScreen(OpsConfigPayload config) {
-    if (config.candidateProfileIds.isEmpty) {
-      return div(classes: 'screen-stack', [
-        section(classes: 'panel', [
-          h2([.text('Candidate Profile')]),
-          p([.text('No candidate profiles are configured yet.')]),
-        ]),
-      ]);
-    }
-
-    final detail = _candidateProfileDetail;
-
     return div(classes: 'screen-stack', [
       section(classes: 'panel', [
-        div(classes: 'panel-header-inline', [
-          div([
-            h2([.text('Candidate Profile')]),
-            p([.text('Read-only view of full candidate profiles loaded from YAML.')]),
-          ]),
-          button(
-            onClick: _isLoadingCandidateProfileDetail
-                ? null
-                : () => _loadCandidateProfileDetail(_selectedCandidateProfileViewId),
-            [.text('Refresh profile')],
-          ),
+        h2([.text('Candidate Profiles')]),
+        p([
+          .text('Candidate profiles stay local and private by default. This screen intentionally exposes only stable ids so the browser UI never serves raw YAML or personal profile fields.'),
         ]),
-        div(classes: 'candidate-profile-shell', [
-          div(classes: 'candidate-profile-list', [
-            p(classes: 'list-heading', [.text('Available profiles')]),
+        if (config.candidateProfileIds.isEmpty)
+          p([.text('No candidate profiles are configured yet.')])
+        else ...[
+          p([.text('Configured profiles: ${config.candidateProfileIds.length}')]),
+          div(classes: 'company-list', [
             for (final profileId in config.candidateProfileIds)
-              button(
-                classes: profileId == _selectedCandidateProfileViewId ? 'profile-link selected' : 'profile-link',
-                onClick: () => _loadCandidateProfileDetail(profileId),
-                [.text(profileId)],
-              ),
+              div(classes: 'company-item', [
+                code([.text(profileId)]),
+              ]),
           ]),
-          div(classes: 'candidate-profile-detail', [
-            if (_isLoadingCandidateProfileDetail)
-              p([.text('Loading candidate profile...')])
-            else if (detail == null)
-              p([.text('Select a candidate profile to inspect its full content.')])
-            else ...[
-              div(classes: 'candidate-hero', [
-                div([
-                  h3([.text(detail.name.isEmpty ? detail.id : detail.name)]),
-                  if (detail.title.isNotEmpty) p([.text(detail.title)]),
-                  if (detail.location.isNotEmpty) p([.text(detail.location)]),
-                ]),
-                div(classes: 'candidate-metrics', [
-                  _profileStat('Profile id', detail.id),
-                  _profileStat('Experience', '${detail.totalExperienceYears} years'),
-                  _profileStat('Production skills', '${detail.productionSkills.length}'),
-                  _profileStat(
-                    'Domain signals',
-                    '${detail.strongDomains.length + detail.moderateDomains.length + detail.limitedDomains.length}',
-                  ),
-                ]),
-              ]),
-              div(classes: 'profile-section-grid', [
-                _profileTagSection(
-                  'Production-proven',
-                  detail.productionSkills,
-                  tone: 'positive',
-                ),
-                _profileTagSection(
-                  'Actively learning',
-                  detail.learningSkills,
-                  tone: 'neutral',
-                ),
-                _profileTagSection(
-                  'Honest gaps',
-                  detail.gapSkills,
-                  tone: 'risk',
-                ),
-                _profileTagSection(
-                  'Strong domains',
-                  detail.strongDomains,
-                  tone: 'positive',
-                ),
-                _profileTagSection(
-                  'Moderate domains',
-                  detail.moderateDomains,
-                  tone: 'neutral',
-                ),
-                _profileTagSection(
-                  'Limited domains',
-                  detail.limitedDomains,
-                  tone: 'risk',
-                ),
-              ]),
-              div(classes: 'profile-content-section', [
-                div(classes: 'panel-header-inline', [
-                  h3([.text('Full Profile Content')]),
-                  code([.text('config/candidate-profiles/${detail.id}.yaml')]),
-                ]),
-                _buildProfileContent(detail.content),
-              ]),
-              div(classes: 'yaml-preview', [
-                div(classes: 'panel-header-inline', [
-                  h3([.text('Source YAML')]),
-                  code([.text('config/candidate-profiles/${detail.id}.yaml')]),
-                ]),
-                pre(classes: 'logs yaml-raw', [
-                  .text(detail.rawYaml.isEmpty ? 'No YAML content loaded.' : detail.rawYaml),
-                ]),
-              ]),
-            ],
-          ]),
-        ]),
+        ],
       ]),
     ]);
-  }
-
-  Component _profileStat(String labelText, String valueText) {
-    return div(classes: 'profile-stat', [
-      span(classes: 'profile-stat-label', [.text(labelText)]),
-      span(classes: 'profile-stat-value', [.text(valueText)]),
-    ]);
-  }
-
-  Component _profileTagSection(String title, List<String> values, {required String tone}) {
-    return div(classes: 'tag-group', [
-      h4([.text(title)]),
-      if (values.isEmpty)
-        p(classes: 'muted-copy', [.text('No values defined.')])
-      else
-        div(classes: 'tag-list', [
-          for (final value in values)
-            span(classes: 'tag $tone', [
-              .text(value),
-            ]),
-        ]),
-    ]);
-  }
-
-  Component _buildProfileContent(Map<String, Object?> content) {
-    if (content.isEmpty) {
-      return p(classes: 'muted-copy', [.text('No structured profile content is available.')]);
-    }
-
-    return div(classes: 'profile-content-root', [
-      for (final entry in content.entries)
-        _buildProfileNode(
-          _formatProfileKey(entry.key),
-          entry.value,
-          depth: 0,
-        ),
-    ]);
-  }
-
-  Component _buildProfileNode(String label, Object? value, {required int depth}) {
-    final mapValue = _asProfileMap(value);
-    final listValue = _asProfileList(value);
-    final classes = depth == 0 ? 'profile-node' : 'profile-node nested';
-
-    if (mapValue != null) {
-      return div(classes: classes, [
-        div(classes: 'profile-node-header', [
-          span(classes: 'profile-node-label', [.text(label)]),
-        ]),
-        if (mapValue.isEmpty)
-          p(classes: 'muted-copy', [.text('No values defined.')])
-        else
-          div(classes: 'profile-node-children', [
-            for (final entry in mapValue.entries)
-              _buildProfileNode(
-                _formatProfileKey(entry.key),
-                entry.value,
-                depth: depth + 1,
-              ),
-          ]),
-      ]);
-    }
-
-    if (listValue != null) {
-      return div(classes: classes, [
-        div(classes: 'profile-node-header', [
-          span(classes: 'profile-node-label', [.text(label)]),
-        ]),
-        if (listValue.isEmpty)
-          p(classes: 'muted-copy', [.text('No values defined.')])
-        else if (_isScalarList(listValue))
-          div(classes: 'profile-value-list', [
-            for (final item in listValue)
-              div(classes: 'profile-value-item', [
-                .text(_profileScalarText(item)),
-              ]),
-          ])
-        else
-          div(classes: 'profile-node-children', [
-            for (int idx = 0; idx < listValue.length; idx++)
-              _buildProfileNode(
-                _profileListEntryLabel(listValue[idx], idx),
-                listValue[idx],
-                depth: depth + 1,
-              ),
-          ]),
-      ]);
-    }
-
-    return div(classes: classes, [
-      div(classes: 'profile-node-header', [
-        span(classes: 'profile-node-label', [.text(label)]),
-      ]),
-      div(classes: 'profile-scalar', [
-        .text(_profileScalarText(value)),
-      ]),
-    ]);
-  }
-
-  Map<String, Object?>? _asProfileMap(Object? value) {
-    if (value is Map<String, Object?>) {
-      return value;
-    }
-    if (value is Map) {
-      return {
-        for (final entry in value.entries) entry.key.toString(): entry.value,
-      };
-    }
-    return null;
-  }
-
-  List<Object?>? _asProfileList(Object? value) {
-    if (value is List<Object?>) {
-      return value;
-    }
-    if (value is List) {
-      return value.cast<Object?>();
-    }
-    return null;
-  }
-
-  bool _isScalarList(List<Object?> values) {
-    for (final value in values) {
-      if (_asProfileMap(value) != null || _asProfileList(value) != null) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  String _profileListEntryLabel(Object? value, int index) {
-    final mapValue = _asProfileMap(value);
-    if (mapValue == null) {
-      return 'Entry ${index + 1}';
-    }
-
-    final role = _firstProfileString(mapValue, const ['role', 'name', 'degree', 'id', 'title']);
-    final context = _firstProfileString(mapValue, const ['company', 'institution', 'domain']);
-    if (role.isNotEmpty && context.isNotEmpty && role != context) {
-      return '$role - $context';
-    }
-    if (role.isNotEmpty) {
-      return role;
-    }
-    if (context.isNotEmpty) {
-      return context;
-    }
-    return 'Entry ${index + 1}';
-  }
-
-  String _firstProfileString(Map<String, Object?> values, List<String> keys) {
-    for (final key in keys) {
-      final raw = values[key];
-      final text = raw?.toString().trim() ?? '';
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-    return '';
-  }
-
-  String _profileScalarText(Object? value) {
-    final text = value?.toString().trim() ?? '';
-    return text.isEmpty ? '-' : text;
-  }
-
-  String _formatProfileKey(String key) {
-    final normalized = key.trim();
-    if (normalized.isEmpty) {
-      return 'Value';
-    }
-
-    final parts = normalized
-        .split(RegExp(r'[_\-\s]+'))
-        .where((part) => part.trim().isNotEmpty)
-        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
-        .toList();
-    return parts.isEmpty ? normalized : parts.join(' ');
   }
 
   Component _buildSignalWeightsEditor({
@@ -1448,16 +1148,15 @@ class AppState extends State<App> {
       section(classes: 'panel', [
         h3([.text('Environment')]),
         p([.text('Health status: ${_health?.status ?? '-'}')]),
-        p([
-          .text('Engine root: '),
-          code([.text(_health?.engineRoot ?? '-')]),
-        ]),
         p([.text('Known personas: ${config.personaIds.length}')]),
         p([.text('Known candidate profiles: ${config.candidateProfileIds.length}')]),
         p([.text('Known companies: ${config.companies.length}')]),
         p([.text('Signal catalog: ${_signalCatalog.length} signals loaded')]),
         if (config.candidateProfileIds.isNotEmpty)
           p([.text('Candidate profiles: ${config.candidateProfileIds.join(', ')}')]),
+        p(classes: 'muted-copy', [
+          .text('Detailed local filesystem paths and private runtime inputs are intentionally excluded from this screen.'),
+        ]),
       ]),
     ]);
   }
@@ -1756,17 +1455,6 @@ class AppState extends State<App> {
     css('.status.running').styles(raw: const {'background': '#fff5df', 'color': '#7b5a1a'}),
     css('.status.succeeded').styles(raw: const {'background': '#dcf6e8', 'color': '#1d5b3d'}),
     css('.status.failed').styles(raw: const {'background': '#ffe6df', 'color': '#8f2e20'}),
-    css('.logs').styles(
-      raw: const {
-        'max-height': '420px',
-        'overflow': 'auto',
-        'background': '#11191c',
-        'color': '#d6efe0',
-        'padding': '.9rem',
-        'border-radius': '10px',
-        'white-space': 'pre-wrap',
-      },
-    ),
     css('.company-list').styles(raw: const {'display': 'grid', 'gap': '.4rem'}),
     css('.company-item').styles(
       raw: const {
@@ -1791,163 +1479,7 @@ class AppState extends State<App> {
         'gap': '.6rem',
       },
     ),
-    css('.candidate-profile-shell').styles(
-      raw: const {
-        'display': 'grid',
-        'grid-template-columns': '240px 1fr',
-        'gap': '.9rem',
-        'margin-top': '.5rem',
-      },
-    ),
-    css('.candidate-profile-list').styles(
-      raw: const {
-        'display': 'grid',
-        'gap': '.45rem',
-        'align-content': 'start',
-      },
-    ),
-    css('.candidate-profile-detail').styles(raw: const {'display': 'grid', 'gap': '.9rem'}),
-    css('.list-heading').styles(
-      raw: const {
-        'margin': '0 0 .15rem 0',
-        'font-weight': '700',
-        'color': '#0f1728',
-      },
-    ),
-    css('.profile-link').styles(
-      raw: const {
-        'text-align': 'left',
-        'border-radius': '8px',
-        'border': '1px solid #c6ceda',
-        'background': '#ffffff',
-        'padding': '.6rem .7rem',
-      },
-    ),
-    css('.profile-link.selected').styles(
-      raw: const {
-        'background': '#01589B',
-        'border-color': '#01589B',
-        'color': '#ffffff',
-      },
-    ),
-    css('.candidate-hero').styles(
-      raw: const {
-        'display': 'grid',
-        'gap': '.9rem',
-      },
-    ),
-    css('.candidate-metrics').styles(
-      raw: const {
-        'display': 'grid',
-        'gap': '.65rem',
-        'grid-template-columns': 'repeat(auto-fit, minmax(150px, 1fr))',
-      },
-    ),
-    css('.profile-stat').styles(
-      raw: const {
-        'border': '1px solid #d8dfeb',
-        'border-radius': '8px',
-        'padding': '.7rem',
-        'background': '#ffffff',
-        'display': 'grid',
-        'gap': '.2rem',
-      },
-    ),
-    css('.profile-stat-label').styles(raw: const {'color': '#667085', 'font-size': '.82rem'}),
-    css('.profile-stat-value').styles(raw: const {'font-weight': '700', 'color': '#0f172a'}),
-    css('.profile-section-grid').styles(
-      raw: const {
-        'display': 'grid',
-        'gap': '.7rem',
-        'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))',
-      },
-    ),
-    css('.tag-group').styles(
-      raw: const {
-        'border': '1px solid #d9dfeb',
-        'border-radius': '10px',
-        'padding': '.8rem',
-        'background': '#fbfcfe',
-        'display': 'grid',
-        'gap': '.55rem',
-      },
-    ),
-    css('.tag-group h4').styles(raw: const {'margin': '0', 'color': '#0f1728'}),
-    css('.tag-list').styles(
-      raw: const {
-        'display': 'flex',
-        'flex-wrap': 'wrap',
-        'gap': '.45rem',
-      },
-    ),
-    css('.tag').styles(
-      raw: const {
-        'display': 'inline-block',
-        'padding': '.28rem .55rem',
-        'border-radius': '999px',
-        'font-size': '.85rem',
-        'font-weight': '600',
-      },
-    ),
-    css('.tag.positive').styles(raw: const {'background': '#dff7ea', 'color': '#165b3e'}),
-    css('.tag.neutral').styles(raw: const {'background': '#eff3fa', 'color': '#334155'}),
-    css('.tag.risk').styles(raw: const {'background': '#ffe8e2', 'color': '#8f2e20'}),
     css('.muted-copy').styles(raw: const {'margin': '0', 'color': '#667085'}),
-    css('.yaml-preview').styles(raw: const {'display': 'grid', 'gap': '.5rem'}),
-    css('.yaml-raw').styles(raw: const {'margin': '0'}),
-    css('.profile-content-section').styles(raw: const {'display': 'grid', 'gap': '.6rem'}),
-    css('.profile-content-root').styles(raw: const {'display': 'grid', 'gap': '.7rem'}),
-    css('.profile-node').styles(
-      raw: const {
-        'display': 'grid',
-        'gap': '.6rem',
-        'padding': '.85rem',
-        'border': '1px solid #d9dfeb',
-        'border-radius': '10px',
-        'background': '#ffffff',
-      },
-    ),
-    css('.profile-node.nested').styles(
-      raw: const {
-        'background': '#f8fbff',
-        'border-left': '3px solid #cfe0ff',
-      },
-    ),
-    css('.profile-node-header').styles(
-      raw: const {
-        'display': 'flex',
-        'align-items': 'center',
-        'gap': '.4rem',
-      },
-    ),
-    css('.profile-node-label').styles(
-      raw: const {
-        'font-weight': '700',
-        'color': '#0f172a',
-      },
-    ),
-    css('.profile-node-children').styles(raw: const {'display': 'grid', 'gap': '.6rem'}),
-    css('.profile-value-list').styles(raw: const {'display': 'grid', 'gap': '.45rem'}),
-    css('.profile-value-item').styles(
-      raw: const {
-        'padding': '.55rem .65rem',
-        'border': '1px solid #e1e7f0',
-        'border-radius': '8px',
-        'background': '#f8fafc',
-        'white-space': 'pre-wrap',
-        'line-height': '1.5',
-      },
-    ),
-    css('.profile-scalar').styles(
-      raw: const {
-        'padding': '.55rem .65rem',
-        'border': '1px solid #e1e7f0',
-        'border-radius': '8px',
-        'background': '#f8fafc',
-        'white-space': 'pre-wrap',
-        'line-height': '1.5',
-      },
-    ),
     css('.signal-weights-editor').styles(
       raw: const {
         'display': 'grid',
@@ -1985,7 +1517,6 @@ class AppState extends State<App> {
       css('.form-grid').styles(raw: const {'grid-template-columns': '1fr'}),
       css('.span-2').styles(raw: const {'grid-column': 'span 1'}),
       css('.company-grid').styles(raw: const {'grid-template-columns': '1fr'}),
-      css('.candidate-profile-shell').styles(raw: const {'grid-template-columns': '1fr'}),
       css('.runs-table').styles(raw: const {'display': 'block', 'overflow': 'auto', 'white-space': 'nowrap'}),
     ]),
     css.media(const MediaQuery.raw('(max-width: 720px)'), [
@@ -1993,7 +1524,6 @@ class AppState extends State<App> {
       css('.panel').styles(raw: const {'padding': '.8rem'}),
       css('.actions').styles(raw: const {'flex-direction': 'column'}),
       css('.actions button').styles(raw: const {'width': '100%'}),
-      css('.candidate-metrics').styles(raw: const {'grid-template-columns': '1fr'}),
       css('.panel-header-inline').styles(raw: const {'flex-direction': 'column', 'align-items': 'stretch'}),
     ]),
   ];
