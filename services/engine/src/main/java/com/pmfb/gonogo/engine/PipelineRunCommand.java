@@ -1151,7 +1151,7 @@ public final class PipelineRunCommand implements Callable<Integer> {
                     job.fingerprint(),
                     job.changeStatus()
             );
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             throw new JobEvaluationFailedException(job.sourceFile(), e);
         }
     }

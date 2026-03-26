@@ -107,7 +107,6 @@ class _WeeklyBody extends StatelessComponent {
                 child: .text(report.weeklyId),
               ),
           ]),
-        p([.text('File: ${selected.relativePath}')]),
         pre(classes: 'markdown', [.text(selected.markdownContent)]),
       ]),
     ]);

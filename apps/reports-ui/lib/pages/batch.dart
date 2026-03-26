@@ -146,7 +146,6 @@ class _BatchBody extends StatelessComponent {
         if (batchReport == null)
           p([.text('No batch JSON report found for this run.')])
         else ...[
-          p([.text('Report: ${batchReport!.relativePath}')]),
           _BatchFilters(
             verdictFilter: verdictFilter,
             sortBy: sortBy,

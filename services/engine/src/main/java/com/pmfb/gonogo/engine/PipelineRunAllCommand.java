@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -770,7 +771,7 @@ public final class PipelineRunAllCommand implements Callable<Integer> {
                 if (id instanceof String companyId && updatedAt instanceof String ts && !ts.isBlank()) {
                     try {
                         result.put(companyId, Instant.parse(ts));
-                    } catch (Exception ignored) {
+                    } catch (DateTimeParseException ignored) {
                         // malformed timestamp: treat as stale
                     }
                 }

@@ -92,7 +92,7 @@ List<Component> issueList(List<ReportIssuePayload> issues) {
       for (final issue in issues)
         li([
           code([.text(issue.code)]),
-          .text(issue.relativePath == null ? ': ${issue.message}' : ' (${issue.relativePath}): ${issue.message}'),
+          .text(': ${issue.message}'),
         ]),
     ]),
   ];

@@ -65,19 +65,12 @@ class EngineCatalogRepository {
 
     final items = <EngineOptionItem>[];
     for (final file in files) {
-      final decoded = loadYaml(await file.readAsString());
-      final candidate = decoded is YamlMap ? decoded['candidate'] : null;
-      if (candidate is! YamlMap) {
-        continue;
-      }
       final id = _basenameWithoutExtension(file.path);
-      final name = candidate['name']?.toString().trim() ?? id;
-      final title = candidate['title']?.toString().trim() ?? '';
       items.add(
         EngineOptionItem(
           id: id,
-          label: title.isEmpty ? name : '$name ($title)',
-          description: title,
+          label: id,
+          description: 'Runtime candidate profile',
         ),
       );
     }
