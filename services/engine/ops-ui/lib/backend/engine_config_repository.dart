@@ -75,56 +75,6 @@ class PersonaDetail {
   }
 }
 
-class CandidateProfileDetail {
-  const CandidateProfileDetail({
-    required this.id,
-    required this.name,
-    required this.title,
-    required this.location,
-    required this.totalExperienceYears,
-    required this.productionSkills,
-    required this.learningSkills,
-    required this.gapSkills,
-    required this.strongDomains,
-    required this.moderateDomains,
-    required this.limitedDomains,
-    required this.content,
-    required this.rawYaml,
-  });
-
-  final String id;
-  final String name;
-  final String title;
-  final String location;
-  final int totalExperienceYears;
-  final List<String> productionSkills;
-  final List<String> learningSkills;
-  final List<String> gapSkills;
-  final List<String> strongDomains;
-  final List<String> moderateDomains;
-  final List<String> limitedDomains;
-  final Map<String, Object?> content;
-  final String rawYaml;
-
-  Map<String, Object?> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'title': title,
-      'location': location,
-      'total_experience_years': totalExperienceYears,
-      'production_skills': productionSkills,
-      'learning_skills': learningSkills,
-      'gap_skills': gapSkills,
-      'strong_domains': strongDomains,
-      'moderate_domains': moderateDomains,
-      'limited_domains': limitedDomains,
-      'content': content,
-      'raw_yaml': rawYaml,
-    };
-  }
-}
-
 class EngineConfigRepository {
   const EngineConfigRepository({
     required this.engineRoot,
@@ -145,18 +95,6 @@ class EngineConfigRepository {
   static const String _rankingStrategyKey = 'ranking_strategy';
   static const String _signalWeightsKey = 'signal_weights';
   static const String _minimumSalaryYenKey = 'minimum_salary_yen';
-  static const String _candidateKey = 'candidate';
-  static const String _stackKey = 'stack';
-  static const String _productionProvenKey = 'production_proven';
-  static const String _activelyLearningKey = 'actively_learning';
-  static const String _gapsHonestKey = 'gaps_honest';
-  static const String _domainExpertiseKey = 'domain_expertise';
-  static const String _strongKey = 'strong';
-  static const String _moderateKey = 'moderate';
-  static const String _limitedKey = 'limited';
-  static const String _titleKey = 'title';
-  static const String _locationKey = 'location';
-  static const String _totalExperienceYearsKey = 'total_experience_years';
 
   final Directory engineRoot;
 
@@ -280,56 +218,6 @@ class EngineConfigRepository {
         signalWeights: parseWeights(),
         rankingStrategy: rankingStrategy.isEmpty ? 'by_score' : rankingStrategy,
         minimumSalaryYen: minimumSalaryYen,
-      );
-    }
-
-    return null;
-  }
-
-  Future<CandidateProfileDetail?> loadCandidateProfileDetail(String id) async {
-    final candidateProfilesDir = Directory(
-      p.join(engineRoot.path, _configFolder, _candidateProfilesFolder),
-    );
-    if (!await candidateProfilesDir.exists()) {
-      return null;
-    }
-
-    final normalizedTarget = id.trim().toLowerCase();
-    await for (final entity in candidateProfilesDir.list(followLinks: false)) {
-      if (entity is! File || !entity.path.endsWith('.yaml')) {
-        continue;
-      }
-
-      final fileId = p.basenameWithoutExtension(entity.path).trim();
-      if (fileId.toLowerCase() != normalizedTarget) {
-        continue;
-      }
-
-      final rawYaml = await entity.readAsString();
-      final decoded = loadYaml(rawYaml);
-      if (decoded is! YamlMap) {
-        return null;
-      }
-
-      final candidate = _readYamlMap(decoded, _candidateKey);
-      final stack = _readYamlMap(decoded, _stackKey);
-      final production = _readYamlMap(stack, _productionProvenKey);
-      final domainExpertise = _readYamlMap(decoded, _domainExpertiseKey);
-
-      return CandidateProfileDetail(
-        id: fileId,
-        name: candidate[_nameKey]?.toString().trim() ?? fileId,
-        title: candidate[_titleKey]?.toString().trim() ?? '',
-        location: candidate[_locationKey]?.toString().trim() ?? '',
-        totalExperienceYears: _parseRequiredInt(candidate[_totalExperienceYearsKey]),
-        productionSkills: _flattenNestedStringLists(production),
-        learningSkills: _readYamlStringList(stack, _activelyLearningKey),
-        gapSkills: _readYamlStringList(stack, _gapsHonestKey),
-        strongDomains: _readYamlStringList(domainExpertise, _strongKey),
-        moderateDomains: _readYamlStringList(domainExpertise, _moderateKey),
-        limitedDomains: _readYamlStringList(domainExpertise, _limitedKey),
-        content: _toJsonCompatibleMap(decoded),
-        rawYaml: rawYaml,
       );
     }
 
@@ -652,79 +540,6 @@ class EngineConfigRepository {
       return null;
     }
     return int.tryParse(text.replaceAll(',', ''));
-  }
-
-  int _parseRequiredInt(Object? raw) {
-    if (raw is num) {
-      return raw.toInt();
-    }
-    return int.tryParse(raw?.toString().trim() ?? '') ?? 0;
-  }
-
-  Map<dynamic, dynamic> _readYamlMap(Object? raw, String key) {
-    if (raw is Map) {
-      final nested = raw[key];
-      if (nested is Map) {
-        return nested;
-      }
-    }
-    return const {};
-  }
-
-  List<String> _readYamlStringList(Map<dynamic, dynamic> map, String key) {
-    final raw = map[key];
-    if (raw is! YamlList) {
-      return const [];
-    }
-    final values = <String>[];
-    for (final item in raw) {
-      final value = item?.toString().trim() ?? '';
-      if (value.isNotEmpty) {
-        values.add(value);
-      }
-    }
-    return values;
-  }
-
-  List<String> _flattenNestedStringLists(Map<dynamic, dynamic> map) {
-    final values = <String>[];
-    for (final entry in map.entries) {
-      final rawValue = entry.value;
-      if (rawValue is YamlList) {
-        for (final item in rawValue) {
-          final value = item?.toString().trim() ?? '';
-          if (value.isNotEmpty) {
-            values.add(value);
-          }
-        }
-        continue;
-      }
-      if (rawValue is Map) {
-        values.addAll(_flattenNestedStringLists(rawValue));
-      }
-    }
-    return values;
-  }
-
-  Map<String, Object?> _toJsonCompatibleMap(Map<dynamic, dynamic> map) {
-    final result = <String, Object?>{};
-    for (final entry in map.entries) {
-      result[entry.key.toString()] = _toJsonCompatibleValue(entry.value);
-    }
-    return result;
-  }
-
-  Object? _toJsonCompatibleValue(Object? raw) {
-    if (raw is Map) {
-      return _toJsonCompatibleMap(raw);
-    }
-    if (raw is List) {
-      return raw.map(_toJsonCompatibleValue).toList();
-    }
-    if (raw == null || raw is String || raw is num || raw is bool) {
-      return raw;
-    }
-    return raw.toString();
   }
 }
 

@@ -161,8 +161,7 @@ class EngineEvaluationRunner {
       throw StateError('Engine evaluation returned an invalid JSON payload.');
     }
 
-    decoded['analysis_file'] = _relativeToReportsRoot(artifactFile);
-    return decoded;
+    return _sanitizeEvaluationPayload(decoded);
   }
 
   Future<File> _buildArtifactFile(EvaluationRequest request, String personaId) async {
@@ -206,24 +205,11 @@ class EngineEvaluationRunner {
     }
   }
 
-  String _relativeToReportsRoot(File artifactFile) {
-    final reportsPath = reportsRoot.absolute.path;
-    final artifactPath = artifactFile.absolute.path;
-    final prefix = reportsPath.endsWith(Platform.pathSeparator) ? reportsPath : '$reportsPath${Platform.pathSeparator}';
-    if (artifactPath.startsWith(prefix)) {
-      return artifactPath.substring(prefix.length).replaceAll('\\', '/');
-    }
-    return artifactPath;
-  }
-
   String _buildFailureMessage(int exitCode, String stdoutText, String stderrText) {
     final stderr = stderrText.trim();
     final stdout = stdoutText.trim();
-    if (stderr.isNotEmpty) {
-      return 'Engine evaluation failed ($exitCode): $stderr';
-    }
-    if (stdout.isNotEmpty) {
-      return 'Engine evaluation failed ($exitCode): $stdout';
+    if (stderr.isNotEmpty || stdout.isNotEmpty) {
+      return 'Engine evaluation failed with exit code $exitCode.';
     }
     return 'Engine evaluation failed with exit code $exitCode.';
   }
@@ -270,5 +256,21 @@ class EngineEvaluationRunner {
       hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
     }
     return hash.toRadixString(16).padLeft(16, '0');
+  }
+
+  Map<String, dynamic> _sanitizeEvaluationPayload(Map<String, dynamic> decoded) {
+    final sanitized = Map<String, dynamic>.from(decoded);
+    sanitized.remove('analysis_file');
+
+    final source = sanitized['source'];
+    if (source is Map) {
+      final sourceMap = Map<String, dynamic>.fromEntries(
+        source.entries.map((entry) => MapEntry(entry.key.toString(), entry.value)),
+      );
+      sourceMap['file'] = '';
+      sanitized['source'] = sourceMap;
+    }
+
+    return sanitized;
   }
 }

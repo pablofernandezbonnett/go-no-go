@@ -46,7 +46,7 @@ class ReportIndexBuilder {
               reportId: identity.id,
               personaId: identity.personaId,
               rawJson: artifact.content,
-              decodedJson: decoded,
+              decodedJson: _sanitizeBatchPayload(decoded),
               isValidJson: decoded != null,
             ),
           );
@@ -165,6 +165,34 @@ class ReportIndexBuilder {
       issues: issues,
     );
   }
+}
+
+Object? _sanitizeBatchPayload(Object? value) {
+  if (value is Map<String, dynamic>) {
+    final sanitized = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key == 'source_file') {
+        continue;
+      }
+      sanitized[entry.key] = _sanitizeBatchPayload(entry.value);
+    }
+    return sanitized;
+  }
+  if (value is Map) {
+    final sanitized = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = entry.key.toString();
+      if (key == 'source_file') {
+        continue;
+      }
+      sanitized[key] = _sanitizeBatchPayload(entry.value);
+    }
+    return sanitized;
+  }
+  if (value is List) {
+    return value.map(_sanitizeBatchPayload).toList();
+  }
+  return value;
 }
 
 Object? _tryDecodeJson({

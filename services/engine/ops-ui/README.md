@@ -6,7 +6,7 @@ This app is intentionally lightweight and CLI-first:
 
 - Keeps `go-no-go-engine` as the execution source of truth.
 - Lets you configure and trigger runs from a form.
-- Shows run status, command, output folder, and live logs.
+- Shows run status and sanitized request summaries.
 
 ![Operations UI screenshot](../../../docs/screenshots/ops-ui-home.png)
 
@@ -17,9 +17,15 @@ This app is intentionally lightweight and CLI-first:
 - Choose runtime candidate-profile mode for each run (`Auto`, `None`, or explicit profile id).
 - Queue runs and execute them one at a time.
 - Track run status: `queued`, `running`, `succeeded`, `failed`.
-- Inspect command args and logs per run.
+- Inspect run request settings and lifecycle timestamps in the browser.
 - Create personas with salary-floor support and tune existing persona weights/strategy.
-- Browse full candidate profiles in a read-only screen backed by YAML files in `config/candidate-profiles/`.
+- Browse candidate profile ids without exposing YAML content or personal fields.
+
+## Privacy posture
+
+- Candidate profiles are local runtime inputs; the browser UI only exposes stable ids.
+- Filesystem paths, shell commands, and live execution logs stay server-side.
+- Internal server errors return sanitized messages instead of raw exception text.
 
 ## Runtime defaults
 

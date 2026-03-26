@@ -9,7 +9,7 @@ public interface TuiPrompts extends AutoCloseable {
     static TuiPrompts openSystem() {
         try {
             return JlineTuiPrompts.openSystem();
-        } catch (RuntimeException e) {
+        } catch (IllegalStateException e) {
             System.err.println(
                     "JLine TUI unavailable, falling back to line-based prompts. "
                             + "For the full terminal UI, use the installed launcher from a real terminal: "

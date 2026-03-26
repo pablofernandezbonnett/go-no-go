@@ -54,7 +54,7 @@ Spring Boot is intentionally deferred until API/persistence/multi-user needs app
 
 ## Project Status
 
-Early MVP scaffold is initialized.
+Active CLI-first personal project, published as a read-only reference repository.
 
 Implemented now:
 
@@ -90,6 +90,7 @@ Implemented now:
 - runtime candidate profiles (`config/candidate-profiles/`) with candidate-aware stack/domain/seniority signals
 - profile-backed human-reading synthesis using candidate evidence such as education, target roles, and differentiators
 - tracked candidate profile template plus local untracked candidate profiles for runtime use
+- browser-facing UIs hardened to avoid serving local profile YAML, filesystem paths, shell commands, or live logs
 - run-level trend history and weekly deltas in pipeline output
 - trend anomaly alerts (v1) derived from run deltas
 - `gonogo schedule` command to generate non-active scheduled-run artifacts (script + cron file)
@@ -97,7 +98,7 @@ Implemented now:
 - embedded Ops UI (`ops-ui`, Jaspr) with left navigation and dedicated screens (`Create Run`, `Runs`, `Company`, `Persona`, `Settings`)
 - Ops UI API endpoint to add companies into YAML config (`POST /api/config/companies`)
 - Ops UI API endpoint to add personas into YAML config (`POST /api/config/personas`)
-- Ops UI read-only candidate profile screen showing full YAML-backed candidate profile content
+- Ops UI candidate profile inventory screen exposing ids only
 - deterministic `DecisionEngineV1` with explainable output
 - baseline tests for decision rules, raw parsing, and report writing
 - regression fixtures for decision outcomes (`src/test/resources/fixtures/decision-regression/cases.yaml`)
@@ -293,8 +294,8 @@ Current Ops UI capabilities:
 
 - Create runs with explicit pipeline parameters
 - Choose candidate-profile mode per run (`Auto`, `None`, or explicit profile)
-- Browse full read-only candidate profile detail loaded from YAML
-- View run history and run details (logs, command, status)
+- Browse candidate profile ids without exposing local YAML content
+- View run history and sanitized run summaries (status, request settings, timestamps)
 - Add company entries to `config/companies.yaml` from UI form
 - Add persona entries to `config/personas.yaml` from UI form, including optional salary floor
 - Local UI settings (poll interval and auto-refresh)

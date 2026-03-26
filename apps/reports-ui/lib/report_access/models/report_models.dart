@@ -13,7 +13,6 @@ class ReportIndex {
 
   Map<String, Object?> toJson() {
     return {
-      'reportsRoot': reportsRoot,
       'reportsRootExists': reportsRootExists,
       'runs': runs.map((run) => run.toJson()).toList(),
       'issues': issues.map((issue) => issue.toJson()).toList(),
@@ -77,11 +76,9 @@ class BatchEvaluationJsonReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'reportId': reportId,
       'personaId': personaId,
-      'rawJson': rawJson,
       'decodedJson': decodedJson,
       'isValidJson': isValidJson,
     };
@@ -108,7 +105,6 @@ class BatchEvaluationMarkdownReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'reportId': reportId,
       'personaId': personaId,
@@ -135,7 +131,6 @@ class WeeklyDigestReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'weeklyId': weeklyId,
       'markdownContent': markdownContent,
@@ -163,7 +158,6 @@ class TrendHistoryReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'historyId': historyId,
       'personaId': personaId,
@@ -196,7 +190,6 @@ class TrendAlertsReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'alertsId': alertsId,
       'personaId': personaId,
@@ -225,7 +218,6 @@ class CompanyContextReport {
   Map<String, Object?> toJson() {
     return {
       'runId': runId,
-      'relativePath': relativePath,
       'fileName': fileName,
       'companyId': companyId,
       'textContent': textContent,
@@ -247,7 +239,6 @@ class ReportIndexIssue {
   Map<String, Object?> toJson() {
     return {
       'code': code,
-      'relativePath': relativePath,
       'message': message,
     };
   }

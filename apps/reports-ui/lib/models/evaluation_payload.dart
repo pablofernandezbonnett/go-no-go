@@ -209,7 +209,6 @@ class EvaluationResponsePayload {
     required this.jobInput,
     required this.evaluation,
     required this.normalizationWarnings,
-    required this.analysisFile,
   });
 
   final String generatedAt;
@@ -219,7 +218,6 @@ class EvaluationResponsePayload {
   final EvaluationJobInputPayload jobInput;
   final EvaluationResultPayload evaluation;
   final List<String> normalizationWarnings;
-  final String analysisFile;
 
   factory EvaluationResponsePayload.fromJson(Map<String, dynamic> json) {
     final sourceRaw = json['source'];
@@ -259,7 +257,6 @@ class EvaluationResponsePayload {
               reasoning: [],
             ),
       normalizationWarnings: warningsRaw is List ? warningsRaw.map((item) => item.toString()).toList() : const [],
-      analysisFile: json['analysis_file']?.toString() ?? '',
     );
   }
 }
