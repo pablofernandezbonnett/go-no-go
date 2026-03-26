@@ -46,17 +46,13 @@ cd services/engine
 Operations UI:
 
 ```bash
-cd services/engine/ops-ui
-dart pub get
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
 
 Reports UI:
 
 ```bash
-cd apps/reports-ui
-dart pub get
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
 
 Project-specific documentation:
@@ -98,14 +94,14 @@ When running both Jaspr UIs at the same time, the HTTP ports are not enough by t
 Recommended local dev commands:
 
 ```bash
-cd services/engine/ops-ui
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
 
 ```bash
-cd apps/reports-ui
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
+
+These root helpers already `cd` into the correct app and pin distinct `--web-port` / `--proxy-port` values so both Jaspr apps can run together without colliding.
 
 ## Working Agreements
 

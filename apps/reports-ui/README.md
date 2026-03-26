@@ -58,11 +58,18 @@ Prerequisites:
 
 ## Quick Start
 
+From the monorepo root:
+
 ```bash
-cd apps/reports-ui
-dart pub get
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
+
+The root helper script:
+
+- starts from the monorepo root
+- `cd`s into `apps/reports-ui`
+- sets `REPORTS_ROOT` to the engine output directory by default
+- pins `--web-port 5468` and `--proxy-port 5568` so it does not collide with `ops-ui`
 
 Default local URL:
 
@@ -81,7 +88,7 @@ jaspr serve
 Recommended when running `reports-ui` together with `services/engine/ops-ui`:
 
 ```bash
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+../../scripts/run-reports-ui.sh
 ```
 
 Why this is needed:
@@ -107,6 +114,14 @@ Optional local dev overrides:
 ```bash
 jaspr serve --port 8090 --web-port 5470 --proxy-port 5570
 ```
+
+Root helper overrides:
+
+- `REPORTS_UI_PORT`
+- `REPORTS_UI_WEB_PORT`
+- `REPORTS_UI_PROXY_PORT`
+- `REPORTS_ROOT`
+- `ENGINE_ROOT`
 
 ## Build
 
