@@ -56,72 +56,29 @@ Prerequisites:
 - Dart SDK installed
 - `jaspr_cli` available on your `PATH`
 
-## Quick Start
+## Start Here
 
-From the monorepo root:
+- Repository quickstart: [`../../docs/quickstart.md`](../../docs/quickstart.md)
+- Full operational guide: [`../../docs/advanced-guide.md`](../../docs/advanced-guide.md)
+
+Run from the repository root:
 
 ```bash
 ./scripts/run-reports-ui.sh
 ```
 
-The root helper script:
-
-- starts from the monorepo root
-- `cd`s into `apps/reports-ui`
-- sets `REPORTS_ROOT` to the engine output directory by default
-- pins `--web-port 5468` and `--proxy-port 5568` so it does not collide with `ops-ui`
-
 Default local URL:
 
 - `http://localhost:8792`
 
-## Local Development
+The root helper script already:
 
-This default is intentionally different from `services/engine/ops-ui` so both Jaspr UIs can run at the same time.
+- starts from the monorepo root
+- changes into `apps/reports-ui`
+- sets `REPORTS_ROOT` to `services/engine/output` by default
+- pins dedicated Jaspr `--web-port` and `--proxy-port` values so it can run alongside `ops-ui`
 
-Recommended when using engine artifacts from sibling project:
-
-```bash
-jaspr serve
-```
-
-Recommended when running `reports-ui` together with `services/engine/ops-ui`:
-
-```bash
-../../scripts/run-reports-ui.sh
-```
-
-Why this is needed:
-
-- `--port` controls the final app URL (`http://localhost:8792`)
-- `--web-port` controls the internal webdev resource server (default `5467`)
-- `--proxy-port` controls the Jaspr proxy server (default `5567`)
-
-If another Jaspr app is already running, a bind error on `5467` or `5567` means the internal dev ports are colliding, even if `8792` is free.
-
-When `REPORTS_ROOT` is unset, the server now prefers `../../services/engine/output` automatically when that monorepo path exists, and falls back to local `output/` otherwise.
-
-Use `REPORTS_ROOT` only when you want a non-default artifact directory.
-
-The ad-hoc evaluation page delegates to the engine wrapper under `services/engine`.
-Optional overrides:
-
-- `ENGINE_ROOT`: override the engine project directory.
-- `ENGINE_GRADLEW`: override the Gradle wrapper command used to run the engine.
-
-Optional local dev overrides:
-
-```bash
-jaspr serve --port 8090 --web-port 5470 --proxy-port 5570
-```
-
-Root helper overrides:
-
-- `REPORTS_UI_PORT`
-- `REPORTS_UI_WEB_PORT`
-- `REPORTS_UI_PROXY_PORT`
-- `REPORTS_ROOT`
-- `ENGINE_ROOT`
+For custom ports, alternate artifact roots, or Jaspr collision troubleshooting, use the advanced guide.
 
 ## Build
 

@@ -142,11 +142,11 @@ They do not replace the verdict; they explain it in more human terms.
 
 Current hard-filter baseline:
 
-- onsite-only
 - abusive overtime signals
 
 Persona-configurable hard filters may also include:
 
+- onsite-only
 - consulting / dispatch
 - missing or non-transparent salary
 - early-stage startup

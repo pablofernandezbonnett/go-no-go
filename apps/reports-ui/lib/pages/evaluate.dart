@@ -788,21 +788,19 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
             .text(items.isEmpty ? 'No reusable URLs were found yet.' : 'No URLs match the current filters.'),
           ])
         else if (filteredItems.isNotEmpty)
-          table([
-            thead([
-              tr([
-                th([.text('Seen')]),
-                th([.text('Company')]),
-                th([.text('Title')]),
-                th([.text('Source')]),
-                th([.text('URL')]),
-                th([.text('Action')]),
-              ]),
-            ]),
-            tbody([
+          reportTable(
+            columns: const [
+              ReportTableColumn('Seen', width: ReportTableWidth.medium),
+              ReportTableColumn('Company'),
+              ReportTableColumn('Title', width: ReportTableWidth.xwide),
+              ReportTableColumn('Source', width: ReportTableWidth.wide),
+              ReportTableColumn('Link'),
+              ReportTableColumn('Action', width: ReportTableWidth.compact),
+            ],
+            rows: [
               for (final item in filteredItems) _historyRow(item),
-            ]),
-          ]),
+            ],
+          ),
       ],
     );
   }
@@ -851,6 +849,7 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
   }
 
   Component _historyRow(EvaluationUrlHistoryItemPayload item) {
+    final hostLabel = _hostLabel(item.url);
     return tr([
       td([.text(formatFriendlyDateTime(item.generatedAt))]),
       td([.text(item.companyName.isEmpty ? 'Unknown' : item.companyName)]),
@@ -868,24 +867,28 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
         ]),
       ]),
       td([
-        a(
-          href: item.url,
-          target: Target.blank,
-          attributes: const {'rel': 'noreferrer noopener'},
-          [.text(item.url)],
-        ),
+        div(classes: 'history-link-cell', [
+          a(
+            href: item.url,
+            target: Target.blank,
+            attributes: {'rel': 'noreferrer noopener', 'title': item.url},
+            [.text('Source')],
+          ),
+          if (hostLabel.isNotEmpty) p(classes: 'history-link-meta', [.text(hostLabel)]),
+        ]),
       ]),
       td([
         div(classes: 'history-actions', [
-          button(
+          _ActionIconButton(
+            label: 'Reuse URL in the form',
+            icon: _ActionIcon.reuse,
             onClick: () => onUseUrl(item.url),
-            [.text('Use')],
           ),
           if (item.savedEvaluationAvailable)
-            button(
-              classes: 'button-secondary',
+            _ActionIconButton(
+              label: 'Open the latest saved evaluation',
+              icon: _ActionIcon.preview,
               onClick: () => onOpenHistoryDetail(item),
-              [.text('View saved')],
             ),
         ]),
       ]),
@@ -939,11 +942,6 @@ class _EvaluateSourceBlock extends StatelessComponent {
             [.text(source.url)],
           ),
         ]),
-      if (source.file.isNotEmpty)
-        p([
-          .text('Source file: '),
-          code([.text(source.file)]),
-        ]),
       if (source.rawText.isNotEmpty) ...[
         h3([.text('Original Input')]),
         artifactViewer(
@@ -986,7 +984,9 @@ class _SavedEvaluationModal extends StatelessComponent {
               classes: 'modal-meta',
               [
                 .text(
-                  item.title.isEmpty ? item.url : '${item.companyName.isEmpty ? 'Unknown' : item.companyName} · ${item.title}',
+                  item.title.isEmpty
+                      ? item.url
+                      : '${item.companyName.isEmpty ? 'Unknown' : item.companyName} · ${item.title}',
                 ),
               ],
             ),
@@ -1014,7 +1014,9 @@ class _SavedEvaluationModal extends StatelessComponent {
             p(classes: 'error', [.text(error!)])
           else if (payload != null) ...[
             p(classes: 'collapsible-summary', [
-              .text('Latest saved ad-hoc result for this URL. This lets you inspect the artifact without re-running the engine.'),
+              .text(
+                'Latest saved ad-hoc result for this URL. This lets you inspect the artifact without re-running the engine.',
+              ),
             ]),
             _EvaluationPayloadView(
               payload: payload!,
@@ -1042,13 +1044,10 @@ class _EvaluationPayloadView extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
+    final negativeAspects = _negativeAspects(payload);
     return div(classes: 'context-shell', [
       p([
         .text('Generated at: ${formatFriendlyDateTime(payload.generatedAt)}'),
-        if (payload.generatedAt.isNotEmpty) ...[
-          .text(' '),
-          code([.text(payload.generatedAt)]),
-        ],
       ]),
       div(classes: 'summary-grid', [
         _metricCard('Verdict', payload.evaluation.verdict.isEmpty ? 'Unknown' : payload.evaluation.verdict),
@@ -1056,28 +1055,63 @@ class _EvaluationPayloadView extends StatelessComponent {
         _metricCard('Salary', payload.jobInput.salaryRange.isEmpty ? 'Unknown' : payload.jobInput.salaryRange),
         _metricCard('Remote', payload.jobInput.remotePolicy.isEmpty ? 'Unknown' : payload.jobInput.remotePolicy),
       ]),
-      _EvaluateSourceBlock(source: payload.source),
-      artifactViewer(
-        title: 'Job Snapshot',
-        subtitle: '${payload.jobInput.companyName} · ${payload.jobInput.title}',
-        formatLabel: 'Input',
-        content: _jobSnapshot(payload),
-        preClasses: 'text-artifact',
+      div(classes: 'signal-summary-grid', [
+        _SignalSummaryCard(
+          title: 'Strengths',
+          toneClass: 'positive',
+          emptyMessage: 'No explicit positive signals were emitted for this evaluation.',
+          values: payload.evaluation.positiveSignals,
+        ),
+        _SignalSummaryCard(
+          title: 'Watchouts',
+          toneClass: 'risk',
+          emptyMessage: 'No explicit risk or hard-reject signals were emitted for this evaluation.',
+          values: negativeAspects,
+        ),
+      ]),
+      _DisclosureSection(
+        title: 'Source details',
+        description:
+            'Inspect the submitted source URL and any captured raw input without expanding the full artifact by default.',
+        child: _EvaluateSourceBlock(source: payload.source),
+      ),
+      _DisclosureSection(
+        title: 'Job snapshot',
+        description: 'See the normalized job input that the engine actually evaluated.',
+        child: artifactViewer(
+          title: 'Job Snapshot',
+          subtitle: '${payload.jobInput.companyName} · ${payload.jobInput.title}',
+          formatLabel: 'Input',
+          content: _jobSnapshot(payload),
+          preClasses: 'text-artifact',
+          showHeader: false,
+        ),
       ),
       if (payload.normalizationWarnings.isNotEmpty)
-        artifactViewer(
-          title: 'Normalization Warnings',
-          subtitle: 'Applied while shaping the artifact into an evaluation input',
-          formatLabel: 'Warnings',
-          content: payload.normalizationWarnings.map((item) => '- $item').join('\n'),
-          preClasses: 'text-artifact',
+        _DisclosureSection(
+          title: 'Normalization warnings',
+          description: 'Warnings recorded while shaping the source into a normalized evaluation input.',
+          child: artifactViewer(
+            title: 'Normalization Warnings',
+            subtitle: 'Applied while shaping the artifact into an evaluation input',
+            formatLabel: 'Warnings',
+            content: payload.normalizationWarnings.map((item) => '- $item').join('\n'),
+            preClasses: 'text-artifact',
+            showHeader: false,
+          ),
         ),
-      artifactViewer(
-        title: artifactTitle,
-        subtitle: artifactSubtitle,
-        formatLabel: 'Console',
-        content: _evaluationConsoleOutput(payload),
-        preClasses: 'console-artifact',
+      _DisclosureSection(
+        title: 'Evaluation output',
+        description:
+            'Expand the full console-style artifact only when you need the detailed reasoning or raw signal list.',
+        child: artifactViewer(
+          title: artifactTitle,
+          subtitle: artifactSubtitle,
+          formatLabel: 'Console',
+          content: _evaluationConsoleOutput(payload),
+          preClasses: 'console-artifact',
+          showHeader: false,
+        ),
       ),
     ]);
   }
@@ -1143,5 +1177,150 @@ class _EvaluationPayloadView extends StatelessComponent {
       buffer.writeln(' | $line');
     }
     return buffer.toString().trimRight();
+  }
+
+  List<String> _negativeAspects(EvaluationResponsePayload payload) {
+    final values = <String>[];
+    final seen = <String>{};
+    for (final item in [
+      ...payload.evaluation.hardRejectReasons,
+      ...payload.evaluation.riskSignals,
+    ]) {
+      if (seen.add(item)) {
+        values.add(item);
+      }
+    }
+    return values;
+  }
+}
+
+class _DisclosureSection extends StatelessComponent {
+  const _DisclosureSection({
+    required this.title,
+    required this.description,
+    required this.child,
+  });
+
+  final String title;
+  final String description;
+  final Component child;
+
+  @override
+  Component build(BuildContext context) {
+    return details(classes: 'disclosure', [
+      summary(classes: 'disclosure-summary', [
+        div(classes: 'disclosure-summary-row', [
+          div(classes: 'disclosure-copy', [
+            span(classes: 'disclosure-title', [.text(title)]),
+            p(classes: 'disclosure-description', [.text(description)]),
+          ]),
+          div(classes: 'disclosure-cue', [
+            span(classes: 'disclosure-cue-icon', [.text('▾')]),
+          ]),
+        ]),
+      ]),
+      div(classes: 'disclosure-body', [
+        child,
+      ]),
+    ]);
+  }
+}
+
+class _SignalSummaryCard extends StatelessComponent {
+  const _SignalSummaryCard({
+    required this.title,
+    required this.values,
+    required this.emptyMessage,
+    required this.toneClass,
+  });
+
+  final String title;
+  final List<String> values;
+  final String emptyMessage;
+  final String toneClass;
+
+  @override
+  Component build(BuildContext context) {
+    final previewValues = values
+        .take(3)
+        .map(humanizeIdentifier)
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    final overflowCount = values.length - previewValues.length;
+
+    return div(classes: 'signal-summary-card $toneClass', [
+      div(classes: 'signal-summary-title', [.text(title)]),
+      if (previewValues.isEmpty)
+        p(classes: 'signal-summary-empty', [.text(emptyMessage)])
+      else ...[
+        ul(classes: 'signal-summary-list', [
+          for (final item in previewValues) li([.text(item)]),
+        ]),
+        if (overflowCount > 0)
+          p(classes: 'signal-summary-overflow', [.text('+$overflowCount more in the full output')]),
+      ],
+    ]);
+  }
+}
+
+enum _ActionIcon { reuse, preview }
+
+class _ActionIconButton extends StatelessComponent {
+  const _ActionIconButton({
+    required this.label,
+    required this.icon,
+    required this.onClick,
+  });
+
+  final String label;
+  final _ActionIcon icon;
+  final void Function() onClick;
+
+  @override
+  Component build(BuildContext context) {
+    return button(
+      classes: 'button-secondary icon-button',
+      attributes: {'title': label, 'aria-label': label},
+      onClick: onClick,
+      [_ActionIconGlyph(icon: icon)],
+    );
+  }
+}
+
+class _ActionIconGlyph extends StatelessComponent {
+  const _ActionIconGlyph({required this.icon});
+
+  final _ActionIcon icon;
+
+  @override
+  Component build(BuildContext context) {
+    return svg(
+      viewBox: '0 0 20 20',
+      width: 18.px,
+      height: 18.px,
+      attributes: const {
+        'fill': 'none',
+        'stroke': 'currentColor',
+        'stroke-width': '1.7',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'aria-hidden': 'true',
+      },
+      _paths(),
+    );
+  }
+
+  List<Component> _paths() {
+    return switch (icon) {
+      _ActionIcon.reuse => [
+        path(d: 'M10 3v8', []),
+        path(d: 'M7 8l3 3 3-3', []),
+        path(d: 'M4 15h12', []),
+      ],
+      _ActionIcon.preview => [
+        path(d: 'M1.5 10s3-5 8.5-5 8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5Z', []),
+        path(d: 'M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z', []),
+      ],
+    };
   }
 }

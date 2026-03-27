@@ -66,6 +66,7 @@ class App extends StatelessComponent {
     css('.layout').styles(
       display: .flex,
       minHeight: 100.vh,
+      alignItems: .start,
     ),
     css('.content-shell').styles(
       display: .flex,
@@ -73,6 +74,9 @@ class App extends StatelessComponent {
       flex: Flex(grow: 1),
       padding: .all(1.25.rem),
       boxSizing: .borderBox,
+      raw: const {
+        'min-width': '0',
+      },
     ),
     css('section.page').styles(
       width: 100.percent,
@@ -132,6 +136,10 @@ class App extends StatelessComponent {
         'background': '#ffffff',
       },
     ),
+    css('.table-scroll').styles(
+      width: 100.percent,
+      overflow: Overflow.auto,
+    ),
     css('section.page th, section.page td').styles(
       border: Border.all(width: 1.px, color: const Color('#d5dbe5')),
       padding: .all(0.58.rem),
@@ -142,6 +150,45 @@ class App extends StatelessComponent {
     css('section.page th').styles(
       backgroundColor: const Color('#edf3fb'),
       fontWeight: .w700,
+    ),
+    css('.table-header-cell').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .center,
+      gap: Gap.all(0.55.rem),
+      fontWeight: .w700,
+      raw: const {
+        'min-width': '5.5rem',
+        'overflow-x': 'auto',
+        'overflow-y': 'hidden',
+        'resize': 'horizontal',
+      },
+    ),
+    css('.table-col-compact .table-header-cell').styles(
+      raw: const {'width': '6rem'},
+    ),
+    css('.table-col-medium .table-header-cell').styles(
+      raw: const {'width': '9rem'},
+    ),
+    css('.table-col-wide .table-header-cell').styles(
+      raw: const {'width': '13rem'},
+    ),
+    css('.table-col-xwide .table-header-cell').styles(
+      raw: const {'width': '18rem'},
+    ),
+    css('.table-header-label').styles(
+      raw: const {
+        'white-space': 'nowrap',
+      },
+    ),
+    css('.table-header-grip').styles(
+      color: const Color('#64748b'),
+      fontFamily: const .list([FontFamily('IBM Plex Mono'), FontFamilies.monospace]),
+      fontSize: 0.78.rem,
+      fontWeight: .w700,
+      raw: const {
+        'user-select': 'none',
+      },
     ),
     css('section.page pre').styles(
       whiteSpace: WhiteSpace.preWrap,
@@ -189,7 +236,9 @@ class App extends StatelessComponent {
       alignItems: .start,
       gap: Gap.all(0.8.rem),
       padding: .all(0.9.rem),
-      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      border: Border.only(
+        bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0')),
+      ),
       backgroundColor: Colors.white,
     ),
     css('.artifact-frame-copy').styles(
@@ -412,6 +461,29 @@ class App extends StatelessComponent {
       flexWrap: .wrap,
       gap: Gap.all(0.45.rem),
     ),
+    css('.history-link-cell').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.18.rem),
+    ),
+    css('.history-link-meta').styles(
+      margin: .zero,
+      color: const Color('#64748b'),
+      fontSize: 0.82.rem,
+    ),
+    css('.icon-button').styles(
+      display: .inlineFlex,
+      alignItems: .center,
+      justifyContent: JustifyContent.center,
+      minWidth: 2.25.rem,
+      minHeight: 2.25.rem,
+      padding: .all(0.45.rem),
+    ),
+    css('.icon-button svg').styles(
+      raw: const {
+        'pointer-events': 'none',
+      },
+    ),
     css('.modal-backdrop').styles(
       display: .flex,
       justifyContent: JustifyContent.center,
@@ -445,7 +517,9 @@ class App extends StatelessComponent {
       alignItems: .start,
       gap: Gap.all(1.rem),
       padding: .all(1.rem),
-      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      border: Border.only(
+        bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0')),
+      ),
       backgroundColor: const Color('#f8fafc'),
     ),
     css('.modal-header-copy').styles(
@@ -490,6 +564,118 @@ class App extends StatelessComponent {
       display: .flex,
       flexDirection: .column,
       gap: Gap.all(1.rem),
+    ),
+    css('.signal-summary-grid').styles(
+      display: Display.grid,
+      gap: Gap.all(0.65.rem),
+      raw: const {
+        'grid-template-columns': 'repeat(auto-fit, minmax(240px, 1fr))',
+      },
+    ),
+    css('.signal-summary-card').styles(
+      border: Border.all(width: 1.px, color: const Color('#d8dfeb')),
+      radius: .all(.circular(8.px)),
+      padding: .all(0.75.rem),
+      backgroundColor: Colors.white,
+    ),
+    css('.signal-summary-card.positive').styles(
+      backgroundColor: const Color('#f0fdf4'),
+      border: Border.all(width: 1.px, color: const Color('#bbf7d0')),
+    ),
+    css('.signal-summary-card.risk').styles(
+      backgroundColor: const Color('#fff7ed'),
+      border: Border.all(width: 1.px, color: const Color('#fed7aa')),
+    ),
+    css('.signal-summary-title').styles(
+      color: const Color('#0f172a'),
+      fontWeight: .w700,
+      margin: Spacing.only(bottom: 0.35.rem),
+    ),
+    css('.signal-summary-list').styles(
+      margin: Spacing.only(top: 0.25.rem, bottom: 0.2.rem, left: 1.0.rem),
+      padding: .zero,
+    ),
+    css('.signal-summary-list li').styles(
+      margin: Spacing.only(bottom: 0.18.rem),
+    ),
+    css('.signal-summary-empty, .signal-summary-overflow').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.88.rem,
+    ),
+    css('.disclosure').styles(
+      border: Border.all(width: 1.px, color: const Color('#d7dfeb')),
+      radius: .all(.circular(12.px)),
+      backgroundColor: const Color('#f8fafc'),
+      overflow: Overflow.hidden,
+    ),
+    css('.disclosure-summary').styles(
+      cursor: Cursor.pointer,
+      padding: .all(0.9.rem),
+      backgroundColor: Colors.white,
+      raw: const {
+        'list-style': 'none',
+      },
+    ),
+    css('.disclosure-summary:hover').styles(
+      backgroundColor: const Color('#f8fbff'),
+    ),
+    css('.disclosure-summary::-webkit-details-marker').styles(
+      raw: const {
+        'display': 'none',
+      },
+    ),
+    css('.disclosure-summary-row').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .center,
+      gap: Gap.all(0.9.rem),
+    ),
+    css('.disclosure-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.16.rem),
+      flex: Flex(grow: 1),
+    ),
+    css('.disclosure-title').styles(
+      color: const Color('#0f172a'),
+      fontWeight: .w700,
+    ),
+    css('.disclosure-description').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.9.rem,
+    ),
+    css('.disclosure-cue').styles(
+      display: .inlineFlex,
+      alignItems: .center,
+      border: Border.all(width: 1.px, color: const Color('#cbd5e1')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: const Color('#f8fafc'),
+      color: const Color('#334155'),
+      width: 2.rem,
+      height: 2.rem,
+      justifyContent: JustifyContent.center,
+      fontSize: 0.9.rem,
+      fontWeight: .w700,
+    ),
+    css('.disclosure-cue-icon').styles(
+      raw: const {
+        'display': 'inline-block',
+        'transition': 'transform 140ms ease',
+      },
+    ),
+    css('details[open] .disclosure-cue-icon').styles(
+      raw: const {
+        'transform': 'rotate(180deg)',
+      },
+    ),
+    css('.disclosure-body').styles(
+      padding: .all(0.9.rem),
+      border: Border.only(
+        top: BorderSide(width: 1.px, color: const Color('#e2e8f0')),
+      ),
+      backgroundColor: const Color('#f8fafc'),
     ),
     css('.context-selector-group').styles(
       display: .flex,
@@ -548,7 +734,9 @@ class App extends StatelessComponent {
       alignItems: .start,
       gap: Gap.all(0.9.rem),
       padding: .all(0.95.rem),
-      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      border: Border.only(
+        bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0')),
+      ),
       backgroundColor: Colors.white,
     ),
     css('.context-viewer-copy').styles(
@@ -646,6 +834,10 @@ class App extends StatelessComponent {
       css('.modal-actions').styles(
         width: 100.percent,
         justifyContent: JustifyContent.start,
+      ),
+      css('.disclosure-summary-row').styles(
+        flexDirection: .column,
+        alignItems: .start,
       ),
       css('section.page table').styles(
         display: .block,

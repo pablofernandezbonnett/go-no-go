@@ -63,10 +63,8 @@ Persona fields:
 - `acceptable_if`: softer constraints tolerated by this persona
 - `minimum_salary_yen`: optional salary floor used as a risk threshold (0/omitted = disabled)
 
-`hard_no` baseline (required by validator):
+Common `hard_no` values:
 - `onsite_only`
-
-Optional `hard_no` (supported by decision engine):
 - `consulting_company`
 - `salary_missing`
 - `early_stage_startup`
@@ -76,6 +74,7 @@ Optional `hard_no` (supported by decision engine):
 
 Notes:
 - `hard_no` controls which criteria force `NO_GO`.
+- `onsite_only` is persona-specific. The default shipped personas use it, but the validator does not require it globally.
 - Criteria not present in `hard_no` can still appear as risk signals and reduce score.
 - Different personas can classify the same job differently by design.
 - `minimum_salary_yen` uses a conservative benchmark for intermediary/consulting ranges instead of assuming the posted maximum is realistic.

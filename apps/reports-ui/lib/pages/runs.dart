@@ -110,19 +110,18 @@ class _RunsTable extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return card([
-      table(classes: 'runs-table', [
-        thead([
-          tr([
-            th([.text('Run')]),
-            th([.text('Batch JSON')]),
-            th([.text('Batch MD')]),
-            th([.text('Weekly')]),
-            th([.text('Context')]),
-            th([.text('Trends')]),
-            th([.text('Actions')]),
-          ]),
-        ]),
-        tbody([
+      reportTable(
+        classes: 'runs-table',
+        columns: const [
+          ReportTableColumn('Run'),
+          ReportTableColumn('Batch JSON', width: ReportTableWidth.compact),
+          ReportTableColumn('Batch MD', width: ReportTableWidth.compact),
+          ReportTableColumn('Weekly', width: ReportTableWidth.compact),
+          ReportTableColumn('Context', width: ReportTableWidth.compact),
+          ReportTableColumn('Trends', width: ReportTableWidth.compact),
+          ReportTableColumn('Actions', width: ReportTableWidth.wide),
+        ],
+        rows: [
           for (final run in runs)
             tr([
               td([
@@ -142,8 +141,8 @@ class _RunsTable extends StatelessComponent {
                 ]),
               ]),
             ]),
-        ]),
-      ]),
+        ],
+      ),
     ]);
   }
 }
