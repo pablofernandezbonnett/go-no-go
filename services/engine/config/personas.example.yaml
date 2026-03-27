@@ -16,13 +16,12 @@ personas:
       - stability
 
     # Baseline required by validator:
-    # onsite_only, salary_missing
+    # onsite_only
     # Optional (engine-supported):
     # consulting_company, salary_missing, early_stage_startup,
     # japanese_only_environment, workload_overload, forced_relocation
     hard_no:
       - onsite_only
-      - salary_missing
       - japanese_only_environment
       - forced_relocation
 
@@ -48,7 +47,6 @@ personas:
       - stability
     hard_no:
       - onsite_only
-      - salary_missing
       - early_stage_startup
     acceptable_if:
       - hybrid_partial

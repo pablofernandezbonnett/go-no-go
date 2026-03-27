@@ -153,6 +153,12 @@ public final class JlineTuiPrompts implements TuiPrompts {
 
     @Override
     public String selectOne(String label, List<OptionItem> options, String defaultId) {
+        if (options.isEmpty()) {
+            if (defaultId != null && !defaultId.isBlank()) {
+                return defaultId;
+            }
+            throw new IllegalStateException("No options available for prompt '" + label + "'.");
+        }
         List<OptionItem> ordered = reorderToDefaultFirst(options, defaultId);
         PromptBuilder builder = consolePrompt.getPromptBuilder();
         ListPromptBuilder prompt = builder.createListPrompt()
@@ -171,6 +177,9 @@ public final class JlineTuiPrompts implements TuiPrompts {
 
     @Override
     public List<String> selectMany(String label, List<OptionItem> options, boolean blankMeansAll) {
+        if (options.isEmpty()) {
+            return List.of();
+        }
         PromptBuilder builder = consolePrompt.getPromptBuilder();
         CheckboxPromptBuilder prompt = builder.createCheckboxPrompt()
                 .name(RESULT_KEY)
@@ -244,6 +253,9 @@ public final class JlineTuiPrompts implements TuiPrompts {
     }
 
     private List<OptionItem> reorderToDefaultFirst(List<OptionItem> options, String defaultId) {
+        if (defaultId == null || defaultId.isBlank()) {
+            return List.copyOf(options);
+        }
         return options.stream()
                 .sorted(Comparator.comparingInt(option -> option.id().equals(defaultId) ? 0 : 1))
                 .toList();
@@ -267,6 +279,9 @@ public final class JlineTuiPrompts implements TuiPrompts {
     private String readLine(String prompt, boolean preserveWhitespace) {
         try {
             String line = lineReader.readLine(prompt);
+            if (line == null) {
+                throw new EndOfInputException();
+            }
             return preserveWhitespace ? line : line.trim();
         } catch (UserInterruptException | EndOfFileException e) {
             throw new EndOfInputException();

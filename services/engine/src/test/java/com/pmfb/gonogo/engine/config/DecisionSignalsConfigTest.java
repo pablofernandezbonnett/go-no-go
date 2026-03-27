@@ -98,7 +98,7 @@ final class DecisionSignalsConfigTest {
                         "product_expat_engineer",
                         "Test persona",
                         List.of("english_environment"),
-                        List.of("onsite_only", "salary_missing"),
+                        List.of("onsite_only"),
                         List.of("hybrid_partial")
                 )),
                 List.of(),
@@ -176,7 +176,6 @@ final class DecisionSignalsConfigTest {
                               - english_environment
                             hard_no:
                               - onsite_only
-                              - salary_missing
                             acceptable_if:
                               - hybrid_partial
                         """
