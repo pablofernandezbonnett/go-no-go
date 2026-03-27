@@ -143,12 +143,12 @@ They do not replace the verdict; they explain it in more human terms.
 Current hard-filter baseline:
 
 - onsite-only
-- missing or non-transparent salary
 - abusive overtime signals
 
 Persona-configurable hard filters may also include:
 
 - consulting / dispatch
+- missing or non-transparent salary
 - early-stage startup
 - Japanese-only environment
 - workload overload
@@ -158,6 +158,7 @@ Salary seriousness rule:
 
 - A role is only salary-transparent if it provides an explicit salary range.
 - `TBD`, negotiable-only wording, blank salary, or a single salary number without a range are treated as non-transparent.
+- Non-transparent salary is a strong negative signal by default and remains available as a persona-level hard filter when needed.
 
 ---
 

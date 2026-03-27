@@ -50,6 +50,10 @@ class EvaluationUrlHistoryItemPayload {
     required this.sourceKind,
     required this.persona,
     required this.candidateProfile,
+    required this.savedEvaluationAvailable,
+    required this.savedEvaluationGeneratedAt,
+    required this.savedEvaluationPersona,
+    required this.savedEvaluationCandidateProfile,
   });
 
   final String url;
@@ -59,8 +63,13 @@ class EvaluationUrlHistoryItemPayload {
   final String sourceKind;
   final String persona;
   final String candidateProfile;
+  final bool savedEvaluationAvailable;
+  final String savedEvaluationGeneratedAt;
+  final String savedEvaluationPersona;
+  final String savedEvaluationCandidateProfile;
 
   factory EvaluationUrlHistoryItemPayload.fromJson(Map<String, dynamic> json) {
+    final savedEvaluationAvailableRaw = json['saved_evaluation_available'];
     return EvaluationUrlHistoryItemPayload(
       url: json['url']?.toString() ?? '',
       companyName: json['company_name']?.toString() ?? '',
@@ -69,6 +78,10 @@ class EvaluationUrlHistoryItemPayload {
       sourceKind: json['source_kind']?.toString() ?? '',
       persona: json['persona']?.toString() ?? '',
       candidateProfile: json['candidate_profile']?.toString() ?? '',
+      savedEvaluationAvailable: savedEvaluationAvailableRaw == true || savedEvaluationAvailableRaw?.toString() == 'true',
+      savedEvaluationGeneratedAt: json['saved_evaluation_generated_at']?.toString() ?? '',
+      savedEvaluationPersona: json['saved_evaluation_persona']?.toString() ?? '',
+      savedEvaluationCandidateProfile: json['saved_evaluation_candidate_profile']?.toString() ?? '',
     );
   }
 }

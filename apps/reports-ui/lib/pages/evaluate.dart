@@ -18,6 +18,8 @@ class EvaluatePage extends StatefulComponent {
 
 class _EvaluatePageState extends State<EvaluatePage> {
   static const _client = EvaluationApiClient();
+  static const _description =
+      'Submit a URL or pasted job post for ad-hoc evaluation and compare the output across one persona or all personas.';
 
   EvaluationOptionsPayload? _options;
   EvaluationSessionPayload? _session;
@@ -38,6 +40,11 @@ class _EvaluatePageState extends State<EvaluatePage> {
   bool _isInputPanelExpanded = true;
   bool _isHistoryPanelExpanded = false;
   Set<String> _expandedResultPersonas = const <String>{};
+  final Map<String, EvaluationResponsePayload> _historyDetailCache = <String, EvaluationResponsePayload>{};
+  EvaluationUrlHistoryItemPayload? _selectedHistoryItem;
+  EvaluationResponsePayload? _selectedHistoryDetail;
+  String? _historyDetailError;
+  bool _isLoadingHistoryDetail = false;
 
   @override
   void initState() {
@@ -215,6 +222,45 @@ class _EvaluatePageState extends State<EvaluatePage> {
     });
   }
 
+  Future<void> _openHistoryDetail(EvaluationUrlHistoryItemPayload item) async {
+    setState(() {
+      _selectedHistoryItem = item;
+      _selectedHistoryDetail = _historyDetailCache[item.url];
+      _historyDetailError = null;
+      _isLoadingHistoryDetail = _selectedHistoryDetail == null;
+    });
+
+    final cached = _historyDetailCache[item.url];
+    if (cached != null) {
+      return;
+    }
+
+    try {
+      final detail = await _client.fetchUrlHistoryDetail(item.url);
+      _historyDetailCache[item.url] = detail;
+      setState(() {
+        _selectedHistoryDetail = detail;
+        _historyDetailError = null;
+        _isLoadingHistoryDetail = false;
+      });
+    } catch (error) {
+      setState(() {
+        _selectedHistoryDetail = null;
+        _historyDetailError = error.toString();
+        _isLoadingHistoryDetail = false;
+      });
+    }
+  }
+
+  void _closeHistoryDetail() {
+    setState(() {
+      _selectedHistoryItem = null;
+      _selectedHistoryDetail = null;
+      _historyDetailError = null;
+      _isLoadingHistoryDetail = false;
+    });
+  }
+
   String _resolveSelectedPersona(EvaluationOptionsPayload options) {
     if (_selectedPersonaId == allPersonasOptionId) {
       return allPersonasOptionId;
@@ -238,12 +284,12 @@ class _EvaluatePageState extends State<EvaluatePage> {
 
   @override
   Component build(BuildContext context) {
-    if (!kIsWeb) return pageLoading('Evaluate', 'Loading evaluation tools on the client...');
-    if (_isLoading) return pageLoading('Evaluate', 'Loading evaluation options...');
-    if (_loadError != null) return pageError('Evaluate', _loadError!, _loadPageData);
+    if (!kIsWeb) return pageLoading('Evaluate', 'Loading evaluation tools on the client...', description: _description);
+    if (_isLoading) return pageLoading('Evaluate', 'Loading evaluation options...', description: _description);
+    if (_loadError != null) return pageError('Evaluate', _loadError!, _loadPageData, description: _description);
     final options = _options;
     if (options == null || options.personas.isEmpty) {
-      return pageEmpty('Evaluate', 'No personas are available for ad-hoc evaluation.');
+      return pageEmpty('Evaluate', 'No personas are available for ad-hoc evaluation.', description: _description);
     }
     return _EvaluateBody(
       options: options,
@@ -273,7 +319,13 @@ class _EvaluatePageState extends State<EvaluatePage> {
       onToggleHistoryPanel: _toggleHistoryPanel,
       onToggleResultPanel: _toggleResultPanel,
       onUseUrl: _useHistoryUrl,
+      onOpenHistoryDetail: _openHistoryDetail,
+      onCloseHistoryDetail: _closeHistoryDetail,
       onSubmit: _submit,
+      selectedHistoryItem: _selectedHistoryItem,
+      selectedHistoryDetail: _selectedHistoryDetail,
+      historyDetailError: _historyDetailError,
+      isLoadingHistoryDetail: _isLoadingHistoryDetail,
     );
   }
 }
@@ -307,7 +359,13 @@ class _EvaluateBody extends StatelessComponent {
     required this.onToggleHistoryPanel,
     required this.onToggleResultPanel,
     required this.onUseUrl,
+    required this.onOpenHistoryDetail,
+    required this.onCloseHistoryDetail,
     required this.onSubmit,
+    required this.selectedHistoryItem,
+    required this.selectedHistoryDetail,
+    required this.historyDetailError,
+    required this.isLoadingHistoryDetail,
   });
 
   final EvaluationOptionsPayload options;
@@ -337,53 +395,74 @@ class _EvaluateBody extends StatelessComponent {
   final void Function() onToggleHistoryPanel;
   final void Function(String) onToggleResultPanel;
   final void Function(String) onUseUrl;
+  final void Function(EvaluationUrlHistoryItemPayload) onOpenHistoryDetail;
+  final void Function() onCloseHistoryDetail;
   final void Function() onSubmit;
+  final EvaluationUrlHistoryItemPayload? selectedHistoryItem;
+  final EvaluationResponsePayload? selectedHistoryDetail;
+  final String? historyDetailError;
+  final bool isLoadingHistoryDetail;
 
   @override
   Component build(BuildContext context) {
-    return section(classes: 'page', [
-      h1([.text('Evaluate')]),
-      _PanelCard(
-        title: 'Evaluate Input',
-        description:
-            'Paste a job post or submit a URL for ad-hoc evaluation against one persona or all configured personas.',
-        isExpanded: isInputPanelExpanded,
-        onToggle: onToggleInputPanel,
-        children: [
-          _EvaluateForm(
-            options: options,
-            inputMode: inputMode,
-            selectedPersonaId: selectedPersonaId,
-            selectedCandidateProfileId: selectedCandidateProfileId,
-            jobUrl: jobUrl,
-            rawText: rawText,
-            isSubmitting: isSubmitting,
-            onInputModeChanged: onInputModeChanged,
-            onPersonaChanged: onPersonaChanged,
-            onCandidateProfileChanged: onCandidateProfileChanged,
-            onJobUrlChanged: onJobUrlChanged,
-            onRawTextChanged: onRawTextChanged,
-            onSubmit: onSubmit,
+    return div([
+      section(classes: 'page', [
+        ...pageHeader(
+          'Evaluate',
+          'Submit a URL or pasted job post for ad-hoc evaluation and compare the output across one persona or all personas.',
+        ),
+        _PanelCard(
+          title: 'Evaluate Input',
+          description:
+              'Paste a job post or submit a URL for ad-hoc evaluation against one persona or all configured personas.',
+          isExpanded: isInputPanelExpanded,
+          onToggle: onToggleInputPanel,
+          children: [
+            _EvaluateForm(
+              options: options,
+              inputMode: inputMode,
+              selectedPersonaId: selectedPersonaId,
+              selectedCandidateProfileId: selectedCandidateProfileId,
+              jobUrl: jobUrl,
+              rawText: rawText,
+              isSubmitting: isSubmitting,
+              onInputModeChanged: onInputModeChanged,
+              onPersonaChanged: onPersonaChanged,
+              onCandidateProfileChanged: onCandidateProfileChanged,
+              onJobUrlChanged: onJobUrlChanged,
+              onRawTextChanged: onRawTextChanged,
+              onSubmit: onSubmit,
+            ),
+            if (submitError != null) p(classes: 'error', [.text(submitError!)]),
+          ],
+        ),
+        _EvaluateUrlHistoryCard(
+          items: urlHistory,
+          query: urlHistoryQuery,
+          selectedSource: selectedHistorySource,
+          isExpanded: isHistoryPanelExpanded,
+          error: historyError,
+          onQueryChanged: onUrlHistoryQueryChanged,
+          onSourceChanged: onHistorySourceChanged,
+          onToggle: onToggleHistoryPanel,
+          onUseUrl: onUseUrl,
+          onOpenHistoryDetail: onOpenHistoryDetail,
+        ),
+        if (session != null)
+          _EvaluateResultsSection(
+            session: session!,
+            expandedPersonas: expandedResultPersonas,
+            onToggleResultPanel: onToggleResultPanel,
           ),
-          if (submitError != null) p(classes: 'error', [.text(submitError!)]),
-        ],
-      ),
-      _EvaluateUrlHistoryCard(
-        items: urlHistory,
-        query: urlHistoryQuery,
-        selectedSource: selectedHistorySource,
-        isExpanded: isHistoryPanelExpanded,
-        error: historyError,
-        onQueryChanged: onUrlHistoryQueryChanged,
-        onSourceChanged: onHistorySourceChanged,
-        onToggle: onToggleHistoryPanel,
-        onUseUrl: onUseUrl,
-      ),
-      if (session != null)
-        _EvaluateResultsSection(
-          session: session!,
-          expandedPersonas: expandedResultPersonas,
-          onToggleResultPanel: onToggleResultPanel,
+      ]),
+      if (selectedHistoryItem != null)
+        _SavedEvaluationModal(
+          item: selectedHistoryItem!,
+          payload: selectedHistoryDetail,
+          error: historyDetailError,
+          isLoading: isLoadingHistoryDetail,
+          onClose: onCloseHistoryDetail,
+          onUseUrl: onUseUrl,
         ),
     ]);
   }
@@ -512,9 +591,9 @@ class _EvaluateForm extends StatelessComponent {
     return label(classes: 'span-full', [
       .text('Raw job text'),
       textarea(
-        [.text(rawText)],
         placeholder: 'Paste the full job description here...',
         onInput: onRawTextChanged,
+        [.text(rawText)],
       ),
     ]);
   }
@@ -623,61 +702,13 @@ class _EvaluateResultCard extends StatelessComponent {
       isExpanded: isExpanded,
       onToggle: onToggle,
       children: [
-        p([
-          .text('Generated at: ${formatFriendlyDateTime(result.generatedAt)}'),
-          if (result.generatedAt.isNotEmpty) ...[
-            .text(' '),
-            code([.text(result.generatedAt)]),
-          ],
-        ]),
-        _EvaluateSourceBlock(source: result.source),
-        pre([.text(_consoleOutput(result))]),
+        _EvaluationPayloadView(
+          payload: result,
+          artifactTitle: 'Evaluation Output',
+          artifactSubtitle: 'Persona ${result.persona} · candidate profile ${result.candidateProfile}',
+        ),
       ],
     );
-  }
-
-  String _consoleOutput(EvaluationResponsePayload payload) {
-    final lines = <String>[
-      'verdict: ${payload.evaluation.verdict}',
-      'score: ${payload.evaluation.score}/100',
-      'raw_score: ${payload.evaluation.rawScore} (range ${payload.evaluation.rawScoreMin}..${payload.evaluation.rawScoreMax})',
-      'language_friction_index: ${payload.evaluation.languageFrictionIndex}/100',
-      'company_reputation_index: ${payload.evaluation.companyReputationIndex}/100',
-      'persona: ${payload.persona}',
-      'candidate_profile: ${payload.candidateProfile}',
-      'source_kind: ${payload.source.kind}',
-      if (payload.source.url.isNotEmpty) 'source_url: ${payload.source.url}',
-      if (payload.source.rawText.isNotEmpty) _multilineSourceText(payload.source.rawText),
-      'company: ${payload.jobInput.companyName}',
-      'role: ${payload.jobInput.title}',
-      _listLine('hard_reject_reasons', payload.evaluation.hardRejectReasons),
-      _listLine('positive_signals', payload.evaluation.positiveSignals),
-      _listLine('risk_signals', payload.evaluation.riskSignals),
-      _listLine('reasoning', payload.evaluation.reasoning),
-    ];
-    if (payload.normalizationWarnings.isNotEmpty) {
-      lines.add(_listLine('normalization_warnings', payload.normalizationWarnings));
-    }
-    return lines.join('\n');
-  }
-
-  String _listLine(String key, List<String> values) {
-    if (values.isEmpty) {
-      return '$key: []';
-    }
-    final buffer = StringBuffer('$key:\n');
-    for (final value in values) {
-      buffer.writeln(' - $value');
-    }
-    return buffer.toString().trimRight();
-  }
-
-  String _multilineSourceText(String rawText) {
-    final buffer = StringBuffer('source_raw_text:\n');
-    for (final line in rawText.split(RegExp(r'\r?\n'))) {
-      buffer.writeln(' | $line');
-    }
-    return buffer.toString().trimRight();
   }
 }
 
@@ -692,6 +723,7 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
     required this.onSourceChanged,
     required this.onToggle,
     required this.onUseUrl,
+    required this.onOpenHistoryDetail,
   });
 
   final List<EvaluationUrlHistoryItemPayload> items;
@@ -703,6 +735,7 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
   final void Function(String) onSourceChanged;
   final void Function() onToggle;
   final void Function(String) onUseUrl;
+  final void Function(EvaluationUrlHistoryItemPayload) onOpenHistoryDetail;
 
   @override
   Component build(BuildContext context) {
@@ -822,7 +855,18 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
       td([.text(formatFriendlyDateTime(item.generatedAt))]),
       td([.text(item.companyName.isEmpty ? 'Unknown' : item.companyName)]),
       td([.text(item.title.isEmpty ? 'Untitled job' : item.title)]),
-      td([.text(_sourceSummary(item))]),
+      td([
+        div(classes: 'history-source-cell', [
+          p([.text(_sourceSummary(item))]),
+          if (item.savedEvaluationAvailable)
+            p(classes: 'history-saved-note', [
+              .text(
+                'Saved ad-hoc result · ${formatFriendlyDateTime(item.savedEvaluationGeneratedAt)}'
+                '${_savedEvaluationScope(item).isEmpty ? '' : ' · ${_savedEvaluationScope(item)}'}',
+              ),
+            ]),
+        ]),
+      ]),
       td([
         a(
           href: item.url,
@@ -832,10 +876,18 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
         ),
       ]),
       td([
-        button(
-          onClick: () => onUseUrl(item.url),
-          [.text('Use')],
-        ),
+        div(classes: 'history-actions', [
+          button(
+            onClick: () => onUseUrl(item.url),
+            [.text('Use')],
+          ),
+          if (item.savedEvaluationAvailable)
+            button(
+              classes: 'button-secondary',
+              onClick: () => onOpenHistoryDetail(item),
+              [.text('View saved')],
+            ),
+        ]),
       ]),
     ]);
   }
@@ -857,6 +909,14 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
   String _hostLabel(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);
     return uri?.host ?? '';
+  }
+
+  String _savedEvaluationScope(EvaluationUrlHistoryItemPayload item) {
+    final scope = [
+      if (item.savedEvaluationPersona.isNotEmpty) item.savedEvaluationPersona,
+      if (item.savedEvaluationCandidateProfile.isNotEmpty) item.savedEvaluationCandidateProfile,
+    ].join(' / ');
+    return scope;
   }
 }
 
@@ -886,8 +946,202 @@ class _EvaluateSourceBlock extends StatelessComponent {
         ]),
       if (source.rawText.isNotEmpty) ...[
         h3([.text('Original Input')]),
-        pre([.text(source.rawText)]),
+        artifactViewer(
+          title: 'Original Input',
+          subtitle: source.url.isNotEmpty ? 'Captured from the submitted source' : 'Captured from pasted raw text',
+          formatLabel: 'Text',
+          content: source.rawText,
+          preClasses: 'text-artifact',
+        ),
       ],
     ]);
+  }
+}
+
+class _SavedEvaluationModal extends StatelessComponent {
+  const _SavedEvaluationModal({
+    required this.item,
+    required this.payload,
+    required this.error,
+    required this.isLoading,
+    required this.onClose,
+    required this.onUseUrl,
+  });
+
+  final EvaluationUrlHistoryItemPayload item;
+  final EvaluationResponsePayload? payload;
+  final String? error;
+  final bool isLoading;
+  final void Function() onClose;
+  final void Function(String) onUseUrl;
+
+  @override
+  Component build(BuildContext context) {
+    return div(classes: 'modal-backdrop', [
+      div(classes: 'modal-surface', [
+        div(classes: 'modal-header', [
+          div(classes: 'modal-header-copy', [
+            h2(classes: 'modal-title', [.text('Saved Evaluation')]),
+            p(
+              classes: 'modal-meta',
+              [
+                .text(
+                  item.title.isEmpty ? item.url : '${item.companyName.isEmpty ? 'Unknown' : item.companyName} · ${item.title}',
+                ),
+              ],
+            ),
+          ]),
+          div(classes: 'modal-actions', [
+            button(
+              classes: 'button-secondary',
+              onClick: () {
+                onUseUrl(item.url);
+                onClose();
+              },
+              [.text('Use URL')],
+            ),
+            button(
+              classes: 'button-secondary',
+              onClick: onClose,
+              [.text('Close')],
+            ),
+          ]),
+        ]),
+        div(classes: 'modal-body', [
+          if (isLoading)
+            p([.text('Loading the latest saved ad-hoc evaluation...')])
+          else if (error != null)
+            p(classes: 'error', [.text(error!)])
+          else if (payload != null) ...[
+            p(classes: 'collapsible-summary', [
+              .text('Latest saved ad-hoc result for this URL. This lets you inspect the artifact without re-running the engine.'),
+            ]),
+            _EvaluationPayloadView(
+              payload: payload!,
+              artifactTitle: 'Saved Evaluation Output',
+              artifactSubtitle: 'Persona ${payload!.persona} · candidate profile ${payload!.candidateProfile}',
+            ),
+          ] else
+            p([.text('No saved ad-hoc evaluation is available for this URL.')]),
+        ]),
+      ]),
+    ]);
+  }
+}
+
+class _EvaluationPayloadView extends StatelessComponent {
+  const _EvaluationPayloadView({
+    required this.payload,
+    required this.artifactTitle,
+    required this.artifactSubtitle,
+  });
+
+  final EvaluationResponsePayload payload;
+  final String artifactTitle;
+  final String artifactSubtitle;
+
+  @override
+  Component build(BuildContext context) {
+    return div(classes: 'context-shell', [
+      p([
+        .text('Generated at: ${formatFriendlyDateTime(payload.generatedAt)}'),
+        if (payload.generatedAt.isNotEmpty) ...[
+          .text(' '),
+          code([.text(payload.generatedAt)]),
+        ],
+      ]),
+      div(classes: 'summary-grid', [
+        _metricCard('Verdict', payload.evaluation.verdict.isEmpty ? 'Unknown' : payload.evaluation.verdict),
+        _metricCard('Score', '${payload.evaluation.score}/100'),
+        _metricCard('Salary', payload.jobInput.salaryRange.isEmpty ? 'Unknown' : payload.jobInput.salaryRange),
+        _metricCard('Remote', payload.jobInput.remotePolicy.isEmpty ? 'Unknown' : payload.jobInput.remotePolicy),
+      ]),
+      _EvaluateSourceBlock(source: payload.source),
+      artifactViewer(
+        title: 'Job Snapshot',
+        subtitle: '${payload.jobInput.companyName} · ${payload.jobInput.title}',
+        formatLabel: 'Input',
+        content: _jobSnapshot(payload),
+        preClasses: 'text-artifact',
+      ),
+      if (payload.normalizationWarnings.isNotEmpty)
+        artifactViewer(
+          title: 'Normalization Warnings',
+          subtitle: 'Applied while shaping the artifact into an evaluation input',
+          formatLabel: 'Warnings',
+          content: payload.normalizationWarnings.map((item) => '- $item').join('\n'),
+          preClasses: 'text-artifact',
+        ),
+      artifactViewer(
+        title: artifactTitle,
+        subtitle: artifactSubtitle,
+        formatLabel: 'Console',
+        content: _evaluationConsoleOutput(payload),
+        preClasses: 'console-artifact',
+      ),
+    ]);
+  }
+
+  Component _metricCard(String label, String value) {
+    return div(classes: 'metric', [
+      div(classes: 'metric-label', [.text(label)]),
+      div(classes: 'metric-value', [.text(value)]),
+    ]);
+  }
+
+  String _jobSnapshot(EvaluationResponsePayload payload) {
+    return [
+      'company_name: ${payload.jobInput.companyName}',
+      'title: ${payload.jobInput.title}',
+      'location: ${payload.jobInput.location}',
+      'salary_range: ${payload.jobInput.salaryRange}',
+      'remote_policy: ${payload.jobInput.remotePolicy}',
+      'description:',
+      for (final line in payload.jobInput.description.split(RegExp(r'\r?\n'))) '  $line',
+    ].join('\n');
+  }
+
+  String _evaluationConsoleOutput(EvaluationResponsePayload payload) {
+    final lines = <String>[
+      'verdict: ${payload.evaluation.verdict}',
+      'score: ${payload.evaluation.score}/100',
+      'raw_score: ${payload.evaluation.rawScore} (range ${payload.evaluation.rawScoreMin}..${payload.evaluation.rawScoreMax})',
+      'language_friction_index: ${payload.evaluation.languageFrictionIndex}/100',
+      'company_reputation_index: ${payload.evaluation.companyReputationIndex}/100',
+      'persona: ${payload.persona}',
+      'candidate_profile: ${payload.candidateProfile}',
+      'source_kind: ${payload.source.kind}',
+      if (payload.source.url.isNotEmpty) 'source_url: ${payload.source.url}',
+      if (payload.source.rawText.isNotEmpty) _multilineSourceText(payload.source.rawText),
+      'company: ${payload.jobInput.companyName}',
+      'role: ${payload.jobInput.title}',
+      _listLine('hard_reject_reasons', payload.evaluation.hardRejectReasons),
+      _listLine('positive_signals', payload.evaluation.positiveSignals),
+      _listLine('risk_signals', payload.evaluation.riskSignals),
+      _listLine('reasoning', payload.evaluation.reasoning),
+    ];
+    if (payload.normalizationWarnings.isNotEmpty) {
+      lines.add(_listLine('normalization_warnings', payload.normalizationWarnings));
+    }
+    return lines.join('\n');
+  }
+
+  String _listLine(String key, List<String> values) {
+    if (values.isEmpty) {
+      return '$key: []';
+    }
+    final buffer = StringBuffer('$key:\n');
+    for (final value in values) {
+      buffer.writeln(' - $value');
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _multilineSourceText(String rawText) {
+    final buffer = StringBuffer('source_raw_text:\n');
+    for (final line in rawText.split(RegExp(r'\r?\n'))) {
+      buffer.writeln(' | $line');
+    }
+    return buffer.toString().trimRight();
   }
 }

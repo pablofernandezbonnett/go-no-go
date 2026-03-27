@@ -84,6 +84,27 @@ class App extends StatelessComponent {
       fontSize: 2.35.rem,
       color: const Color('#0f1728'),
     ),
+    css('.page-header').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.3.rem),
+      margin: Spacing.only(bottom: 0.95.rem),
+    ),
+    css('.page-header h1').styles(
+      margin: .zero,
+    ),
+    css('.page-description').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.98.rem,
+      maxWidth: 54.rem,
+      raw: const {
+        'display': '-webkit-box',
+        '-webkit-box-orient': 'vertical',
+        '-webkit-line-clamp': '2',
+        'overflow': 'hidden',
+      },
+    ),
     css('section.page h2').styles(
       margin: Spacing.only(top: 1.rem, bottom: 0.5.rem),
       fontSize: 1.5.rem,
@@ -156,6 +177,65 @@ class App extends StatelessComponent {
     css('.card h2, .card h3').styles(
       margin: Spacing.only(top: 0.1.rem, bottom: 0.45.rem),
     ),
+    css('.artifact-frame').styles(
+      border: Border.all(width: 1.px, color: const Color('#d7dfeb')),
+      radius: .all(.circular(12.px)),
+      backgroundColor: const Color('#f8fafc'),
+      overflow: Overflow.hidden,
+    ),
+    css('.artifact-frame-header').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .start,
+      gap: Gap.all(0.8.rem),
+      padding: .all(0.9.rem),
+      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      backgroundColor: Colors.white,
+    ),
+    css('.artifact-frame-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.12.rem),
+      flex: Flex(grow: 1),
+    ),
+    css('.artifact-frame-title').styles(
+      margin: .zero,
+      color: const Color('#0f172a'),
+      fontSize: 1.02.rem,
+      fontWeight: .w700,
+    ),
+    css('.artifact-frame-meta').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.9.rem,
+    ),
+    css('.artifact-frame-badge').styles(
+      border: Border.all(width: 1.px, color: const Color('#cbd5e1')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: const Color('#f8fafc'),
+      color: const Color('#334155'),
+      padding: .symmetric(horizontal: 0.7.rem, vertical: 0.28.rem),
+      fontSize: 0.8.rem,
+      fontWeight: .w700,
+      raw: const {
+        'white-space': 'nowrap',
+      },
+    ),
+    css('.artifact-code').styles(
+      margin: .zero,
+      padding: .all(1.rem),
+      color: const Color('#1e293b'),
+      backgroundColor: const Color('#f8fafc'),
+      fontFamily: const .list([FontFamily('IBM Plex Mono'), FontFamilies.monospace]),
+      fontSize: 0.88.rem,
+      raw: const {
+        'line-height': '1.58',
+        'white-space': 'pre-wrap',
+        'word-break': 'break-word',
+        'max-height': '60vh',
+      },
+      overflow: Overflow.auto,
+    ),
     css('.run-tabs, .digest-tabs, .context-tabs').styles(
       display: .flex,
       flexWrap: .wrap,
@@ -173,7 +253,27 @@ class App extends StatelessComponent {
       fontSize: 0.9.rem,
       fontWeight: .w600,
     ),
+    css('button.run-tab, button.digest-tab').styles(
+      border: Border.all(width: 1.px, color: const Color('#c1cad8')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: Colors.white,
+      color: const Color('#223041'),
+      padding: .symmetric(horizontal: 0.75.rem, vertical: 0.36.rem),
+      cursor: Cursor.pointer,
+      fontSize: 0.9.rem,
+      fontWeight: .w600,
+    ),
+    css('button.run-tab:hover, button.digest-tab:hover').styles(
+      border: Border.all(width: 1.px, color: const Color('#8ca7c6')),
+      backgroundColor: const Color('#f8fbff'),
+      color: const Color('#143a63'),
+    ),
     css('.run-tab.active, .digest-tab.active, .context-tab.active').styles(
+      backgroundColor: const Color('#01589B'),
+      border: Border.all(width: 1.px, color: const Color('#01589B')),
+      color: Colors.white,
+    ),
+    css('button.run-tab.active, button.digest-tab.active').styles(
       backgroundColor: const Color('#01589B'),
       border: Border.all(width: 1.px, color: const Color('#01589B')),
       color: Colors.white,
@@ -265,6 +365,15 @@ class App extends StatelessComponent {
       fontWeight: .w600,
       margin: Spacing.only(bottom: 0.75.rem),
     ),
+    css('.button-secondary').styles(
+      border: Border.all(width: 1.px, color: const Color('#bfd3ea')),
+      backgroundColor: Colors.white,
+      color: const Color('#01589B'),
+    ),
+    css('.button-secondary:hover').styles(
+      backgroundColor: const Color('#f8fbff'),
+      color: const Color('#01477d'),
+    ),
     css('.collapsible-header').styles(
       display: .flex,
       justifyContent: JustifyContent.spaceBetween,
@@ -286,6 +395,85 @@ class App extends StatelessComponent {
     css('.collapsible-body').styles(
       margin: Spacing.only(top: 0.5.rem),
     ),
+    css('.history-source-cell').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.2.rem),
+    ),
+    css('.history-source-cell p').styles(
+      margin: .zero,
+    ),
+    css('.history-saved-note').styles(
+      color: const Color('#475569'),
+      fontSize: 0.83.rem,
+    ),
+    css('.history-actions').styles(
+      display: .flex,
+      flexWrap: .wrap,
+      gap: Gap.all(0.45.rem),
+    ),
+    css('.modal-backdrop').styles(
+      display: .flex,
+      justifyContent: JustifyContent.center,
+      alignItems: .center,
+      padding: .all(1.2.rem),
+      backgroundColor: const Color('#0f172a99'),
+      raw: const {
+        'position': 'fixed',
+        'inset': '0',
+        'z-index': '1000',
+      },
+    ),
+    css('.modal-surface').styles(
+      width: 100.percent,
+      maxWidth: 72.rem,
+      maxHeight: 88.vh,
+      backgroundColor: Colors.white,
+      border: Border.all(width: 1.px, color: const Color('#d9dfeb')),
+      radius: .all(.circular(16.px)),
+      shadow: BoxShadow(
+        color: Color('#0f172840'),
+        offsetX: 0.px,
+        offsetY: 12.px,
+        blur: 28.px,
+      ),
+      overflow: Overflow.hidden,
+    ),
+    css('.modal-header').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .start,
+      gap: Gap.all(1.rem),
+      padding: .all(1.rem),
+      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      backgroundColor: const Color('#f8fafc'),
+    ),
+    css('.modal-header-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.18.rem),
+      flex: Flex(grow: 1),
+    ),
+    css('.modal-title').styles(
+      margin: .zero,
+      color: const Color('#0f172a'),
+    ),
+    css('.modal-meta').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.92.rem,
+    ),
+    css('.modal-actions').styles(
+      display: .flex,
+      flexWrap: .wrap,
+      gap: Gap.all(0.55.rem),
+      justifyContent: JustifyContent.end,
+    ),
+    css('.modal-body').styles(
+      padding: .all(1.rem),
+      overflow: Overflow.auto,
+      raw: const {'max-height': 'calc(88vh - 5.4rem)'},
+    ),
     css('section.page button').styles(
       border: Border.none,
       radius: .all(.circular(7.px)),
@@ -297,6 +485,129 @@ class App extends StatelessComponent {
     ),
     css('section.page button:hover').styles(
       backgroundColor: const Color('#01477d'),
+    ),
+    css('.context-shell').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(1.rem),
+    ),
+    css('.context-selector-group').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.45.rem),
+    ),
+    css('.context-selector-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.15.rem),
+    ),
+    css('.context-selector-label').styles(
+      color: const Color('#0f172a'),
+      fontSize: 0.95.rem,
+      fontWeight: .w700,
+    ),
+    css('.context-selector-helper').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.9.rem,
+    ),
+    css('.context-run-tabs, .context-tabs').styles(
+      display: .flex,
+      flexWrap: .wrap,
+      gap: Gap.all(0.45.rem),
+    ),
+    css('.context-run-tab, .context-tab').styles(
+      border: Border.all(width: 1.px, color: const Color('#c1cad8')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: Colors.white,
+      color: const Color('#223041'),
+      padding: .symmetric(horizontal: 0.8.rem, vertical: 0.38.rem),
+      fontSize: 0.9.rem,
+      fontWeight: .w600,
+      cursor: Cursor.pointer,
+    ),
+    css('.context-run-tab:hover, .context-tab:hover').styles(
+      border: Border.all(width: 1.px, color: const Color('#8ca7c6')),
+      backgroundColor: const Color('#f8fbff'),
+      color: const Color('#143a63'),
+    ),
+    css('.context-run-tab.active, .context-tab.active').styles(
+      backgroundColor: const Color('#01589B'),
+      border: Border.all(width: 1.px, color: const Color('#01589B')),
+      color: Colors.white,
+    ),
+    css('.context-viewer').styles(
+      border: Border.all(width: 1.px, color: const Color('#d7dfeb')),
+      radius: .all(.circular(12.px)),
+      backgroundColor: const Color('#f8fafc'),
+      overflow: Overflow.hidden,
+    ),
+    css('.context-viewer-header').styles(
+      display: .flex,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .start,
+      gap: Gap.all(0.9.rem),
+      padding: .all(0.95.rem),
+      border: Border.only(bottom: BorderSide(width: 1.px, color: const Color('#e2e8f0'))),
+      backgroundColor: Colors.white,
+    ),
+    css('.context-viewer-copy').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.18.rem),
+      flex: Flex(grow: 1),
+    ),
+    css('.context-viewer-kicker').styles(
+      color: const Color('#01589B'),
+      fontSize: 0.78.rem,
+      fontWeight: .w700,
+      raw: const {
+        'letter-spacing': '0.08em',
+        'text-transform': 'uppercase',
+      },
+    ),
+    css('.context-viewer-title').styles(
+      margin: .zero,
+      color: const Color('#0f172a'),
+      fontSize: 1.2.rem,
+      fontWeight: .w700,
+    ),
+    css('.context-viewer-meta').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.92.rem,
+    ),
+    css('.context-viewer-badge').styles(
+      border: Border.all(width: 1.px, color: const Color('#cbd5e1')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: const Color('#f8fafc'),
+      color: const Color('#334155'),
+      padding: .symmetric(horizontal: 0.7.rem, vertical: 0.28.rem),
+      fontSize: 0.82.rem,
+      fontWeight: .w700,
+      raw: const {
+        'white-space': 'nowrap',
+      },
+    ),
+    css('.context-viewer-badge.refreshing').styles(
+      border: Border.all(width: 1.px, color: const Color('#bfdbfe')),
+      backgroundColor: const Color('#eff6ff'),
+      color: const Color('#1d4ed8'),
+    ),
+    css('.context-text').styles(
+      margin: .zero,
+      padding: .all(1.rem),
+      color: const Color('#1e293b'),
+      backgroundColor: const Color('#f8fafc'),
+      fontFamily: const .list([FontFamily('IBM Plex Mono'), FontFamilies.monospace]),
+      fontSize: 0.88.rem,
+      raw: const {
+        'line-height': '1.58',
+        'white-space': 'pre-wrap',
+        'word-break': 'break-word',
+        'max-height': '60vh',
+      },
+      overflow: Overflow.auto,
     ),
     css.media(const MediaQuery.raw('(max-width: 920px)'), [
       css('.layout').styles(
@@ -322,6 +633,19 @@ class App extends StatelessComponent {
       ),
       css('.collapsible-header').styles(
         flexDirection: .column,
+      ),
+      css('.context-viewer-header').styles(
+        flexDirection: .column,
+      ),
+      css('.artifact-frame-header').styles(
+        flexDirection: .column,
+      ),
+      css('.modal-header').styles(
+        flexDirection: .column,
+      ),
+      css('.modal-actions').styles(
+        width: 100.percent,
+        justifyContent: JustifyContent.start,
       ),
       css('section.page table').styles(
         display: .block,
@@ -366,6 +690,36 @@ class App extends StatelessComponent {
         raw: const {
           'grid-template-columns': '1fr',
         },
+      ),
+      css('.context-run-tabs, .context-tabs').styles(
+        flexWrap: .nowrap,
+        overflow: Overflow.auto,
+        raw: const {
+          '-webkit-overflow-scrolling': 'touch',
+        },
+      ),
+      css('.context-run-tab, .context-tab').styles(
+        raw: const {
+          'flex': '0 0 auto',
+        },
+      ),
+      css('.context-text').styles(
+        padding: .all(0.85.rem),
+        raw: const {
+          'max-height': '55vh',
+        },
+      ),
+      css('.artifact-code').styles(
+        padding: .all(0.85.rem),
+        raw: const {
+          'max-height': '55vh',
+        },
+      ),
+      css('.modal-backdrop').styles(
+        padding: .all(0.55.rem),
+      ),
+      css('.modal-body').styles(
+        padding: .all(0.8.rem),
       ),
     ]),
   ];

@@ -206,12 +206,56 @@ class EngineEvaluationRunner {
   }
 
   String _buildFailureMessage(int exitCode, String stdoutText, String stderrText) {
-    final stderr = stderrText.trim();
-    final stdout = stdoutText.trim();
-    if (stderr.isNotEmpty || stdout.isNotEmpty) {
-      return 'Engine evaluation failed with exit code $exitCode.';
+    final details = _extractFailureDetails(stderrText, stdoutText);
+    if (details.isNotEmpty) {
+      return 'Engine evaluation failed: $details';
     }
     return 'Engine evaluation failed with exit code $exitCode.';
+  }
+
+  String _extractFailureDetails(String stderrText, String stdoutText) {
+    final lines = <String>[];
+    for (final block in [stderrText, stdoutText]) {
+      for (final rawLine in block.split(RegExp(r'\r?\n'))) {
+        final line = rawLine.trim();
+        if (line.isEmpty || !_isRelevantFailureLine(line)) {
+          continue;
+        }
+        lines.add(line.startsWith('- ') ? line.substring(2).trim() : line);
+      }
+    }
+    if (lines.isEmpty) {
+      return '';
+    }
+
+    final summary = lines.take(3).join(' ');
+    if (summary.length <= 320) {
+      return summary;
+    }
+    return '${summary.substring(0, 317)}...';
+  }
+
+  bool _isRelevantFailureLine(String line) {
+    final normalized = line.toLowerCase();
+    if (normalized.startsWith('failure:')) {
+      return false;
+    }
+    if (normalized.startsWith('* what went wrong:')) {
+      return false;
+    }
+    if (normalized.startsWith('* try:')) {
+      return false;
+    }
+    if (normalized.startsWith('build failed')) {
+      return false;
+    }
+    if (normalized.startsWith('> process ')) {
+      return false;
+    }
+    if (normalized.startsWith('execution failed for task')) {
+      return false;
+    }
+    return true;
   }
 
   String _buildGradleRunArgs(List<String> args) {

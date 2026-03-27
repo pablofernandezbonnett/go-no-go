@@ -35,7 +35,6 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
-      - salary_missing
       - early_stage_startup
 
     acceptable_if:
@@ -57,7 +56,6 @@ personas:
     hard_no:
       - consulting_company
       - onsite_only
-      - salary_missing
       - early_stage_startup
       - japanese_only_environment
       - workload_overload
@@ -81,7 +79,6 @@ personas:
 
     hard_no:
       - onsite_only
-      - salary_missing
       - early_stage_startup
 
     acceptable_if:

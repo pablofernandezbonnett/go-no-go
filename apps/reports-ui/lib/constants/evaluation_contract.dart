@@ -4,12 +4,15 @@ const healthApiPath = '/api/health';
 const reportsIndexApiPath = '/api/reports/index';
 const evaluateOptionsApiPath = '/api/evaluate/options';
 const evaluateUrlHistoryApiPath = '/api/evaluate/url-history';
+const evaluateUrlHistoryDetailApiPath = '/api/evaluate/url-history/detail';
 const evaluateApiPath = '/api/evaluate';
 
 const jsonContentType = 'application/json';
 
 const evaluationErrorOptionsLoadFailed = 'evaluate_options_load_failed';
 const evaluationErrorHistoryLoadFailed = 'evaluate_history_load_failed';
+const evaluationErrorHistoryDetailNotFound = 'evaluate_history_detail_not_found';
+const evaluationErrorHistoryDetailLoadFailed = 'evaluate_history_detail_load_failed';
 const evaluationErrorInvalidPayload = 'invalid_payload';
 const evaluationErrorInvalidRequest = 'invalid_request';
 const evaluationErrorEvaluationFailed = 'evaluation_failed';
