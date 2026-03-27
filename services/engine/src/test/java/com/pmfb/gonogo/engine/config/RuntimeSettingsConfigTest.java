@@ -64,7 +64,7 @@ final class RuntimeSettingsConfigTest {
                         "product_expat_engineer",
                         "Test persona",
                         List.of("english_environment"),
-                        List.of("onsite_only", "salary_missing"),
+                        List.of("onsite_only"),
                         List.of("hybrid_partial"),
                         java.util.Map.of(),
                         RankingStrategy.BY_SCORE,
@@ -126,7 +126,6 @@ final class RuntimeSettingsConfigTest {
                               - english_environment
                             hard_no:
                               - onsite_only
-                              - salary_missing
                             acceptable_if:
                               - hybrid_partial
                         """

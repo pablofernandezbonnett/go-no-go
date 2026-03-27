@@ -65,7 +65,6 @@ Persona fields:
 
 `hard_no` baseline (required by validator):
 - `onsite_only`
-- `salary_missing`
 
 Optional `hard_no` (supported by decision engine):
 - `consulting_company`
@@ -81,6 +80,7 @@ Notes:
 - Different personas can classify the same job differently by design.
 - `minimum_salary_yen` uses a conservative benchmark for intermediary/consulting ranges instead of assuming the posted maximum is realistic.
 - `salary_missing` means no usable salary range was provided. `TBD`, negotiable-only, blank salary, or a single salary number without a range all fail this check.
+- By default, salary opacity is a strong negative signal rather than an automatic reject. Add `salary_missing` to `hard_no` only for personas that truly require salary transparency up front.
 
 ## candidate-profiles/
 

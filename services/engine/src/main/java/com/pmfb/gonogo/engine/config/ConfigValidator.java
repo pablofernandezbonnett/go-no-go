@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 public final class ConfigValidator {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
     private static final Set<String> REQUIRED_PERSONA_HARD_NO =
-            Set.of("onsite_only", "salary_missing");
+            Set.of("onsite_only");
     private static final Set<String> ALLOWED_COMPANY_PROFILE_TAGS = Set.of(
             "expat_friendly",
             "engineering_brand",

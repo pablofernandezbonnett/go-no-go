@@ -213,7 +213,7 @@ cases:
         - overtime_risk
       hard_reject_reasons_contains: []
 
-  - id: no_go_salary_tbd
+  - id: caution_salary_tbd
     job:
       company_name: Mercari
       title: Backend Engineer
@@ -222,15 +222,13 @@ cases:
       remote_policy: "Hybrid"
       description: "English-first product role with code review."
     expected:
-      verdict: NO_GO
+      verdict: GO_WITH_CAUTION
       positive_signals_contains:
         - hybrid_work
       risk_signals_contains:
         - salary_low_confidence
-      hard_reject_reasons_contains:
-        - salary information is missing or non-transparent
 
-  - id: no_go_salary_negotiable
+  - id: caution_salary_negotiable
     job:
       company_name: Money Forward
       title: Backend Engineer
@@ -239,13 +237,11 @@ cases:
       remote_policy: "Remote"
       description: "English first environment and product ownership."
     expected:
-      verdict: NO_GO
+      verdict: GO_WITH_CAUTION
       positive_signals_contains:
         - remote_friendly
       risk_signals_contains:
         - salary_low_confidence
-      hard_reject_reasons_contains:
-        - salary information is missing or non-transparent
 
   - id: no_go_onsite_only
     job:
@@ -358,10 +354,10 @@ cases:
     expected:
       verdict: NO_GO
       positive_signals_contains: []
-      risk_signals_contains: []
+      risk_signals_contains:
+        - salary_low_confidence
       hard_reject_reasons_contains:
         - onsite-only work policy detected
-        - salary information is missing or non-transparent
 
   - id: no_go_client_assignment_dispatch
     job:

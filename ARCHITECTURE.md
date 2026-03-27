@@ -6,7 +6,7 @@ Keep the decision engine CLI as the source of truth while allowing lightweight b
 
 ## Repository Stack
 
-- `services/engine`: Java 25 + Gradle + Picocli
+- `services/engine`: Java 21 + Gradle + Picocli
 - `services/engine/ops-ui`: Jaspr + Dart
 - `apps/reports-ui`: Jaspr + Dart
 

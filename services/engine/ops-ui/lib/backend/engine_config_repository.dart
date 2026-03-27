@@ -615,7 +615,6 @@ class PersonaCreateInput {
   static const List<String> _defaultHardNo = [
     'consulting_company',
     'onsite_only',
-    'salary_missing',
   ];
   static const List<String> _defaultAcceptableIf = [
     'hybrid_partial',

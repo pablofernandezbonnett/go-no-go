@@ -139,7 +139,7 @@ Avoid:
 
 ## Repository Stack
 
-- Java 25
+- Java 21
 - Gradle
 - Picocli
 

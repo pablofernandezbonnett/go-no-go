@@ -16,7 +16,7 @@ This folder contains screenshot assets used by the repository documentation.
 
 ## Prerequisites
 
-- Java 25 available on your `PATH`
+- Java 21 available on your `PATH`
 - Dart SDK installed
 - `jaspr_cli` available on your `PATH`
 
@@ -50,18 +50,18 @@ Recommended capture shape:
 
 Run the Operations UI:
 
+From the monorepo root:
+
 ```bash
-cd services/engine/ops-ui
-dart pub get
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
 
 Run the Reports UI:
 
+From the monorepo root:
+
 ```bash
-cd apps/reports-ui
-dart pub get
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
 
 Capture the pages used by the documentation:
@@ -74,7 +74,7 @@ Optional extra captures:
 - `http://localhost:8792/` for `screenshots/reports-ui-runs.png`
 - `http://localhost:8792/evaluate` for `screenshots/reports-ui-evaluate.png`
 
-If both Jaspr apps are running at the same time, keep the distinct `--web-port` and `--proxy-port` values shown above.
+These root helper scripts already switch into the correct app directories and keep the distinct `--web-port` and `--proxy-port` values required to run both Jaspr apps together.
 
 ## After Updating Assets
 
