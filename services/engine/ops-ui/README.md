@@ -1,47 +1,26 @@
 # Go/No-Go Engine Operations UI
 
-Browser UI for operating the CLI pipeline from the same repository.
+Engine-owned Jaspr UI for composing runs and editing the safe parts of engine config without making the browser authoritative.
 
-This app is intentionally lightweight and CLI-first:
+Stack: Jaspr and Dart.
 
-- Keeps `go-no-go-engine` as the execution source of truth.
-- Lets you configure and trigger runs from a form.
-- Shows run status and sanitized request summaries.
+## What It Is For
 
-![Operations UI screenshot](../../../docs/screenshots/ops-ui-home.png)
+This app is the operator layer around the engine. It helps you build explicit pipeline requests, inspect sanitized run status, and manage a small set of config-backed inputs while keeping `go-no-go-engine` as the execution source of truth.
 
-## Features (MVP)
+## Main Areas
 
-- Load personas, candidate profiles, and company list from `../config`.
-- Create pipeline runs with controlled parameters.
-- Choose runtime candidate-profile mode for each run (`Auto`, `None`, or explicit profile id).
-- Queue runs and execute them one at a time.
-- Track run status: `queued`, `running`, `succeeded`, `failed`.
-- Inspect run request settings and lifecycle timestamps in the browser.
-- Create personas with salary-floor support and tune existing persona weights/strategy.
-- Browse candidate profile ids without exposing YAML content or personal fields.
-
-## Privacy posture
-
-- Candidate profiles are local runtime inputs; the browser UI only exposes stable ids.
-- Filesystem paths, shell commands, and live execution logs stay server-side.
-- Internal server errors return sanitized messages instead of raw exception text.
-
-## Runtime defaults
-
-- Default port: `8791`
-- Default engine root: parent folder (`..`)
-- Default command: `./gradlew run --args="pipeline run ..."`
-
-Prerequisites:
-
-- Dart SDK installed
-- `jaspr_cli` available on your `PATH`
+- `Create Run`: build a pipeline request with persona, candidate profile mode, fetch policy, and company scope.
+- `Runs`: inspect queued, running, succeeded, and failed runs with sanitized summaries.
+- `Companies`: add or review tracked companies stored in engine config.
+- `Personas`: create or tune persona settings, including salary floors.
+- `Candidate Profiles`: list available profile ids without exposing local YAML contents.
+- `Settings`: adjust local UI polling and refresh behavior.
 
 ## Start Here
 
 - Repository quickstart: [`../../../docs/quickstart.md`](../../../docs/quickstart.md)
-- Full operational guide: [`../../../docs/advanced-guide.md`](../../../docs/advanced-guide.md)
+- Advanced guide: [`../../../docs/advanced-guide.md`](../../../docs/advanced-guide.md)
 
 Run from the repository root:
 
@@ -49,23 +28,18 @@ Run from the repository root:
 ./scripts/run-ops-ui.sh
 ```
 
-Open:
+Default local URL:
 
 - `http://localhost:8791`
 
-The root helper script already:
+The helper script already sets `ENGINE_ROOT` and dedicated Jaspr ports so this app can run beside `reports-ui`.
 
-- starts from the monorepo root
-- changes into `services/engine/ops-ui`
-- sets `ENGINE_ROOT` to the engine project by default
-- pins dedicated Jaspr `--web-port` and `--proxy-port` values so it can run alongside `reports-ui`
+## Boundary Rules
 
-For custom ports, environment overrides, or Jaspr collision troubleshooting, use the advanced guide.
+- The engine CLI remains the execution source of truth.
+- Engine config files and runtime contracts stay authoritative.
+- Filesystem paths, shell commands, candidate profile contents, and live logs stay server-side.
 
-## Responsive UI
+## Screen
 
-The UI includes responsive behavior for desktop and mobile:
-
-- single-column form on small screens
-- horizontal overflow handling for runs table
-- stacked actions and compact panel spacing on narrow devices
+![Operations UI create run screen](../../../docs/screenshots/ops-ui-home.png)
