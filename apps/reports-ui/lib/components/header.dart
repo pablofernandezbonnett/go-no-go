@@ -55,10 +55,13 @@ class Header extends StatelessComponent {
       display: .flex,
       flexDirection: .column,
       gap: Gap.all(1.rem),
+      alignSelf: .start,
+      height: 100.vh,
       raw: const {
         'position': 'sticky',
         'top': '0',
       },
+      overflow: Overflow.auto,
     ),
     css('.sidebar-brand').styles(
       display: .flex,

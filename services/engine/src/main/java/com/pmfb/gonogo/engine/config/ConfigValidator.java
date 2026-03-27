@@ -11,8 +11,6 @@ import java.util.regex.Pattern;
 
 public final class ConfigValidator {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]+$");
-    private static final Set<String> REQUIRED_PERSONA_HARD_NO =
-            Set.of("onsite_only");
     private static final Set<String> ALLOWED_COMPANY_PROFILE_TAGS = Set.of(
             "expat_friendly",
             "engineering_brand",
@@ -113,13 +111,6 @@ public final class ConfigValidator {
             }
             if (persona.minimumSalaryYen() < 0) {
                 errors.add(context + ".minimum_salary_yen must be non-negative");
-            }
-
-            Set<String> hardNoSet = persona.index().normalizedHardNo();
-            for (String required : REQUIRED_PERSONA_HARD_NO) {
-                if (!hardNoSet.contains(required)) {
-                    errors.add(context + ".hard_no must include '" + required + "'");
-                }
             }
 
             checkDuplicates(persona.priorities(), context + ".priorities", errors);

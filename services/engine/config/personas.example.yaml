@@ -15,11 +15,10 @@ personas:
       - salary
       - stability
 
-    # Baseline required by validator:
-    # onsite_only
-    # Optional (engine-supported):
-    # consulting_company, salary_missing, early_stage_startup,
+    # Common engine-supported hard rejects:
+    # onsite_only, consulting_company, salary_missing, early_stage_startup,
     # japanese_only_environment, workload_overload, forced_relocation
+    # Use the subset that matches this persona.
     hard_no:
       - onsite_only
       - japanese_only_environment

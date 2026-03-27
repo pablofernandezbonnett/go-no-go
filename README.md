@@ -32,35 +32,23 @@ Personal candidate profiles, CVs, and other private job-search inputs are local-
 - Dart SDK installed
 - `jaspr_cli` installed for local UI development
 
-## Quick Start
+## Start Here
 
-Engine CLI and terminal launcher:
+- Quickstart: [`docs/quickstart.md`](docs/quickstart.md)
+- Advanced guide: [`docs/advanced-guide.md`](docs/advanced-guide.md)
+- Engine details: [`services/engine/README.md`](services/engine/README.md)
+- Operations UI details: [`services/engine/ops-ui/README.md`](services/engine/ops-ui/README.md)
+- Reports UI details: [`apps/reports-ui/README.md`](apps/reports-ui/README.md)
+- Documentation index: [`docs/README.md`](docs/README.md)
 
-```bash
-cd services/engine
-./gradlew installDist
-./build/install/go-no-go-engine/bin/go-no-go-engine check examples/raw-job-text.example.txt
-./build/install/go-no-go-engine/bin/go-no-go-engine tui
-```
-
-Operations UI:
+Essential local commands:
 
 ```bash
+./scripts/verify.sh
 ./scripts/run-ops-ui.sh
-```
-
-Reports UI:
-
-```bash
 ./scripts/run-reports-ui.sh
+cd services/engine && ./gradlew installDist && ./build/install/go-no-go-engine/bin/go-no-go-engine tui
 ```
-
-Project-specific documentation:
-
-- `services/engine/README.md`
-- `services/engine/ops-ui/README.md`
-- `apps/reports-ui/README.md`
-- `docs/README.md`
 
 ## Screenshots
 
@@ -82,26 +70,15 @@ Reports UI batch view:
 
 ## Local UI Ports
 
-- `services/engine/ops-ui`: `http://localhost:8791` by default
-- `apps/reports-ui`: `http://localhost:8792` by default
+- `services/engine/ops-ui`: `http://localhost:8791`
+- `apps/reports-ui`: `http://localhost:8792`
 
-When running both Jaspr UIs at the same time, the HTTP ports are not enough by themselves.
-`jaspr serve` also uses internal dev ports:
-
-- `--web-port`: default `5467`
-- `--proxy-port`: default `5567`
-
-Recommended local dev commands:
+Use the root helper scripts so both Jaspr apps keep separate internal `--web-port` and `--proxy-port` values:
 
 ```bash
 ./scripts/run-ops-ui.sh
-```
-
-```bash
 ./scripts/run-reports-ui.sh
 ```
-
-These root helpers already `cd` into the correct app and pin distinct `--web-port` / `--proxy-port` values so both Jaspr apps can run together without colliding.
 
 ## Working Agreements
 

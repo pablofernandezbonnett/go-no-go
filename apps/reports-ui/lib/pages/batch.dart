@@ -76,9 +76,7 @@ class _BatchPageState extends State<BatchPage> {
     if (index == null || index.runs.isEmpty) return pageEmpty('Batch', 'No runs available.', description: _description);
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Batch', 'Selected run was not found.', description: _description);
-    final batchReport = run.batchEvaluationJsonReports.isEmpty
-        ? null
-        : run.batchEvaluationJsonReports.first;
+    final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
     final allItems = batchReport == null
         ? const <BatchItemPayload>[]
         : batchItemsFromDecodedJson(batchReport.decodedJson);
@@ -95,8 +93,12 @@ class _BatchPageState extends State<BatchPage> {
       verdictFilter: _verdictFilter,
       sortBy: _sortBy,
       onRunSelected: _selectRun,
-      onVerdictFilterChange: (v) => setState(() { _verdictFilter = v; }),
-      onSortByChange: (v) => setState(() { _sortBy = v; }),
+      onVerdictFilterChange: (v) => setState(() {
+        _verdictFilter = v;
+      }),
+      onSortByChange: (v) => setState(() {
+        _sortBy = v;
+      }),
     );
   }
 
@@ -167,7 +169,10 @@ class _BatchBody extends StatelessComponent {
         'Scan one batch report, filter verdicts, compare scores, and jump into the full reasoning behind each evaluated job.',
       ),
       card([
-        p([.text('Run: '), code([.text(run.runId)])]),
+        p([
+          .text('Run: '),
+          code([.text(run.runId)]),
+        ]),
         runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
         ...issueList(issues),
         if (batchReport == null)
@@ -266,19 +271,18 @@ class _BatchTable extends StatelessComponent {
       if (rows.isEmpty)
         p([.text('No items after filters.')])
       else
-        table(classes: 'batch-table', [
-          thead([
-            tr([
-              th([.text('Company')]),
-              th([.text('Title')]),
-              th([.text('Verdict')]),
-              th([.text('Score')]),
-              th([.text('Change')]),
-              th([.text('Last update')]),
-              th([.text('Detail')]),
-            ]),
-          ]),
-          tbody([
+        reportTable(
+          classes: 'batch-table',
+          columns: const [
+            ReportTableColumn('Company'),
+            ReportTableColumn('Title', width: ReportTableWidth.xwide),
+            ReportTableColumn('Verdict', width: ReportTableWidth.compact),
+            ReportTableColumn('Score', width: ReportTableWidth.compact),
+            ReportTableColumn('Change'),
+            ReportTableColumn('Last update'),
+            ReportTableColumn('Detail', width: ReportTableWidth.compact),
+          ],
+          rows: [
             for (final item in rows)
               tr([
                 td([.text(item.company)]),
@@ -294,8 +298,8 @@ class _BatchTable extends StatelessComponent {
                   ),
                 ]),
               ]),
-          ]),
-        ]),
+          ],
+        ),
     ]);
   }
 }
