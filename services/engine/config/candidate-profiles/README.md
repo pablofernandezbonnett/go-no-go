@@ -1,38 +1,23 @@
 # Candidate Profiles
 
-This directory stores candidate profiles used by the runtime engine for candidate-aware evaluation.
+Local runtime profiles used for candidate-aware evaluation.
 
-Current status:
+## What Belongs Here
 
-- These files are loaded by the runtime engine.
-- `config validate` validates them together with the rest of the config.
-- If exactly one profile exists, runtime commands auto-select it unless `--candidate-profile none` is passed.
-- `*.example.yaml` files in this directory are ignored by the runtime loader.
-- Real candidate profiles should stay local and untracked.
+- Keep `candidate-profile.example.yaml` tracked as the schema reference.
+- Put real profiles in `config/candidate-profiles/<id>.yaml` and keep them untracked.
+- `*.example.yaml` files are ignored by the runtime loader.
 
-Current runtime use:
+## How the Engine Uses Them
 
-- stack-fit scoring
-- seniority-fit scoring
-- domain-fit scoring
-- recommendation explanations grounded in actual profile evidence
-- human-reading synthesis using optional narrative fields such as `education`, `target_roles`, and `differentiators`
+- candidate stack, domain, and seniority fit
+- explanation copy backed by fields such as `education`, `target_roles`, and `differentiators`
+- auto-selection of the single real profile when exactly one exists
 
-Still planned:
+Use `--candidate-profile none` to disable candidate-aware scoring explicitly.
 
-- candidate-aware salary-fit scoring using candidate-specific expectations
+## Workflow
 
-Conventions:
-
-- keep a tracked template file for reference
-- keep real candidate profiles local and untracked
-- English comments/documentation
-- keep production-proven skills separate from learning goals
-- keep gaps explicit
-- keep salary and role targeting assumptions current
-
-Suggested workflow:
-
-1. Copy `candidate-profile.example.yaml` to `config/candidate-profiles/<your_id>.yaml`
-2. Fill it with your real profile data
-3. Keep that real file untracked
+1. Copy `candidate-profile.example.yaml` to `<id>.yaml`.
+2. Fill it with real data.
+3. Keep the real file local and run `./gradlew run --args="config validate"`.
