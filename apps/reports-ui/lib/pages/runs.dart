@@ -16,6 +16,8 @@ class RunsPage extends StatefulComponent {
 
 class _RunsPageState extends State<RunsPage> {
   static const _client = ReportsApiClient();
+  static const _description =
+      'Review discovered report runs, check which artifacts exist, and jump into the screens generated from each run.';
 
   ReportsIndexPayload? _index;
   String? _loadError;
@@ -25,19 +27,25 @@ class _RunsPageState extends State<RunsPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _loadIndex();
+      final cachedIndex = _client.peekCachedIndex();
+      if (cachedIndex != null) {
+        _index = cachedIndex;
+        _isLoading = false;
+      } else {
+        _loadIndex();
+      }
     } else {
       _isLoading = false;
     }
   }
 
-  Future<void> _loadIndex() async {
+  Future<void> _loadIndex({bool forceRefresh = false}) async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _index == null || forceRefresh;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex();
+      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
       setState(() {
         _index = index;
         _isLoading = false;
@@ -52,11 +60,13 @@ class _RunsPageState extends State<RunsPage> {
 
   @override
   Component build(BuildContext context) {
-    if (!kIsWeb) return pageLoading('Runs', 'Loading report index on the client...');
-    if (_isLoading) return pageLoading('Runs', 'Loading report index...');
-    if (_loadError != null) return pageError('Runs', _loadError!, _loadIndex);
+    if (!kIsWeb) return pageLoading('Runs', 'Loading report index on the client...', description: _description);
+    if (_loadError != null) return pageError('Runs', _loadError!, _loadIndex, description: _description);
     final index = _index;
-    if (index == null) return pageEmpty('Runs', 'No report index data available.');
+    if (_isLoading && index == null) {
+      return pageLoading('Runs', 'Loading report index...', description: _description);
+    }
+    if (index == null) return pageEmpty('Runs', 'No report index data available.', description: _description);
     return _RunsBody(index: index);
   }
 }
@@ -69,12 +79,11 @@ class _RunsBody extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return section(classes: 'page', [
-      h1([.text('Runs')]),
+      ...pageHeader(
+        'Runs',
+        'Review discovered report runs, check which artifacts exist, and jump into the screens generated from each run.',
+      ),
       card([
-        p([
-          .text('Reports root: '),
-          code([.text(index.reportsRoot)]),
-        ]),
         p([.text(index.reportsRootExists ? 'Reports root is available.' : 'Reports root does not exist.')]),
         if (!index.reportsRootExists)
           p([

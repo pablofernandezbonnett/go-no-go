@@ -30,12 +30,21 @@ class EvaluationUrlHistoryRepository {
 
   Future<EvaluationUrlHistoryCatalog> load() async {
     final itemsByUrl = <String, _EvaluationUrlHistoryEntry>{};
+    final latestAdHocByUrl = <String, _AdHocEvaluationHistoryEntry>{};
     await _loadJobHistory(itemsByUrl);
-    await _loadAdHocHistory(itemsByUrl);
+    await _loadAdHocHistory(itemsByUrl, latestAdHocByUrl);
     final items = itemsByUrl.values.toList()..sort((left, right) => right.generatedAt.compareTo(left.generatedAt));
     return EvaluationUrlHistoryCatalog(
-      items: items.map((item) => item.toJson()).toList(growable: false),
+      items: items.map((item) => item.toJson(savedEvaluation: latestAdHocByUrl[item.url])).toList(growable: false),
     );
+  }
+
+  Future<Map<String, Object?>?> loadLatestAdHocDetail(String url) async {
+    final entry = await _findLatestAdHocEntry(url);
+    if (entry == null) {
+      return null;
+    }
+    return _readAdHocPayload(entry.file);
   }
 
   Future<void> _loadJobHistory(Map<String, _EvaluationUrlHistoryEntry> itemsByUrl) async {
@@ -75,7 +84,10 @@ class EvaluationUrlHistoryRepository {
     }
   }
 
-  Future<void> _loadAdHocHistory(Map<String, _EvaluationUrlHistoryEntry> itemsByUrl) async {
+  Future<void> _loadAdHocHistory(
+    Map<String, _EvaluationUrlHistoryEntry> itemsByUrl,
+    Map<String, _AdHocEvaluationHistoryEntry> latestAdHocByUrl,
+  ) async {
     final directory = Directory(p.join(reportsRoot.path, adHocEvaluationsDirectory));
     if (!await directory.exists()) {
       return;
@@ -94,7 +106,39 @@ class EvaluationUrlHistoryRepository {
         continue;
       }
       _putLatest(itemsByUrl, parsed);
+      final current = latestAdHocByUrl[parsed.url];
+      if (current == null || parsed.generatedAt.isAfter(current.generatedAt)) {
+        latestAdHocByUrl[parsed.url] = parsed;
+      }
     }
+  }
+
+  Future<_AdHocEvaluationHistoryEntry?> _findLatestAdHocEntry(String url) async {
+    final normalizedUrl = url.trim();
+    if (normalizedUrl.isEmpty) {
+      return null;
+    }
+
+    final directory = Directory(p.join(reportsRoot.path, adHocEvaluationsDirectory));
+    if (!await directory.exists()) {
+      return null;
+    }
+
+    _AdHocEvaluationHistoryEntry? latest;
+    await for (final entity in directory.list(recursive: false, followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith(_yamlExtension)) {
+        continue;
+      }
+
+      final parsed = await _parseAdHocFile(entity);
+      if (parsed == null || parsed.url != normalizedUrl) {
+        continue;
+      }
+      if (latest == null || parsed.generatedAt.isAfter(latest.generatedAt)) {
+        latest = parsed;
+      }
+    }
+    return latest;
   }
 
   void _putLatest(
@@ -135,7 +179,7 @@ class EvaluationUrlHistoryRepository {
     );
   }
 
-  Future<_EvaluationUrlHistoryEntry?> _parseAdHocFile(File file) async {
+  Future<_AdHocEvaluationHistoryEntry?> _parseAdHocFile(File file) async {
     final document = await _readYamlDocument(file);
     if (document == null) {
       return null;
@@ -154,7 +198,7 @@ class EvaluationUrlHistoryRepository {
       await _fileModifiedAt(file),
     );
 
-    return _EvaluationUrlHistoryEntry(
+    return _AdHocEvaluationHistoryEntry(
       url: url,
       companyName: _readString(jobInput, 'company_name'),
       title: _readString(jobInput, 'title'),
@@ -162,7 +206,28 @@ class EvaluationUrlHistoryRepository {
       sourceKind: historySourceKindAdHoc,
       persona: _readString(document, 'persona'),
       candidateProfile: _readString(document, 'candidate_profile'),
+      file: file,
     );
+  }
+
+  Future<Map<String, Object?>?> _readAdHocPayload(File file) async {
+    final document = await _readYamlDocument(file);
+    if (document == null) {
+      return null;
+    }
+
+    final payload = _toJsonValue(document);
+    if (payload is! Map<String, Object?>) {
+      return null;
+    }
+
+    payload.remove('analysis_file');
+    final source = payload['source'];
+    if (source is Map<String, Object?>) {
+      source['file'] = '';
+      payload['source'] = source;
+    }
+    return payload;
   }
 
   Future<YamlMap?> _readYamlDocument(File file) async {
@@ -249,12 +314,29 @@ class EvaluationUrlHistoryRepository {
     }
     return RegExp(r'\d').hasMatch(segment);
   }
+
+  Object? _toJsonValue(Object? value) {
+    if (value == null || value is String || value is num || value is bool) {
+      return value;
+    }
+    if (value is List) {
+      final rawList = value;
+      return rawList.map(_toJsonValue).toList(growable: false);
+    }
+    if (value is Map) {
+      final rawMap = value;
+      return Map<String, Object?>.fromEntries(
+        rawMap.entries.map((entry) => MapEntry(entry.key.toString(), _toJsonValue(entry.value))),
+      );
+    }
+    return value.toString();
+  }
 }
 
 class EvaluationUrlHistoryCatalog {
   const EvaluationUrlHistoryCatalog({required this.items});
 
-  final List<Map<String, String>> items;
+  final List<Map<String, Object?>> items;
 
   Map<String, Object> toJson() {
     return {'items': items};
@@ -280,7 +362,7 @@ class _EvaluationUrlHistoryEntry {
   final String persona;
   final String candidateProfile;
 
-  Map<String, String> toJson() {
+  Map<String, Object?> toJson({_AdHocEvaluationHistoryEntry? savedEvaluation}) {
     return {
       'url': url,
       'company_name': companyName,
@@ -289,6 +371,25 @@ class _EvaluationUrlHistoryEntry {
       'source_kind': sourceKind,
       'persona': persona,
       'candidate_profile': candidateProfile,
+      'saved_evaluation_available': savedEvaluation != null,
+      'saved_evaluation_generated_at': savedEvaluation?.generatedAt.toUtc().toIso8601String() ?? '',
+      'saved_evaluation_persona': savedEvaluation?.persona ?? '',
+      'saved_evaluation_candidate_profile': savedEvaluation?.candidateProfile ?? '',
     };
   }
+}
+
+class _AdHocEvaluationHistoryEntry extends _EvaluationUrlHistoryEntry {
+  const _AdHocEvaluationHistoryEntry({
+    required super.url,
+    required super.companyName,
+    required super.title,
+    required super.generatedAt,
+    required super.sourceKind,
+    required super.persona,
+    required super.candidateProfile,
+    required this.file,
+  });
+
+  final File file;
 }

@@ -24,7 +24,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -46,9 +48,15 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private static final String SOURCE_URL_PREFIX = "Source URL: ";
     private static final String PAGE_CONTENT_ROOT_SELECTOR = "main,article,.job-description,.content,body";
     private static final String PAGE_NOISE_SELECTOR = "script,style,noscript,svg,footer,header,nav";
+    private static final String PAGE_DESCRIPTION_META_SELECTOR =
+            "meta[name=description],meta[property=og:description],meta[name=twitter:description]";
+    private static final String PAGE_TITLE_META_SELECTOR =
+            "meta[property=og:title],meta[name=twitter:title]";
     private static final int MAX_URL_DESCRIPTION_LENGTH = 16000;
     private static final String OUTPUT_FORMAT_TEXT = "text";
     private static final String OUTPUT_FORMAT_JSON = "json";
+    private static final String URL_METADATA_FALLBACK_WARNING =
+            "Page body was unavailable; evaluated the URL using title and metadata only.";
 
     private final DecisionEngineV1 engine;
     private final RawJobParser rawJobParser;
@@ -372,6 +380,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     ) {
         Document doc = Jsoup.parse(response.body(), response.finalUrl());
         doc.select(PAGE_NOISE_SELECTOR).remove();
+        List<String> warnings = new ArrayList<>();
         String companyName = resolveCompanyName(response.finalUrl(), config.companies());
         if (companyNameOverride != null && !companyNameOverride.isBlank()) {
             companyName = companyNameOverride.trim();
@@ -383,6 +392,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                     "Could not infer a job title from URL page content."
             ));
         }
+        companyName = enrichCompanyName(companyName, title, doc);
 
         String pageText = extractPageText(doc);
         if (pageText.isBlank()) {
@@ -391,12 +401,19 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                     .orElse("");
         }
         if (pageText.isBlank()) {
+            pageText = extractMetadataFallbackText(doc, title);
+            if (!pageText.isBlank()) {
+                warnings.add(URL_METADATA_FALLBACK_WARNING);
+            }
+        }
+        if (pageText.isBlank()) {
             throw new JobInputLoadException(List.of(
                     "Could not extract meaningful job content from URL page."
             ));
         }
 
         RawJobExtractionResult extraction = rawJobParser.parse(pageText, companyName, title);
+        warnings.addAll(extraction.warnings());
         String description = extraction.jobInput().description();
         if (description.length() > MAX_URL_DESCRIPTION_LENGTH) {
             description = description.substring(0, MAX_URL_DESCRIPTION_LENGTH).trim() + "...";
@@ -411,7 +428,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 extraction.jobInput().remotePolicy(),
                 description
         );
-        return new LoadedUrlJobInput(jobInput, extraction.warnings());
+        return new LoadedUrlJobInput(jobInput, warnings);
     }
 
     private String resolveTitle(Optional<JobPostingCandidate> candidate, Document doc) {
@@ -446,6 +463,32 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         return normalizeMultilineText(contentRoot.text());
     }
 
+    private String extractMetadataFallbackText(Document doc, String resolvedTitle) {
+        LinkedHashSet<String> parts = new LinkedHashSet<>();
+        addMetadataPart(parts, resolvedTitle);
+        addMetadataPart(parts, readMetaContent(doc, PAGE_TITLE_META_SELECTOR));
+        addMetadataPart(parts, readMetaContent(doc, PAGE_DESCRIPTION_META_SELECTOR));
+        if (parts.size() < 2) {
+            return "";
+        }
+        return String.join("\n", parts);
+    }
+
+    private String readMetaContent(Document doc, String selector) {
+        Element element = doc.selectFirst(selector);
+        if (element == null) {
+            return "";
+        }
+        return normalizeText(element.attr("content"));
+    }
+
+    private void addMetadataPart(LinkedHashSet<String> parts, String value) {
+        String normalized = normalizeText(value);
+        if (!normalized.isBlank()) {
+            parts.add(normalized);
+        }
+    }
+
     private String resolveCompanyName(String url, List<CompanyConfig> companies) {
         String host = hostOf(url);
         for (CompanyConfig company : companies) {
@@ -455,6 +498,75 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             }
         }
         return host.isBlank() ? DEFAULT_UNKNOWN : host;
+    }
+
+    private String enrichCompanyName(String companyName, String title, Document doc) {
+        if (!looksLikeGenericCompanyPlaceholder(companyName)) {
+            return companyName;
+        }
+
+        String fromTitle = inferCompanyNameFromTitle(title);
+        if (!fromTitle.isBlank()) {
+            return fromTitle;
+        }
+
+        String fromDescription = inferCompanyNameFromDescription(readMetaContent(doc, PAGE_DESCRIPTION_META_SELECTOR));
+        if (!fromDescription.isBlank()) {
+            return fromDescription;
+        }
+
+        return companyName;
+    }
+
+    private boolean looksLikeGenericCompanyPlaceholder(String companyName) {
+        String normalized = normalizeText(companyName);
+        if (normalized.isBlank()) {
+            return true;
+        }
+        if (DEFAULT_UNKNOWN.equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        return normalized.contains(".");
+    }
+
+    private String inferCompanyNameFromTitle(String title) {
+        String normalized = normalizeText(title);
+        if (normalized.isBlank()) {
+            return "";
+        }
+        int separatorIndex = normalized.lastIndexOf(" - ");
+        if (separatorIndex < 0) {
+            separatorIndex = normalized.lastIndexOf(" | ");
+        }
+        if (separatorIndex < 0 || separatorIndex + 3 >= normalized.length()) {
+            return "";
+        }
+        String candidate = normalized.substring(separatorIndex + 3).trim();
+        if (candidate.length() > 80) {
+            return "";
+        }
+        return candidate;
+    }
+
+    private String inferCompanyNameFromDescription(String description) {
+        String normalized = normalizeText(description);
+        String lowered = normalized.toLowerCase(Locale.ROOT);
+        if (!lowered.startsWith("about ") || normalized.length() <= 6) {
+            return "";
+        }
+
+        int separatorIndex = normalized.indexOf('.');
+        if (separatorIndex < 0) {
+            separatorIndex = normalized.indexOf(' ');
+        }
+        if (separatorIndex <= 6) {
+            return "";
+        }
+        String candidate = normalized.substring(6, separatorIndex).trim();
+        if (candidate.length() > 80) {
+            return "";
+        }
+        return candidate;
     }
 
     private String hostOf(String value) {

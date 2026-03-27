@@ -81,7 +81,7 @@ final class DecisionEngineV1Test {
     }
 
     @Test
-    void returnsNoGoWhenSalaryIsMissing() {
+    void returnsGoWithCautionWhenSalaryIsMissingButNotHardRejected() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
                         "Mercari",
@@ -95,12 +95,13 @@ final class DecisionEngineV1Test {
                 defaultConfig()
         );
 
-        assertEquals(Verdict.NO_GO, result.verdict());
-        assertTrue(result.hardRejectReasons().contains("salary information is missing or non-transparent"));
+        assertEquals(Verdict.GO_WITH_CAUTION, result.verdict());
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.riskSignals().contains("salary_low_confidence"));
     }
 
     @Test
-    void returnsNoGoWhenSalaryHasNoExplicitRange() {
+    void returnsGoWithCautionWhenSalaryHasNoExplicitRangeButNotHardRejected() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
                         "Mercari",
@@ -114,10 +115,46 @@ final class DecisionEngineV1Test {
                 defaultConfig()
         );
 
+        assertEquals(Verdict.GO_WITH_CAUTION, result.verdict());
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.riskSignals().contains("salary_low_confidence"));
+        assertFalse(result.positiveSignals().contains("salary_transparency"));
+    }
+
+    @Test
+    void returnsNoGoWhenSalaryMissingIsConfiguredAsHardNo() {
+        PersonaConfig salaryStrictPersona = new PersonaConfig(
+                "salary_strict_persona",
+                "Persona that requires salary transparency up front",
+                List.of(
+                        "english_environment",
+                        "product_company",
+                        "engineering_culture",
+                        "hybrid_work",
+                        "work_life_balance",
+                        "salary",
+                        "stability"
+                ),
+                List.of("consulting_company", "onsite_only", "salary_missing", "early_stage_startup"),
+                List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Mercari",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Hybrid",
+                        "English-first team with product ownership and code review."
+                ),
+                salaryStrictPersona,
+                defaultConfig()
+        );
+
         assertEquals(Verdict.NO_GO, result.verdict());
         assertTrue(result.hardRejectReasons().contains("salary information is missing or non-transparent"));
         assertTrue(result.riskSignals().contains("salary_low_confidence"));
-        assertFalse(result.positiveSignals().contains("salary_transparency"));
     }
 
     @Test
@@ -506,7 +543,7 @@ final class DecisionEngineV1Test {
     @Test
     void addsCandidateFitSignalsWhenProfileMatchesRole() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Tokyo",
@@ -549,7 +586,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotTreatGenericTechnicalShapeAsDirectDomainFit() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -587,7 +624,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotFlagCandidateStackGapFromNiceToHavesSection() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -627,7 +664,7 @@ final class DecisionEngineV1Test {
     @Test
     void doesNotTreatMicroservicesAsHardStackGapWhenProfileShowsDistributedSystemsContext() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -664,7 +701,7 @@ final class DecisionEngineV1Test {
     @Test
     void addsCandidateGapSignalsWhenProfileDoesNotMatchRole() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Tokyo",
@@ -705,7 +742,7 @@ final class DecisionEngineV1Test {
     @Test
     void usesEducationBackedAffinityInHumanReadingForAdjacentDomainRoles() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -748,9 +785,9 @@ final class DecisionEngineV1Test {
     }
 
     @Test
-    void marksInterviewRoiWeakWhenHardRejectExistsEvenWithSomeUpside() {
+    void marksInterviewRoiMixedWhenSalaryIsOpaqueDespiteSomeUpside() {
         CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
-                "pmfb",
+                "demo_candidate",
                 "Demo Candidate",
                 "Senior Backend Engineer",
                 "Japan",
@@ -781,7 +818,7 @@ final class DecisionEngineV1Test {
                 defaultConfig()
         );
 
-        assertEquals(HumanReadingLevel.WEAK, result.humanReading().interviewRoi());
+        assertEquals(HumanReadingLevel.MIXED, result.humanReading().interviewRoi());
         assertTrue(result.humanReading().whyWasteOfTime().stream()
                 .anyMatch(entry -> entry.contains("Salary is opaque")));
     }
@@ -986,7 +1023,7 @@ final class DecisionEngineV1Test {
                         "salary",
                         "stability"
                 ),
-                List.of("consulting_company", "onsite_only", "salary_missing", "early_stage_startup"),
+                List.of("consulting_company", "onsite_only", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
         );
     }
@@ -1004,7 +1041,7 @@ final class DecisionEngineV1Test {
                         "salary",
                         "stability"
                 ),
-                List.of("onsite_only", "salary_missing", "early_stage_startup"),
+                List.of("onsite_only", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup"),
                 java.util.Map.of(),
                 RankingStrategy.BY_SCORE,

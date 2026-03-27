@@ -1,19 +1,16 @@
 class ReportsIndexPayload {
   const ReportsIndexPayload({
-    required this.reportsRoot,
     required this.reportsRootExists,
     required this.runs,
     required this.issues,
   });
 
-  final String reportsRoot;
   final bool reportsRootExists;
   final List<ReportRunPayload> runs;
   final List<ReportIssuePayload> issues;
 
   factory ReportsIndexPayload.fromJson(Map<String, dynamic> json) {
     return ReportsIndexPayload(
-      reportsRoot: json['reportsRoot']?.toString() ?? '',
       reportsRootExists: json['reportsRootExists'] == true,
       runs: _asList(json['runs']).map((entry) => ReportRunPayload.fromJson(_asMap(entry))).toList(),
       issues: _asList(json['issues']).map((entry) => ReportIssuePayload.fromJson(_asMap(entry))).toList(),
@@ -68,21 +65,17 @@ class ReportRunPayload {
 class BatchEvaluationJsonPayload {
   const BatchEvaluationJsonPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.reportId,
     required this.personaId,
-    required this.rawJson,
     required this.decodedJson,
     required this.isValidJson,
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String reportId;
   final String? personaId;
-  final String rawJson;
   final Object? decodedJson;
   final bool isValidJson;
 
@@ -90,11 +83,9 @@ class BatchEvaluationJsonPayload {
     final personaValue = json['personaId'];
     return BatchEvaluationJsonPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       reportId: json['reportId']?.toString() ?? '',
       personaId: personaValue == null ? null : personaValue.toString(),
-      rawJson: json['rawJson']?.toString() ?? '',
       decodedJson: json['decodedJson'],
       isValidJson: json['isValidJson'] == true,
     );
@@ -104,7 +95,6 @@ class BatchEvaluationJsonPayload {
 class BatchEvaluationMarkdownPayload {
   const BatchEvaluationMarkdownPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.reportId,
     required this.personaId,
@@ -112,7 +102,6 @@ class BatchEvaluationMarkdownPayload {
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String reportId;
   final String? personaId;
@@ -122,7 +111,6 @@ class BatchEvaluationMarkdownPayload {
     final personaValue = json['personaId'];
     return BatchEvaluationMarkdownPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       reportId: json['reportId']?.toString() ?? '',
       personaId: personaValue == null ? null : personaValue.toString(),
@@ -134,14 +122,12 @@ class BatchEvaluationMarkdownPayload {
 class WeeklyDigestPayload {
   const WeeklyDigestPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.weeklyId,
     required this.markdownContent,
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String weeklyId;
   final String markdownContent;
@@ -149,7 +135,6 @@ class WeeklyDigestPayload {
   factory WeeklyDigestPayload.fromJson(Map<String, dynamic> json) {
     return WeeklyDigestPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       weeklyId: json['weeklyId']?.toString() ?? '',
       markdownContent: json['markdownContent']?.toString() ?? '',
@@ -160,7 +145,6 @@ class WeeklyDigestPayload {
 class TrendHistoryPayload {
   const TrendHistoryPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.historyId,
     required this.personaId,
@@ -168,7 +152,6 @@ class TrendHistoryPayload {
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String historyId;
   final String? personaId;
@@ -178,7 +161,6 @@ class TrendHistoryPayload {
     final personaValue = json['personaId'];
     return TrendHistoryPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       historyId: json['historyId']?.toString() ?? '',
       personaId: personaValue == null ? null : personaValue.toString(),
@@ -190,7 +172,6 @@ class TrendHistoryPayload {
 class TrendAlertsPayload {
   const TrendAlertsPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.alertsId,
     required this.personaId,
@@ -200,7 +181,6 @@ class TrendAlertsPayload {
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String alertsId;
   final String? personaId;
@@ -212,7 +192,6 @@ class TrendAlertsPayload {
     final personaValue = json['personaId'];
     return TrendAlertsPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       alertsId: json['alertsId']?.toString() ?? '',
       personaId: personaValue == null ? null : personaValue.toString(),
@@ -226,14 +205,12 @@ class TrendAlertsPayload {
 class CompanyContextPayload {
   const CompanyContextPayload({
     required this.runId,
-    required this.relativePath,
     required this.fileName,
     required this.companyId,
     required this.textContent,
   });
 
   final String runId;
-  final String relativePath;
   final String fileName;
   final String companyId;
   final String textContent;
@@ -241,7 +218,6 @@ class CompanyContextPayload {
   factory CompanyContextPayload.fromJson(Map<String, dynamic> json) {
     return CompanyContextPayload(
       runId: json['runId']?.toString() ?? '',
-      relativePath: json['relativePath']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       companyId: json['companyId']?.toString() ?? '',
       textContent: json['textContent']?.toString() ?? '',
@@ -252,19 +228,15 @@ class CompanyContextPayload {
 class ReportIssuePayload {
   const ReportIssuePayload({
     required this.code,
-    required this.relativePath,
     required this.message,
   });
 
   final String code;
-  final String? relativePath;
   final String message;
 
   factory ReportIssuePayload.fromJson(Map<String, dynamic> json) {
-    final relativePath = json['relativePath'];
     return ReportIssuePayload(
       code: json['code']?.toString() ?? 'unknown_issue',
-      relativePath: relativePath == null ? null : relativePath.toString(),
       message: json['message']?.toString() ?? '',
     );
   }

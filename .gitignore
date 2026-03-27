@@ -1,3 +1,18 @@
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Editor metadata
+.vscode/
+
+# Local personal candidate material
+**/candidate-profiles/*.yaml
+**/candidate-profiles/*.yml
+!**/candidate-profiles/*.example.yaml
+!**/candidate-profiles/*.example.yml
+*.cv.pdf
+*.cv.doc
+*.cv.docx
+*.resume.pdf
+*.resume.doc
+*.resume.docx

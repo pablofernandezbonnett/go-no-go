@@ -161,8 +161,7 @@ class EngineEvaluationRunner {
       throw StateError('Engine evaluation returned an invalid JSON payload.');
     }
 
-    decoded['analysis_file'] = _relativeToReportsRoot(artifactFile);
-    return decoded;
+    return _sanitizeEvaluationPayload(decoded);
   }
 
   Future<File> _buildArtifactFile(EvaluationRequest request, String personaId) async {
@@ -206,26 +205,57 @@ class EngineEvaluationRunner {
     }
   }
 
-  String _relativeToReportsRoot(File artifactFile) {
-    final reportsPath = reportsRoot.absolute.path;
-    final artifactPath = artifactFile.absolute.path;
-    final prefix = reportsPath.endsWith(Platform.pathSeparator) ? reportsPath : '$reportsPath${Platform.pathSeparator}';
-    if (artifactPath.startsWith(prefix)) {
-      return artifactPath.substring(prefix.length).replaceAll('\\', '/');
-    }
-    return artifactPath;
-  }
-
   String _buildFailureMessage(int exitCode, String stdoutText, String stderrText) {
-    final stderr = stderrText.trim();
-    final stdout = stdoutText.trim();
-    if (stderr.isNotEmpty) {
-      return 'Engine evaluation failed ($exitCode): $stderr';
-    }
-    if (stdout.isNotEmpty) {
-      return 'Engine evaluation failed ($exitCode): $stdout';
+    final details = _extractFailureDetails(stderrText, stdoutText);
+    if (details.isNotEmpty) {
+      return 'Engine evaluation failed: $details';
     }
     return 'Engine evaluation failed with exit code $exitCode.';
+  }
+
+  String _extractFailureDetails(String stderrText, String stdoutText) {
+    final lines = <String>[];
+    for (final block in [stderrText, stdoutText]) {
+      for (final rawLine in block.split(RegExp(r'\r?\n'))) {
+        final line = rawLine.trim();
+        if (line.isEmpty || !_isRelevantFailureLine(line)) {
+          continue;
+        }
+        lines.add(line.startsWith('- ') ? line.substring(2).trim() : line);
+      }
+    }
+    if (lines.isEmpty) {
+      return '';
+    }
+
+    final summary = lines.take(3).join(' ');
+    if (summary.length <= 320) {
+      return summary;
+    }
+    return '${summary.substring(0, 317)}...';
+  }
+
+  bool _isRelevantFailureLine(String line) {
+    final normalized = line.toLowerCase();
+    if (normalized.startsWith('failure:')) {
+      return false;
+    }
+    if (normalized.startsWith('* what went wrong:')) {
+      return false;
+    }
+    if (normalized.startsWith('* try:')) {
+      return false;
+    }
+    if (normalized.startsWith('build failed')) {
+      return false;
+    }
+    if (normalized.startsWith('> process ')) {
+      return false;
+    }
+    if (normalized.startsWith('execution failed for task')) {
+      return false;
+    }
+    return true;
   }
 
   String _buildGradleRunArgs(List<String> args) {
@@ -270,5 +300,21 @@ class EngineEvaluationRunner {
       hash = (hash * 0x100000001b3) & 0xffffffffffffffff;
     }
     return hash.toRadixString(16).padLeft(16, '0');
+  }
+
+  Map<String, dynamic> _sanitizeEvaluationPayload(Map<String, dynamic> decoded) {
+    final sanitized = Map<String, dynamic>.from(decoded);
+    sanitized.remove('analysis_file');
+
+    final source = sanitized['source'];
+    if (source is Map) {
+      final sourceMap = Map<String, dynamic>.fromEntries(
+        source.entries.map((entry) => MapEntry(entry.key.toString(), entry.value)),
+      );
+      sourceMap['file'] = '';
+      sanitized['source'] = sourceMap;
+    }
+
+    return sanitized;
   }
 }
