@@ -1,9 +1,10 @@
 # Documentation Assets
 
-This folder contains screenshot assets used by the repository documentation.
+This folder contains repository documentation assets, including stable screenshots and preserved PR draft documents used for project tracking.
 
 ## Files
 
+- `pr-drafts/`: preserved PR draft documents for notable repository branches and review history
 - `screenshots/cli-check.html`: source template for the CLI screenshot
 - `screenshots/tui-launcher.html`: source template for the TUI screenshot
 - `screenshots/terminal.css`: shared styling for terminal-style screenshots
