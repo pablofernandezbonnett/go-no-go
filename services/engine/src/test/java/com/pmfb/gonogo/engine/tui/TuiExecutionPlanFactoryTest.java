@@ -52,7 +52,7 @@ final class TuiExecutionPlanFactoryTest {
                 context,
                 new PipelineRunRequest(
                         "product_pragmatic_engineer",
-                        "pmfb",
+                        "demo_candidate",
                         true,
                         List.of("mercari"),
                         true,
@@ -68,7 +68,7 @@ final class TuiExecutionPlanFactoryTest {
                         "pipeline",
                         "run",
                         "--persona=product_pragmatic_engineer",
-                        "--candidate-profile=pmfb",
+                        "--candidate-profile=demo_candidate",
                         "--fetch-web-first",
                         "--company-ids=mercari",
                         "--incremental-only",
@@ -189,8 +189,8 @@ final class TuiExecutionPlanFactoryTest {
                 ),
                 List.of(
                         new CandidateProfileConfig(
-                                "pmfb",
-                                "PMFB",
+                                "demo_candidate",
+                                "Demo Candidate",
                                 "Product Engineer",
                                 "Tokyo",
                                 10,

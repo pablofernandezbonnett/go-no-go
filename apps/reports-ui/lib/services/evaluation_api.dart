@@ -32,6 +32,23 @@ class EvaluationApiClient {
     return EvaluationUrlHistoryPayload.fromJson(decoded);
   }
 
+  Future<EvaluationResponsePayload> fetchUrlHistoryDetail(String url) async {
+    final response = await http.get(
+      Uri(path: evaluateUrlHistoryDetailApiPath, queryParameters: {'url': url}),
+    );
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode != 200) {
+      if (decoded is Map<String, dynamic>) {
+        throw StateError(decoded['message']?.toString() ?? 'Failed to load saved evaluation (${response.statusCode}).');
+      }
+      throw StateError('Failed to load saved evaluation (${response.statusCode}).');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid saved evaluation response format.');
+    }
+    return EvaluationResponsePayload.fromJson(decoded);
+  }
+
   Future<EvaluationSessionPayload> evaluate(Map<String, Object?> request) async {
     final response = await http.post(
       Uri.parse(evaluateApiPath),

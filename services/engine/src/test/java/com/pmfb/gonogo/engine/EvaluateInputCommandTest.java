@@ -61,7 +61,7 @@ final class EvaluateInputCommandTest {
         }
 
         String json = stdout.toString(StandardCharsets.UTF_8);
-        assertTrue(json.contains("\"candidate_profile\":\"pmfb\""));
+        assertTrue(json.contains("\"candidate_profile\":\"demo_candidate\""));
     }
 
     @Test
@@ -226,6 +226,67 @@ final class EvaluateInputCommandTest {
         assertTrue(readIntField(json, "language_friction_index") <= 20, json);
     }
 
+    @Test
+    void usesMetadataFallbackWhenUrlPageIsClientRenderedShell() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-evaluate-workable-shell-test");
+        Path configDir = tempDir.resolve("config");
+        writeConfig(configDir);
+
+        String html = """
+                <html>
+                  <head>
+                    <title>Backend Engineer, Ruby - KOMOJU</title>
+                    <meta property="og:title" content="Backend Engineer, Ruby - KOMOJU">
+                    <meta name="description" content="About KOMOJU. Strong experience building backend systems using Ruby on Rails in production environments. We prefer Ruby experience, but candidates with solid experience in other backend web frameworks are also welcome. Tokyo, Japan.">
+                  </head>
+                  <body>
+                    <div id="app"></div>
+                  </body>
+                </html>
+                """;
+
+        com.pmfb.gonogo.engine.job.CareerPageFetcher stubFetcher = new StubCareerPageFetcher(
+                "https://apply.workable.com/degica-hiring/j/6E3C340851/",
+                html
+        );
+        EvaluateInputCommand command = new EvaluateInputCommand(
+                new com.pmfb.gonogo.engine.decision.DecisionEngineV1(),
+                new com.pmfb.gonogo.engine.job.RawJobParser(),
+                new com.pmfb.gonogo.engine.job.JobPostingExtractor(),
+                stubFetcher,
+                new DirectInputSecurity(),
+                new EvaluateInputArtifactWriter(),
+                new EvaluateInputOutputFormatter()
+        );
+
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        try {
+            System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
+
+            int exitCode = new CommandLine(command).execute(
+                    "--persona", "product_expat_engineer",
+                    "--config-dir", configDir.toString(),
+                    "--job-url", "https://apply.workable.com/degica-hiring/j/6E3C340851/",
+                    "--output-format", "json"
+            );
+
+            assertEquals(0, exitCode, stderr.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
+
+        String json = stdout.toString(StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"company_name\":\"KOMOJU\""));
+        assertTrue(json.contains("\"title\":\"Backend Engineer, Ruby - KOMOJU\""));
+        assertTrue(json.contains("other backend web frameworks are also welcome"));
+        assertTrue(json.contains("Page body was unavailable; evaluated the URL using title and metadata only."));
+    }
+
     private void writeConfig(Path configDir) throws IOException {
         Files.createDirectories(configDir);
         Files.writeString(
@@ -258,7 +319,6 @@ final class EvaluateInputCommandTest {
                             hard_no:
                               - consulting_company
                               - onsite_only
-                              - salary_missing
                               - early_stage_startup
                             acceptable_if:
                               - hybrid_partial
@@ -280,13 +340,13 @@ final class EvaluateInputCommandTest {
         Path profilesDir = configDir.resolve("candidate-profiles");
         Files.createDirectories(profilesDir);
         Files.writeString(
-                profilesDir.resolve("pmfb.yaml"),
+                profilesDir.resolve("demo_candidate.yaml"),
                 """
                         candidate:
-                          name: Pablo Miguel Fernandez Bonnett
+                          name: Example Candidate
                           title: Senior Product Backend Engineer
-                          location: Gamagori, Aichi, Japan
-                          total_experience_years: 20
+                          location: Tokyo, Japan
+                          total_experience_years: 12
                         stack:
                           production_proven:
                             backend:
@@ -346,7 +406,6 @@ final class EvaluateInputCommandTest {
                             hard_no:
                               - consulting_company
                               - onsite_only
-                              - salary_missing
                               - early_stage_startup
                             acceptable_if:
                               - hybrid_partial

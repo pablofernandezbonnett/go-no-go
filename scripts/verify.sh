@@ -46,5 +46,6 @@ done
 (
   cd apps/reports-ui
   dart analyze
+  jaspr clean
   jaspr build
 )

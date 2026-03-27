@@ -18,28 +18,38 @@ class JobDetailPage extends StatefulComponent {
 
 class _JobDetailPageState extends State<JobDetailPage> {
   static const _client = ReportsApiClient();
+  static const _description =
+      'Inspect one evaluated job in depth, including score breakdown, supporting signals, and the reasoning behind the verdict.';
 
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  String? _selectedRunId;
+  String? _selectedJobId;
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _loadIndex();
+      final cachedIndex = _client.peekCachedIndex();
+      if (cachedIndex != null) {
+        _index = cachedIndex;
+        _isLoading = false;
+      } else {
+        _loadIndex();
+      }
     } else {
       _isLoading = false;
     }
   }
 
-  Future<void> _loadIndex() async {
+  Future<void> _loadIndex({bool forceRefresh = false}) async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _index == null || forceRefresh;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex();
+      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
       setState(() {
         _index = index;
         _isLoading = false;
@@ -57,20 +67,29 @@ class _JobDetailPageState extends State<JobDetailPage> {
     final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedJobId = queryParams['job'];
-    if (!kIsWeb) return pageLoading('Job Detail', 'Loading report index on the client...');
-    if (_isLoading) return pageLoading('Job Detail', 'Loading job details...');
-    if (_loadError != null) return pageError('Job Detail', _loadError!, _loadIndex);
+    if (!kIsWeb) return pageLoading('Job Detail', 'Loading report index on the client...', description: _description);
+    if (_loadError != null) return pageError('Job Detail', _loadError!, _loadIndex, description: _description);
     final index = _index;
-    if (index == null || index.runs.isEmpty) return pageEmpty('Job Detail', 'No runs available.');
-    final run = selectRun(index.runs, requestedRunId);
-    if (run == null) return pageEmpty('Job Detail', 'Selected run was not found.');
+    if (_isLoading && index == null) {
+      return pageLoading('Job Detail', 'Loading job details...', description: _description);
+    }
+    if (index == null || index.runs.isEmpty) return pageEmpty('Job Detail', 'No runs available.', description: _description);
+    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    if (run == null) return pageEmpty('Job Detail', 'Selected run was not found.', description: _description);
     if (run.batchEvaluationJsonReports.isEmpty) {
-      return pageEmpty('Job Detail', 'No batch JSON report found for this run.');
+      return pageEmpty('Job Detail', 'No batch JSON report found for this run.', description: _description);
     }
     final items = batchItemsFromDecodedJson(run.batchEvaluationJsonReports.first.decodedJson);
-    if (items.isEmpty) return pageEmpty('Job Detail', 'This run has no evaluated items.');
-    final selected = _resolveSelected(items, requestedJobId);
-    return _JobDetailBody(run: run, runs: index.runs, items: items, selected: selected);
+    if (items.isEmpty) return pageEmpty('Job Detail', 'This run has no evaluated items.', description: _description);
+    final selected = _resolveSelected(items, _selectedJobId ?? requestedJobId);
+    return _JobDetailBody(
+      run: run,
+      runs: index.runs,
+      items: items,
+      selected: selected,
+      onRunSelected: _selectRun,
+      onJobSelected: _selectJob,
+    );
   }
 
   BatchItemPayload _resolveSelected(List<BatchItemPayload> items, String? requestedJobId) {
@@ -80,6 +99,21 @@ class _JobDetailPageState extends State<JobDetailPage> {
     }
     return items.first;
   }
+
+  void _selectRun(ReportRunPayload run) {
+    final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
+    final nextItems = batchReport == null ? const <BatchItemPayload>[] : batchItemsFromDecodedJson(batchReport.decodedJson);
+    setState(() {
+      _selectedRunId = run.runId;
+      _selectedJobId = nextItems.isEmpty ? null : nextItems.first.jobId;
+    });
+  }
+
+  void _selectJob(String jobId) {
+    setState(() {
+      _selectedJobId = jobId;
+    });
+  }
 }
 
 class _JobDetailBody extends StatelessComponent {
@@ -88,31 +122,32 @@ class _JobDetailBody extends StatelessComponent {
     required this.runs,
     required this.items,
     required this.selected,
+    required this.onRunSelected,
+    required this.onJobSelected,
   });
 
   final ReportRunPayload run;
   final List<ReportRunPayload> runs;
   final List<BatchItemPayload> items;
   final BatchItemPayload selected;
+  final void Function(ReportRunPayload run) onRunSelected;
+  final void Function(String jobId) onJobSelected;
 
   @override
   Component build(BuildContext context) {
     return section(classes: 'page', [
-      h1([.text('Job Detail')]),
+      ...pageHeader(
+        'Job Detail',
+        'Inspect one evaluated job in depth, including score breakdown, supporting signals, and the reasoning behind the verdict.',
+      ),
       card([
         p([.text('Run: '), code([.text(run.runId)])]),
-        runTabs(
-          runs: runs,
-          selectedRunId: run.runId,
-          destinationPath: '/job',
-          extraQueryKey: 'job',
-          extraQueryValue: selected.jobId,
-        ),
+        runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
         p([Link(to: buildRouteWithQuery('/batch', {'run': run.runId}), child: .text('Back to Batch'))]),
       ]),
       _JobSummaryCard(selected: selected),
       _JobSignalsCard(selected: selected),
-      if (items.length > 1) _JobOthersList(run: run, items: items),
+      if (items.length > 1) _JobOthersList(run: run, items: items, selectedJobId: selected.jobId, onJobSelected: onJobSelected),
     ]);
   }
 }
@@ -166,8 +201,6 @@ class _JobSignalsCard extends StatelessComponent {
       _listOrFallback(selected.hardRejectReasons, 'No hard reject reasons.'),
       h3([.text('Reasoning')]),
       _listOrFallback(selected.reasoning, 'No reasoning details.'),
-      h3([.text('Source')]),
-      p([code([.text(selected.sourceFile.isEmpty ? selected.jobId : selected.sourceFile)])]),
     ]);
   }
 
@@ -178,10 +211,17 @@ class _JobSignalsCard extends StatelessComponent {
 }
 
 class _JobOthersList extends StatelessComponent {
-  const _JobOthersList({required this.run, required this.items});
+  const _JobOthersList({
+    required this.run,
+    required this.items,
+    required this.selectedJobId,
+    required this.onJobSelected,
+  });
 
   final ReportRunPayload run;
   final List<BatchItemPayload> items;
+  final String selectedJobId;
+  final void Function(String jobId) onJobSelected;
 
   @override
   Component build(BuildContext context) {
@@ -190,9 +230,10 @@ class _JobOthersList extends StatelessComponent {
       ul([
         for (final item in items)
           li([
-            Link(
-              to: buildRouteWithQuery('/job', {'run': run.runId, 'job': item.jobId}),
-              child: .text('${item.company} - ${item.title}'),
+            button(
+              classes: item.jobId == selectedJobId ? 'run-tab active' : 'run-tab',
+              onClick: () => onJobSelected(item.jobId),
+              [.text('${item.company} - ${item.title}')],
             ),
           ]),
       ]),

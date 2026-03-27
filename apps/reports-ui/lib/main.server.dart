@@ -104,6 +104,46 @@ void main() async {
     }
   });
 
+  router.get(evaluateUrlHistoryDetailApiPath, (request) async {
+    final url = request.url.queryParameters['url']?.trim() ?? '';
+    if (url.isEmpty) {
+      return Response(
+        HttpStatus.badRequest,
+        body: jsonEncode({
+          'error': evaluationErrorInvalidRequest,
+          'message': 'Query parameter "url" is required.',
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    }
+
+    try {
+      final payload = await evaluationUrlHistoryRepository.loadLatestAdHocDetail(url);
+      if (payload == null) {
+        return Response(
+          HttpStatus.notFound,
+          body: jsonEncode({
+            'error': evaluationErrorHistoryDetailNotFound,
+            'message': 'No saved ad-hoc evaluation was found for this URL.',
+          }),
+          headers: const {'content-type': jsonContentType},
+        );
+      }
+      return Response.ok(
+        jsonEncode(payload),
+        headers: const {'content-type': jsonContentType},
+      );
+    } catch (error) {
+      return Response.internalServerError(
+        body: jsonEncode({
+          'error': evaluationErrorHistoryDetailLoadFailed,
+          'message': 'Failed to load the saved ad-hoc evaluation.',
+        }),
+        headers: const {'content-type': jsonContentType},
+      );
+    }
+  });
+
   router.post(evaluateApiPath, (request) async {
     try {
       final body = await request.readAsString();
@@ -161,8 +201,6 @@ void main() async {
   router.mount(
     '/',
     serveApp((request, render) {
-      // Optionally do something with `request`
-      print("Request uri is ${request.requestedUri} (${request.url})");
       // Return a server-rendered response by calling `render()` with your root component
       return render(
         Document(

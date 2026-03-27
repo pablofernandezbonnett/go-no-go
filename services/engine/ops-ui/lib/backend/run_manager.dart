@@ -227,7 +227,7 @@ class RunRecord {
     }
   }
 
-  Map<String, Object?> toJson({bool includeLogs = true}) {
+  Map<String, Object?> toJson() {
     return {
       'runId': runId,
       'status': status.name,
@@ -235,11 +235,7 @@ class RunRecord {
       'startedAt': startedAt?.toUtc().toIso8601String(),
       'finishedAt': finishedAt?.toUtc().toIso8601String(),
       'exitCode': exitCode,
-      'outputDir': outputDir,
       'request': request.toJson(),
-      'command': command,
-      'arguments': arguments,
-      if (includeLogs) 'logs': logs,
     };
   }
 }

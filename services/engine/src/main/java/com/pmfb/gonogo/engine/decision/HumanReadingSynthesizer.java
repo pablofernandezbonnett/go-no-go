@@ -276,7 +276,9 @@ final class HumanReadingSynthesizer {
             HumanReadingLevel opportunityQuality
     ) {
         LinkedHashSet<String> reasons = new LinkedHashSet<>();
-        if (hardRejectReasons.contains("salary information is missing or non-transparent")) {
+        boolean salaryOpaque = hardRejectReasons.contains("salary information is missing or non-transparent")
+                || riskSignals.contains(SignalIds.SALARY_LOW_CONFIDENCE);
+        if (salaryOpaque) {
             reasons.add("Salary is opaque, so interview ROI is hard to justify under this persona.");
         }
         if (riskSignals.contains(SignalIds.LANGUAGE_FRICTION_CRITICAL)

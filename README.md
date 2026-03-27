@@ -4,9 +4,19 @@ Monorepo for the Go No-Go system.
 
 The engine remains the source of truth. The browser UIs are companion layers for operations and report consumption, not replacements for the CLI contracts.
 
+## Public Status
+
+This repository is published as a personal read-only project for reference.
+
+- License: [MIT](LICENSE)
+- Contribution policy: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+
+Personal candidate profiles, CVs, and other private job-search inputs are local-only runtime files and must not be committed. The tracked repository keeps templates and examples only.
+
 ## Stack
 
-- `services/engine`: Java 25 + Gradle + Picocli
+- `services/engine`: Java 21 + Gradle + Picocli
 - `services/engine/ops-ui`: Jaspr + Dart
 - `apps/reports-ui`: Jaspr + Dart
 
@@ -18,7 +28,7 @@ The engine remains the source of truth. The browser UIs are companion layers for
 
 ## Prerequisites
 
-- Java 25 available on your `PATH`
+- Java 21 available on your `PATH`
 - Dart SDK installed
 - `jaspr_cli` installed for local UI development
 
@@ -36,17 +46,13 @@ cd services/engine
 Operations UI:
 
 ```bash
-cd services/engine/ops-ui
-dart pub get
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
 
 Reports UI:
 
 ```bash
-cd apps/reports-ui
-dart pub get
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
 
 Project-specific documentation:
@@ -88,20 +94,21 @@ When running both Jaspr UIs at the same time, the HTTP ports are not enough by t
 Recommended local dev commands:
 
 ```bash
-cd services/engine/ops-ui
-jaspr serve --port 8791 --web-port 5467 --proxy-port 5567
+./scripts/run-ops-ui.sh
 ```
 
 ```bash
-cd apps/reports-ui
-jaspr serve --port 8792 --web-port 5468 --proxy-port 5568
+./scripts/run-reports-ui.sh
 ```
+
+These root helpers already `cd` into the correct app and pin distinct `--web-port` / `--proxy-port` values so both Jaspr apps can run together without colliding.
 
 ## Working Agreements
 
 - Cross-project repository rules live in `AGENTS.md` at the repository root.
 - Pull requests for this repository use the root `.github/PULL_REQUEST_TEMPLATE.md`.
 - Child project documentation remains inside each imported project directory when present.
+- Browser UIs intentionally avoid exposing local profile YAML, filesystem paths, shell commands, or live execution logs.
 
 ## Verification Entry Point
 

@@ -1066,7 +1066,7 @@ public final class CareerPageFetchService {
         } catch (InterruptedException e) {
             created.completeExceptionally(e);
             throw e;
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             created.completeExceptionally(e);
             throw e;
         } finally {

@@ -43,28 +43,7 @@ void main() async {
       }
       return _jsonResponse(detail.toJson());
     } catch (error) {
-      return _jsonResponse(
-        {'error': 'persona_load_failed', 'message': error.toString()},
-        statusCode: HttpStatus.internalServerError,
-      );
-    }
-  });
-
-  router.get('/api/config/candidate-profiles/<id>', (request, String id) async {
-    try {
-      final detail = await configRepository.loadCandidateProfileDetail(id);
-      if (detail == null) {
-        return _jsonResponse(
-          {'error': 'candidate_profile_not_found', 'id': id},
-          statusCode: HttpStatus.notFound,
-        );
-      }
-      return _jsonResponse(detail.toJson());
-    } catch (error) {
-      return _jsonResponse(
-        {'error': 'candidate_profile_load_failed', 'message': error.toString()},
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('persona_load_failed', 'Failed to load persona detail.');
     }
   });
 
@@ -101,24 +80,18 @@ void main() async {
       final msg = error.message;
       if (msg.contains('not found')) {
         return _jsonResponse(
-          {'error': 'persona_not_found', 'message': msg},
+          {'error': 'persona_not_found', 'message': 'Persona not found.'},
           statusCode: HttpStatus.notFound,
         );
       }
-      return _jsonResponse(
-        {'error': 'tuning_failed', 'message': msg},
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('tuning_failed', 'Failed to update persona tuning.');
     } on FormatException catch (error) {
       return _jsonResponse(
         {'error': 'invalid_request', 'message': error.message},
         statusCode: HttpStatus.badRequest,
       );
     } catch (error) {
-      return _jsonResponse(
-        {'error': 'tuning_failed', 'message': error.toString()},
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('tuning_failed', 'Failed to update persona tuning.');
     }
   });
 
@@ -126,7 +99,6 @@ void main() async {
     return _jsonResponse(
       {
         'status': 'ok',
-        'engineRoot': engineRoot.path,
       },
     );
   });
@@ -136,13 +108,7 @@ void main() async {
       final catalog = await configRepository.loadCatalog();
       return _jsonResponse(catalog.toJson());
     } catch (error) {
-      return _jsonResponse(
-        {
-          'error': 'config_load_failed',
-          'message': error.toString(),
-        },
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('config_load_failed', 'Failed to load configuration.');
     }
   });
 
@@ -195,13 +161,7 @@ void main() async {
         statusCode: HttpStatus.conflict,
       );
     } catch (error) {
-      return _jsonResponse(
-        {
-          'error': 'company_create_failed',
-          'message': error.toString(),
-        },
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('company_create_failed', 'Failed to create company.');
     }
   });
 
@@ -270,18 +230,12 @@ void main() async {
         statusCode: HttpStatus.conflict,
       );
     } catch (error) {
-      return _jsonResponse(
-        {
-          'error': 'persona_create_failed',
-          'message': error.toString(),
-        },
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('persona_create_failed', 'Failed to create persona.');
     }
   });
 
   router.get('/api/runs', (request) {
-    final runs = runManager.listRuns().map((item) => item.toJson(includeLogs: false)).toList();
+    final runs = runManager.listRuns().map((item) => item.toJson()).toList();
     return _jsonResponse({'runs': runs});
   });
 
@@ -296,7 +250,7 @@ void main() async {
         statusCode: HttpStatus.notFound,
       );
     }
-    return _jsonResponse(run.toJson(includeLogs: true));
+    return _jsonResponse(run.toJson());
   });
 
   router.post('/api/runs', (request) async {
@@ -315,7 +269,7 @@ void main() async {
 
       final runRequest = RunRequest.fromJson(decoded);
       final run = await runManager.submit(runRequest);
-      return _jsonResponse(run.toJson(includeLogs: true), statusCode: HttpStatus.accepted);
+      return _jsonResponse(run.toJson(), statusCode: HttpStatus.accepted);
     } on FormatException catch (error) {
       return _jsonResponse(
         {
@@ -325,13 +279,7 @@ void main() async {
         statusCode: HttpStatus.badRequest,
       );
     } catch (error) {
-      return _jsonResponse(
-        {
-          'error': 'run_submit_failed',
-          'message': error.toString(),
-        },
-        statusCode: HttpStatus.internalServerError,
-      );
+      return _internalErrorResponse('run_submit_failed', 'Failed to submit run.');
     }
   });
 
@@ -420,6 +368,16 @@ int? _parseOptionalInt(Object? raw) {
     return null;
   }
   return int.tryParse(text.replaceAll(',', ''));
+}
+
+Response _internalErrorResponse(String errorCode, String message) {
+  return _jsonResponse(
+    {
+      'error': errorCode,
+      'message': message,
+    },
+    statusCode: HttpStatus.internalServerError,
+  );
 }
 
 // Static signal catalog mirroring SignalRegistry.java (55 signals).

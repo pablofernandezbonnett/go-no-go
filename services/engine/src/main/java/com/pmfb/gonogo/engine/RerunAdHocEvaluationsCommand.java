@@ -77,7 +77,7 @@ public final class RerunAdHocEvaluationsCommand implements Callable<Integer> {
     }
 
     @Override
-    public Integer call() throws Exception {
+    public Integer call() throws IOException {
         List<Path> artifactFiles = findArtifactFiles();
         if (artifactFiles.isEmpty()) {
             System.err.println("No ad-hoc evaluation artifacts found in " + inputDir + " matching '" + pattern + "'.");

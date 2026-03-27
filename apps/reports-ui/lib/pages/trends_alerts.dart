@@ -17,28 +17,37 @@ class TrendsAlertsPage extends StatefulComponent {
 
 class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   static const _client = ReportsApiClient();
+  static const _description =
+      'Inspect trend history and alert artifacts generated from run deltas without exposing raw engine internals in the UI.';
 
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  String? _selectedRunId;
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _loadIndex();
+      final cachedIndex = _client.peekCachedIndex();
+      if (cachedIndex != null) {
+        _index = cachedIndex;
+        _isLoading = false;
+      } else {
+        _loadIndex();
+      }
     } else {
       _isLoading = false;
     }
   }
 
-  Future<void> _loadIndex() async {
+  Future<void> _loadIndex({bool forceRefresh = false}) async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _index == null || forceRefresh;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex();
+      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
       setState(() {
         _index = index;
         _isLoading = false;
@@ -54,22 +63,35 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   @override
   Component build(BuildContext context) {
     final requestedRunId = currentQueryParams(context)['run'];
-    if (!kIsWeb) return pageLoading('Trends & Alerts', 'Loading report index on the client...');
-    if (_isLoading) return pageLoading('Trends & Alerts', 'Loading trend artifacts...');
-    if (_loadError != null) return pageError('Trends & Alerts', _loadError!, _loadIndex);
+    if (!kIsWeb) return pageLoading('Trends & Alerts', 'Loading report index on the client...', description: _description);
+    if (_loadError != null) return pageError('Trends & Alerts', _loadError!, _loadIndex, description: _description);
     final index = _index;
-    if (index == null || index.runs.isEmpty) return pageEmpty('Trends & Alerts', 'No runs available.');
-    final run = selectRun(index.runs, requestedRunId);
-    if (run == null) return pageEmpty('Trends & Alerts', 'Selected run was not found.');
-    return _TrendsAlertsBody(run: run, runs: index.runs);
+    if (_isLoading && index == null) {
+      return pageLoading('Trends & Alerts', 'Loading trend artifacts...', description: _description);
+    }
+    if (index == null || index.runs.isEmpty) return pageEmpty('Trends & Alerts', 'No runs available.', description: _description);
+    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    if (run == null) return pageEmpty('Trends & Alerts', 'Selected run was not found.', description: _description);
+    return _TrendsAlertsBody(run: run, runs: index.runs, onRunSelected: _selectRun);
+  }
+
+  void _selectRun(ReportRunPayload run) {
+    setState(() {
+      _selectedRunId = run.runId;
+    });
   }
 }
 
 class _TrendsAlertsBody extends StatelessComponent {
-  const _TrendsAlertsBody({required this.run, required this.runs});
+  const _TrendsAlertsBody({
+    required this.run,
+    required this.runs,
+    required this.onRunSelected,
+  });
 
   final ReportRunPayload run;
   final List<ReportRunPayload> runs;
+  final void Function(ReportRunPayload run) onRunSelected;
 
   static const _prettyJson = JsonEncoder.withIndent('  ');
 
@@ -78,18 +100,26 @@ class _TrendsAlertsBody extends StatelessComponent {
     final trendHistory = run.trendHistoryReports.isEmpty ? null : run.trendHistoryReports.first;
     final trendAlerts = run.trendAlertsReports.isEmpty ? null : run.trendAlertsReports.first;
     return section(classes: 'page', [
-      h1([.text('Trends & Alerts')]),
+      ...pageHeader(
+        'Trends & Alerts',
+        'Inspect trend history and alert artifacts generated from run deltas without exposing raw engine internals in the UI.',
+      ),
       card([
         p([.text('Run: '), code([.text(run.runId)])]),
-        runTabs(runs: runs, selectedRunId: run.runId, destinationPath: '/trends'),
+        runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
       ]),
       card([
         h2([.text('Trend History')]),
         if (trendHistory == null)
           p([.text('No trend history YAML found for this run.')])
         else ...[
-          p([.text('File: ${trendHistory.relativePath}')]),
-          pre(classes: 'artifact', [.text(trendHistory.yamlContent)]),
+          artifactViewer(
+            title: trendHistory.historyId,
+            subtitle: 'Run ${run.runId} · ${trendHistory.fileName}',
+            formatLabel: 'YAML',
+            content: trendHistory.yamlContent,
+            preClasses: 'yaml-artifact',
+          ),
         ],
       ]),
       card([
@@ -97,8 +127,13 @@ class _TrendsAlertsBody extends StatelessComponent {
         if (trendAlerts == null)
           p([.text('No trend alerts JSON found for this run.')])
         else ...[
-          p([.text('File: ${trendAlerts.relativePath}')]),
-          pre(classes: 'artifact', [.text(_renderAlertsPayload(trendAlerts))]),
+          artifactViewer(
+            title: trendAlerts.alertsId,
+            subtitle: 'Run ${run.runId} · ${trendAlerts.fileName}',
+            formatLabel: 'JSON',
+            content: _renderAlertsPayload(trendAlerts),
+            preClasses: 'json-artifact',
+          ),
         ],
       ]),
     ]);
