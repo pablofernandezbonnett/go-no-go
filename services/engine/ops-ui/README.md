@@ -38,45 +38,29 @@ Prerequisites:
 - Dart SDK installed
 - `jaspr_cli` available on your `PATH`
 
-## Quick Start
+## Start Here
 
-From the monorepo root:
+- Repository quickstart: [`../../../docs/quickstart.md`](../../../docs/quickstart.md)
+- Full operational guide: [`../../../docs/advanced-guide.md`](../../../docs/advanced-guide.md)
+
+Run from the repository root:
 
 ```bash
 ./scripts/run-ops-ui.sh
 ```
 
-The root helper script:
-
-- starts from the monorepo root
-- `cd`s into `services/engine/ops-ui`
-- pins `--web-port 5467` and `--proxy-port 5567`
-- sets `ENGINE_ROOT` to the engine project by default
-
 Open:
 
 - `http://localhost:8791`
 
-This default is intentionally different from `apps/reports-ui` so both Jaspr UIs can run at the same time.
+The root helper script already:
 
-## Optional env vars
+- starts from the monorepo root
+- changes into `services/engine/ops-ui`
+- sets `ENGINE_ROOT` to the engine project by default
+- pins dedicated Jaspr `--web-port` and `--proxy-port` values so it can run alongside `reports-ui`
 
-- `OPS_UI_PORT`: override the Operations UI port explicitly.
-- `OPS_UI_WEB_PORT`: override the internal Jaspr webdev port.
-- `OPS_UI_PROXY_PORT`: override the internal Jaspr proxy port.
-- `ENGINE_ROOT`: override engine repository path.
-- `ENGINE_GRADLEW`: override gradle wrapper command path.
-
-## Running Alongside `reports-ui`
-
-If `apps/reports-ui` is also running, keep distinct Jaspr dev ports for each app.
-
-Recommended split:
-
-- `ops-ui`: `./scripts/run-ops-ui.sh`
-- `reports-ui`: `./scripts/run-reports-ui.sh`
-
-If you see `Address already in use` on `5467` or `5567`, the conflict is in Jaspr's internal dev servers, not in the final app URL.
+For custom ports, environment overrides, or Jaspr collision troubleshooting, use the advanced guide.
 
 ## Responsive UI
 

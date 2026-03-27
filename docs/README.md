@@ -4,6 +4,8 @@ This folder contains repository documentation assets, including stable screensho
 
 ## Files
 
+- `quickstart.md`: minimum command set for getting the whole monorepo running locally
+- `advanced-guide.md`: longer operational guide covering engine CLI and both Jaspr UIs
 - `pr-drafts/`: preserved PR draft documents for notable repository branches and review history
 - `screenshots/cli-check.html`: source template for the CLI screenshot
 - `screenshots/tui-launcher.html`: source template for the TUI screenshot
@@ -20,6 +22,11 @@ This folder contains repository documentation assets, including stable screensho
 - Java 21 available on your `PATH`
 - Dart SDK installed
 - `jaspr_cli` available on your `PATH`
+
+## Start Here
+
+- Repository quickstart: [`quickstart.md`](quickstart.md)
+- Full operational guide: [`advanced-guide.md`](advanced-guide.md)
 
 ## Regenerating Terminal Screenshots
 
