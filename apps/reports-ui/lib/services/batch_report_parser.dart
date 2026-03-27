@@ -9,6 +9,12 @@ List<BatchItemPayload> batchItemsFromDecodedJson(Object? decodedJson) {
   return rawItems.map((entry) => BatchItemPayload.fromJson(_asMap(entry))).toList();
 }
 
+String batchGeneratedAtFromDecodedJson(Object? decodedJson) {
+  final root = _asMap(decodedJson);
+  final value = root['generated_at'];
+  return value == null ? '' : value.toString();
+}
+
 Map<String, dynamic> _asMap(Object? value) {
   if (value is Map<String, dynamic>) {
     return value;

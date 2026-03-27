@@ -18,10 +18,13 @@ class BatchPage extends StatefulComponent {
 
 class _BatchPageState extends State<BatchPage> {
   static const _client = ReportsApiClient();
+  static const _description =
+      'Scan one batch report, filter verdicts, compare scores, and jump into the full reasoning behind each evaluated job.';
 
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  String? _selectedRunId;
 
   String _verdictFilter = 'ALL';
   String _sortBy = 'score_desc';
@@ -30,19 +33,25 @@ class _BatchPageState extends State<BatchPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      _loadIndex();
+      final cachedIndex = _client.peekCachedIndex();
+      if (cachedIndex != null) {
+        _index = cachedIndex;
+        _isLoading = false;
+      } else {
+        _loadIndex();
+      }
     } else {
       _isLoading = false;
     }
   }
 
-  Future<void> _loadIndex() async {
+  Future<void> _loadIndex({bool forceRefresh = false}) async {
     setState(() {
-      _isLoading = true;
+      _isLoading = _index == null || forceRefresh;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex();
+      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
       setState(() {
         _index = index;
         _isLoading = false;
@@ -58,32 +67,43 @@ class _BatchPageState extends State<BatchPage> {
   @override
   Component build(BuildContext context) {
     final requestedRunId = currentQueryParams(context)['run'];
-    if (!kIsWeb) return pageLoading('Batch', 'Loading report index on the client...');
-    if (_isLoading) return pageLoading('Batch', 'Loading batch artifacts...');
-    if (_loadError != null) return pageError('Batch', _loadError!, _loadIndex);
+    if (!kIsWeb) return pageLoading('Batch', 'Loading report index on the client...', description: _description);
+    if (_loadError != null) return pageError('Batch', _loadError!, _loadIndex, description: _description);
     final index = _index;
-    if (index == null || index.runs.isEmpty) return pageEmpty('Batch', 'No runs available.');
-    final run = selectRun(index.runs, requestedRunId);
-    if (run == null) return pageEmpty('Batch', 'Selected run was not found.');
+    if (_isLoading && index == null) {
+      return pageLoading('Batch', 'Loading batch artifacts...', description: _description);
+    }
+    if (index == null || index.runs.isEmpty) return pageEmpty('Batch', 'No runs available.', description: _description);
+    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    if (run == null) return pageEmpty('Batch', 'Selected run was not found.', description: _description);
     final batchReport = run.batchEvaluationJsonReports.isEmpty
         ? null
         : run.batchEvaluationJsonReports.first;
     final allItems = batchReport == null
         ? const <BatchItemPayload>[]
         : batchItemsFromDecodedJson(batchReport.decodedJson);
+    final generatedAt = batchReport == null ? '' : batchGeneratedAtFromDecodedJson(batchReport.decodedJson);
     final rows = _applyFiltersAndSort(allItems);
     return _BatchBody(
       run: run,
       runs: index.runs,
       issues: index.issues,
       batchReport: batchReport,
+      generatedAt: generatedAt,
       allItems: allItems,
       rows: rows,
       verdictFilter: _verdictFilter,
       sortBy: _sortBy,
+      onRunSelected: _selectRun,
       onVerdictFilterChange: (v) => setState(() { _verdictFilter = v; }),
       onSortByChange: (v) => setState(() { _sortBy = v; }),
     );
+  }
+
+  void _selectRun(ReportRunPayload run) {
+    setState(() {
+      _selectedRunId = run.runId;
+    });
   }
 
   List<BatchItemPayload> _applyFiltersAndSort(List<BatchItemPayload> items) {
@@ -116,10 +136,12 @@ class _BatchBody extends StatelessComponent {
     required this.runs,
     required this.issues,
     required this.batchReport,
+    required this.generatedAt,
     required this.allItems,
     required this.rows,
     required this.verdictFilter,
     required this.sortBy,
+    required this.onRunSelected,
     required this.onVerdictFilterChange,
     required this.onSortByChange,
   });
@@ -128,33 +150,51 @@ class _BatchBody extends StatelessComponent {
   final List<ReportRunPayload> runs;
   final List<ReportIssuePayload> issues;
   final BatchEvaluationJsonPayload? batchReport;
+  final String generatedAt;
   final List<BatchItemPayload> allItems;
   final List<BatchItemPayload> rows;
   final String verdictFilter;
   final String sortBy;
+  final void Function(ReportRunPayload run) onRunSelected;
   final void Function(String) onVerdictFilterChange;
   final void Function(String) onSortByChange;
 
   @override
   Component build(BuildContext context) {
     return section(classes: 'page', [
-      h1([.text('Batch')]),
+      ...pageHeader(
+        'Batch',
+        'Scan one batch report, filter verdicts, compare scores, and jump into the full reasoning behind each evaluated job.',
+      ),
       card([
         p([.text('Run: '), code([.text(run.runId)])]),
-        runTabs(runs: runs, selectedRunId: run.runId, destinationPath: '/batch'),
+        runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
         ...issueList(issues),
         if (batchReport == null)
           p([.text('No batch JSON report found for this run.')])
         else ...[
+          div(classes: 'summary-grid', [
+            _metric('Run', run.runId),
+            _metric('Report file', batchReport!.fileName),
+            _metric('Last update', generatedAt.isEmpty ? 'Unknown' : formatFriendlyDateTime(generatedAt)),
+            _metric('Visible rows', '${rows.length} / ${allItems.length}'),
+          ]),
           _BatchFilters(
             verdictFilter: verdictFilter,
             sortBy: sortBy,
             onVerdictFilterChange: onVerdictFilterChange,
             onSortByChange: onSortByChange,
           ),
-          _BatchTable(rows: rows, allItems: allItems, runId: run.runId),
+          _BatchTable(rows: rows, allItems: allItems, runId: run.runId, generatedAt: generatedAt),
         ],
       ]),
+    ]);
+  }
+
+  Component _metric(String labelText, String valueText) {
+    return div(classes: 'metric', [
+      div(classes: 'metric-label', [.text(labelText)]),
+      div(classes: 'metric-value', [.text(valueText)]),
     ]);
   }
 }
@@ -206,14 +246,21 @@ class _BatchFilters extends StatelessComponent {
 }
 
 class _BatchTable extends StatelessComponent {
-  const _BatchTable({required this.rows, required this.allItems, required this.runId});
+  const _BatchTable({
+    required this.rows,
+    required this.allItems,
+    required this.runId,
+    required this.generatedAt,
+  });
 
   final List<BatchItemPayload> rows;
   final List<BatchItemPayload> allItems;
   final String runId;
+  final String generatedAt;
 
   @override
   Component build(BuildContext context) {
+    final formattedGeneratedAt = generatedAt.isEmpty ? 'Unknown' : formatFriendlyDateTime(generatedAt);
     return div([
       p([.text('Showing ${rows.length} items (from ${allItems.length}).')]),
       if (rows.isEmpty)
@@ -227,6 +274,7 @@ class _BatchTable extends StatelessComponent {
               th([.text('Verdict')]),
               th([.text('Score')]),
               th([.text('Change')]),
+              th([.text('Last update')]),
               th([.text('Detail')]),
             ]),
           ]),
@@ -238,6 +286,7 @@ class _BatchTable extends StatelessComponent {
                 td([.text(item.verdict)]),
                 td([.text(item.score == null ? 'n/a' : '${item.score}/100')]),
                 td([.text(item.changeStatus.isEmpty ? '-' : item.changeStatus)]),
+                td([.text(formattedGeneratedAt)]),
                 td([
                   Link(
                     to: buildRouteWithQuery('/job', {'run': runId, 'job': item.jobId}),

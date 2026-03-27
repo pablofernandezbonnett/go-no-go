@@ -16,7 +16,7 @@ Personal candidate profiles, CVs, and other private job-search inputs are local-
 
 ## Stack
 
-- `services/engine`: Java 25 + Gradle + Picocli
+- `services/engine`: Java 21 + Gradle + Picocli
 - `services/engine/ops-ui`: Jaspr + Dart
 - `apps/reports-ui`: Jaspr + Dart
 
@@ -28,7 +28,7 @@ Personal candidate profiles, CVs, and other private job-search inputs are local-
 
 ## Prerequisites
 
-- Java 25 available on your `PATH`
+- Java 21 available on your `PATH`
 - Dart SDK installed
 - `jaspr_cli` installed for local UI development
 
