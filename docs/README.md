@@ -1,36 +1,25 @@
 # Documentation Assets
 
-This folder contains repository documentation assets, including stable screenshots and preserved PR draft documents used for project tracking.
+Repository docs, screenshot sources, and preserved PR draft notes.
 
-## Files
+## Main Files
 
-- `quickstart.md`: minimum command set for getting the whole monorepo running locally
-- `advanced-guide.md`: longer operational guide covering engine CLI and both Jaspr UIs
-- `pr-drafts/`: preserved PR draft documents for notable repository branches and review history
-- `screenshots/cli-check.html`: source template for the CLI screenshot
-- `screenshots/tui-launcher.html`: source template for the TUI screenshot
-- `screenshots/terminal.css`: shared styling for terminal-style screenshots
-- `screenshots/cli-check.png`: rendered CLI screenshot used in the READMEs
-- `screenshots/tui-launcher.png`: rendered TUI screenshot used in the READMEs
-- `screenshots/ops-ui-home.png`: Operations UI home screen capture
-- `screenshots/reports-ui-batch.png`: Reports UI batch screen capture
-- `screenshots/reports-ui-runs.png`: optional Reports UI runs capture
-- `screenshots/reports-ui-evaluate.png`: optional Reports UI evaluate capture
+- `quickstart.md`: minimum commands for getting the monorepo running locally.
+- `advanced-guide.md`: deeper CLI/UI setup, runtime notes, and troubleshooting.
+- `pr-drafts/`: preserved draft documents for notable repository branches.
+- `screenshots/`: stable assets used by the README files.
 
-## Prerequisites
+## Screenshot Set
 
-- Java 21 available on your `PATH`
-- Dart SDK installed
-- `jaspr_cli` available on your `PATH`
+- `screenshots/cli-check.html` and `screenshots/cli-check.png`: sample CLI evaluation render.
+- `screenshots/tui-launcher.html` and `screenshots/tui-launcher.png`: terminal launcher render.
+- `screenshots/ops-ui-home.png`: current Operations UI create-run capture.
+- `screenshots/reports-ui-evaluate.png`: evaluate workflow with live results.
+- `screenshots/reports-ui-evaluate-modal.png`: saved evaluation modal from URL history.
+- `screenshots/reports-ui-batch.png`: batch report table capture.
+- `screenshots/reports-ui-runs.png`: optional runs overview capture.
 
-## Start Here
-
-- Repository quickstart: [`quickstart.md`](quickstart.md)
-- Full operational guide: [`advanced-guide.md`](advanced-guide.md)
-
-## Regenerating Terminal Screenshots
-
-These screenshots are intentionally stable documentation renders, not raw terminal captures.
+## Refreshing Terminal Screenshots
 
 Validate the current commands first:
 
@@ -43,52 +32,32 @@ cd services/engine
 
 Then:
 
-1. Update `docs/screenshots/cli-check.html` or `docs/screenshots/tui-launcher.html` if the visible output changed.
-2. Keep shared terminal styling in `docs/screenshots/terminal.css`.
-3. Open the HTML file in a browser.
-4. Export a PNG screenshot and overwrite the matching file in `docs/screenshots/`.
+1. Update the matching HTML template if the visible output changed.
+2. Keep shared styling in `screenshots/terminal.css`.
+3. Export the PNG without browser chrome.
 
-Recommended capture shape:
-
-- desktop width
-- the full terminal frame visible
-- no browser chrome in the final PNG
-
-## Regenerating Browser Screenshots
-
-Run the Operations UI:
+## Refreshing Browser Screenshots
 
 From the monorepo root:
 
 ```bash
 ./scripts/run-ops-ui.sh
-```
-
-Run the Reports UI:
-
-From the monorepo root:
-
-```bash
 ./scripts/run-reports-ui.sh
 ```
 
-Capture the pages used by the documentation:
+Current capture targets:
 
-- `http://localhost:8791` for `screenshots/ops-ui-home.png`
-- `http://localhost:8792/batch` for `screenshots/reports-ui-batch.png`
+- `http://localhost:8791` -> `screenshots/ops-ui-home.png`
+- `http://localhost:8792/evaluate` -> `screenshots/reports-ui-evaluate.png`
+- `http://localhost:8792/evaluate` with a saved-evaluation modal open -> `screenshots/reports-ui-evaluate-modal.png`
+- `http://localhost:8792/batch?run=root` -> `screenshots/reports-ui-batch.png`
+- `http://localhost:8792/` -> `screenshots/reports-ui-runs.png` (optional)
 
-Optional extra captures:
+## Finish
 
-- `http://localhost:8792/` for `screenshots/reports-ui-runs.png`
-- `http://localhost:8792/evaluate` for `screenshots/reports-ui-evaluate.png`
-
-These root helper scripts already switch into the correct app directories and keep the distinct `--web-port` and `--proxy-port` values required to run both Jaspr apps together.
-
-## After Updating Assets
-
-1. Check the affected README files render the new images correctly.
+1. Check that the affected README files render the new images correctly.
 2. Keep file names stable unless there is a clear reason to rename them.
-3. Run repository verification from the root:
+3. Run repository verification:
 
 ```bash
 ./scripts/verify.sh
