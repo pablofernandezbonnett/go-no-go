@@ -29,6 +29,20 @@ The engine fetches or accepts raw job input, normalizes it into a stable job sha
 - `src/main/java/com/pmfb/gonogo/engine/report`: batch, weekly, trend, and ad-hoc output writing.
 - `ops-ui/`: engine-owned browser companion for operational workflows.
 
+## Candidate Profile Privacy Contract
+
+This project may use local candidate profiles for candidate-aware evaluation.
+
+Real candidate profiles are private local runtime inputs and must stay outside
+version control.
+
+They are operational projections used for offer evaluation and scoring, not the
+canonical candidate narrative source.
+
+If candidate-aware evaluation is needed, keep the runtime profile local and
+derive it from the private canonical candidate profile maintained outside this
+repository.
+
 ## Common Workflows
 
 - `./gradlew run --args="config validate"`: validate tracked config files.
