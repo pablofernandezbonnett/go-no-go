@@ -37,6 +37,7 @@ void main() async {
   );
 
   final port = _resolvePort(Platform.environment);
+  final bindAddress = _resolveBindAddress(Platform.environment);
   var router = Router();
   final engineRoot = _resolveEngineRoot(Platform.environment);
   final gradlew = _resolveGradlew(Platform.environment);
@@ -159,7 +160,7 @@ void main() async {
         );
       }
 
-      final evaluationRequest = EvaluationRequest.fromJson(decoded);
+      final evaluationRequest = await EvaluationRequest.fromJson(decoded);
       final catalog = await engineCatalogRepository.loadEvaluateCatalog();
       final result = await evaluationRunner.evaluate(
         evaluationRequest,
@@ -236,7 +237,7 @@ void main() async {
   // Object to resolve async locking of reloads.
   var reloadLock = activeReloadLock = Object();
 
-  var server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port, shared: true);
+  var server = await shelf_io.serve(handler, bindAddress, port, shared: true);
 
   // If the reload lock changed, another reload happened and we should abort.
   if (reloadLock != activeReloadLock) {
@@ -250,6 +251,8 @@ void main() async {
 
   print('Serving at http://${server.address.host}:${server.port}');
 }
+
+const reportsUiBindHostEnvVar = 'REPORTS_UI_BIND_HOST';
 
 /// Keeps track of the currently running http server.
 HttpServer? activeServer;
@@ -287,6 +290,23 @@ int _resolvePort(Map<String, String> environment) {
     }
   }
   return fallbackPort;
+}
+
+InternetAddress _resolveBindAddress(Map<String, String> environment) {
+  final configured = environment[reportsUiBindHostEnvVar]?.trim() ?? '';
+  if (configured.isEmpty || configured.toLowerCase() == 'localhost') {
+    return InternetAddress.loopbackIPv4;
+  }
+
+  final parsed = InternetAddress.tryParse(configured);
+  if (parsed != null) {
+    return parsed;
+  }
+  throw ArgumentError.value(
+    configured,
+    reportsUiBindHostEnvVar,
+    'Use localhost or an IP literal such as 127.0.0.1 or 0.0.0.0.',
+  );
 }
 
 String _safeEvaluationMessage(String message) {

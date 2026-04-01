@@ -23,6 +23,7 @@ void main() async {
 
   final engineRoot = _resolveEngineRoot(Platform.environment);
   final gradlew = _resolveGradlew(Platform.environment);
+  final bindAddress = _resolveBindAddress(Platform.environment);
   final configRepository = EngineConfigRepository(engineRoot: engineRoot);
   final runManager = RunManager(engineRoot: engineRoot, gradlewCommand: gradlew);
 
@@ -313,7 +314,7 @@ void main() async {
 
   final reloadLock = activeReloadLock = Object();
   final port = _resolvePort(Platform.environment);
-  final server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port, shared: true);
+  final server = await shelf_io.serve(handler, bindAddress, port, shared: true);
 
   if (reloadLock != activeReloadLock) {
     await server.close();
@@ -327,6 +328,7 @@ void main() async {
 
 HttpServer? activeServer;
 Object? activeReloadLock;
+const opsUiBindHostEnvVar = 'OPS_UI_BIND_HOST';
 
 Directory _resolveEngineRoot(Map<String, String> environment) {
   final configured = environment['ENGINE_ROOT'];
@@ -345,6 +347,23 @@ String _resolveGradlew(Map<String, String> environment) {
     return configured.trim();
   }
   return './gradlew';
+}
+
+InternetAddress _resolveBindAddress(Map<String, String> environment) {
+  final configured = environment[opsUiBindHostEnvVar]?.trim() ?? '';
+  if (configured.isEmpty || configured.toLowerCase() == 'localhost') {
+    return InternetAddress.loopbackIPv4;
+  }
+
+  final parsed = InternetAddress.tryParse(configured);
+  if (parsed != null) {
+    return parsed;
+  }
+  throw ArgumentError.value(
+    configured,
+    opsUiBindHostEnvVar,
+    'Use localhost or an IP literal such as 127.0.0.1 or 0.0.0.0.',
+  );
 }
 
 int _resolvePort(Map<String, String> environment) {

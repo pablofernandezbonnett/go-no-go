@@ -3,6 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+final _companyUrlSafety = _CompanyUrlSafety();
+final _configIdPattern = RegExp(r'^[a-z0-9_]+$');
+final _ipv4LiteralPattern = RegExp(r'^\d{1,3}(?:\.\d{1,3}){3}$');
+
 class EngineConfigCatalog {
   const EngineConfigCatalog({
     required this.personaIds,
@@ -123,6 +127,8 @@ class EngineConfigRepository {
   Future<CompanyOption> addCompany(CompanyCreateInput input) async {
     final normalized = input.normalized();
     normalized.validate();
+    await _companyUrlSafety.validateUrl(normalized.careerUrl, fieldName: 'careerUrl');
+    await _companyUrlSafety.validateUrl(normalized.corporateUrl, fieldName: 'corporateUrl');
 
     final companiesPath = p.join(engineRoot.path, _configFolder, _companiesFile);
     final companiesFile = File(companiesPath);
@@ -582,6 +588,9 @@ class CompanyCreateInput {
     if (id.isEmpty) {
       throw const FormatException('Field "id" is required.');
     }
+    if (!_configIdPattern.hasMatch(id)) {
+      throw const FormatException('Field "id" must use lowercase letters, numbers, or underscores.');
+    }
     if (name.isEmpty) {
       throw const FormatException('Field "name" is required.');
     }
@@ -647,6 +656,9 @@ class PersonaCreateInput {
     if (id.isEmpty) {
       throw const FormatException('Field "id" is required.');
     }
+    if (!_configIdPattern.hasMatch(id)) {
+      throw const FormatException('Field "id" must use lowercase letters, numbers, or underscores.');
+    }
     if (minimumSalaryYen != null && minimumSalaryYen! <= 0) {
       throw const FormatException('Field "minimumSalaryYen" must be positive when provided.');
     }
@@ -658,5 +670,90 @@ class PersonaCreateInput {
       return normalized;
     }
     return List<String>.from(fallback);
+  }
+}
+
+class _CompanyUrlSafety {
+  Future<void> validateUrl(String rawUrl, {required String fieldName}) async {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) {
+      throw FormatException('Field "$fieldName" is required.');
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme) {
+      throw FormatException('Field "$fieldName" must be a valid URL.');
+    }
+    if ((uri.scheme != 'http' && uri.scheme != 'https') || uri.host.trim().isEmpty) {
+      throw FormatException('Field "$fieldName" must be a public http/https URL.');
+    }
+    if (uri.userInfo.isNotEmpty) {
+      throw FormatException('Field "$fieldName" cannot contain embedded credentials.');
+    }
+
+    final host = uri.host.trim().toLowerCase();
+    if (_isBlockedHostname(host) || _isPrivateOrLocalIpLiteral(host)) {
+      throw FormatException('Field "$fieldName" cannot target local or private network addresses.');
+    }
+    if (await _resolvesToPrivateOrLocalAddress(host)) {
+      throw FormatException('Field "$fieldName" cannot target local or private network addresses.');
+    }
+  }
+
+  bool _isBlockedHostname(String host) {
+    return host == 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal');
+  }
+
+  bool _isPrivateOrLocalIpLiteral(String host) {
+    if (!_ipv4LiteralPattern.hasMatch(host) && !host.contains(':')) {
+      return false;
+    }
+
+    final address = InternetAddress.tryParse(host);
+    if (address == null) {
+      return false;
+    }
+    return _isPrivateOrLocalResolvedAddress(address);
+  }
+
+  Future<bool> _resolvesToPrivateOrLocalAddress(String host) async {
+    try {
+      final addresses = await InternetAddress.lookup(host);
+      for (final address in addresses) {
+        if (_isPrivateOrLocalResolvedAddress(address)) {
+          return true;
+        }
+      }
+      return false;
+    } on SocketException {
+      return false;
+    }
+  }
+
+  bool _isPrivateOrLocalResolvedAddress(InternetAddress address) {
+    if (address.isLoopback || address.isLinkLocal || address.isMulticast || address.type == InternetAddressType.unix) {
+      return true;
+    }
+
+    final rawAddress = address.rawAddress;
+    if (rawAddress.length == 4) {
+      final first = rawAddress[0];
+      final second = rawAddress[1];
+      return first == 0 ||
+          first == 10 ||
+          first == 127 ||
+          (first == 169 && second == 254) ||
+          (first == 172 && second >= 16 && second <= 31) ||
+          (first == 192 && second == 168) ||
+          (first == 100 && second >= 64 && second <= 127) ||
+          (first == 198 && (second == 18 || second == 19));
+    }
+
+    if (rawAddress.length == 16) {
+      final first = rawAddress[0];
+      return first == 0 || first == 0xfc || first == 0xfd;
+    }
+
+    return false;
   }
 }

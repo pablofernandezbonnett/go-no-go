@@ -23,7 +23,7 @@ const _adhocTextSuffix = 'text';
 const _fileExtension = '.yaml';
 const _stableNameMaxLength = 72;
 
-const _inputSafety = EvaluationInputSafety();
+final _inputSafety = EvaluationInputSafety();
 
 class EvaluationRequest {
   const EvaluationRequest({
@@ -40,7 +40,7 @@ class EvaluationRequest {
   final String jobUrl;
   final String rawText;
 
-  static EvaluationRequest fromJson(Map<String, dynamic> json) {
+  static Future<EvaluationRequest> fromJson(Map<String, dynamic> json) async {
     final inputMode = (json['inputMode']?.toString() ?? inputModeRawText).trim().toLowerCase();
     final personaId = (json['personaId']?.toString() ?? '').trim();
     final candidateProfileId = (json['candidateProfileId']?.toString() ?? '').trim();
@@ -54,7 +54,7 @@ class EvaluationRequest {
       throw const FormatException('inputMode must be url or raw_text.');
     }
 
-    final sanitizedJobUrl = inputMode == inputModeUrl ? _inputSafety.validateUrl(jobUrl) : '';
+    final sanitizedJobUrl = inputMode == inputModeUrl ? await _inputSafety.validateUrl(jobUrl) : '';
     final sanitizedRawText = inputMode == inputModeRawText ? _inputSafety.sanitizeRawText(rawText) : '';
 
     return EvaluationRequest(

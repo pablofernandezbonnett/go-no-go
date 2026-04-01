@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'models/report_models.dart';
 import 'report_source.dart';
 
+const _artifactPathKeys = {'source_file', 'batch_json', 'weekly_digest'};
+
 class ReportIndexBuilder {
   const ReportIndexBuilder();
 
@@ -62,7 +64,7 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               reportId: identity.id,
               personaId: identity.personaId,
-              markdownContent: artifact.content,
+              markdownContent: _sanitizeArtifactText(artifact.content),
             ),
           );
         case ReportSourceArtifactType.weeklyDigestMarkdown:
@@ -72,7 +74,7 @@ class ReportIndexBuilder {
               relativePath: artifact.relativePath,
               fileName: artifact.fileName,
               weeklyId: _stem(artifact.fileName),
-              markdownContent: artifact.content,
+              markdownContent: _sanitizeArtifactText(artifact.content),
             ),
           );
         case ReportSourceArtifactType.trendHistoryYaml:
@@ -87,7 +89,7 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               historyId: identity.id,
               personaId: identity.personaId,
-              yamlContent: artifact.content,
+              yamlContent: _sanitizeArtifactText(artifact.content),
             ),
           );
         case ReportSourceArtifactType.trendAlertsJson:
@@ -106,8 +108,8 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               alertsId: identity.id,
               personaId: identity.personaId,
-              rawJson: artifact.content,
-              decodedJson: decoded,
+              rawJson: _sanitizeJsonArtifactText(artifact.content),
+              decodedJson: _sanitizeArtifactPayload(decoded, blockedKeys: _artifactPathKeys),
               isValidJson: decoded != null,
             ),
           );
@@ -168,13 +170,17 @@ class ReportIndexBuilder {
 }
 
 Object? _sanitizeBatchPayload(Object? value) {
+  return _sanitizeArtifactPayload(value, blockedKeys: const {'source_file'});
+}
+
+Object? _sanitizeArtifactPayload(Object? value, {required Set<String> blockedKeys}) {
   if (value is Map<String, dynamic>) {
     final sanitized = <String, Object?>{};
     for (final entry in value.entries) {
-      if (entry.key == 'source_file') {
+      if (blockedKeys.contains(entry.key)) {
         continue;
       }
-      sanitized[entry.key] = _sanitizeBatchPayload(entry.value);
+      sanitized[entry.key] = _sanitizeArtifactPayload(entry.value, blockedKeys: blockedKeys);
     }
     return sanitized;
   }
@@ -182,17 +188,52 @@ Object? _sanitizeBatchPayload(Object? value) {
     final sanitized = <String, Object?>{};
     for (final entry in value.entries) {
       final key = entry.key.toString();
-      if (key == 'source_file') {
+      if (blockedKeys.contains(key)) {
         continue;
       }
-      sanitized[key] = _sanitizeBatchPayload(entry.value);
+      sanitized[key] = _sanitizeArtifactPayload(entry.value, blockedKeys: blockedKeys);
     }
     return sanitized;
   }
   if (value is List) {
-    return value.map(_sanitizeBatchPayload).toList();
+    return value.map((item) => _sanitizeArtifactPayload(item, blockedKeys: blockedKeys)).toList();
   }
   return value;
+}
+
+String _sanitizeArtifactText(String content) {
+  final lines = content.split(RegExp(r'\r?\n'));
+  final sanitized = <String>[];
+  for (final line in lines) {
+    final trimmed = line.trimLeft();
+    if (trimmed.startsWith('- source_file:')
+        || trimmed.startsWith('source_file:')
+        || trimmed.startsWith('batch_json:')
+        || trimmed.startsWith('weekly_digest:')) {
+      continue;
+    }
+    sanitized.add(line);
+  }
+  return sanitized.join('\n');
+}
+
+String _sanitizeJsonArtifactText(String rawJson) {
+  try {
+    final decoded = jsonDecode(rawJson);
+    final sanitized = _sanitizeArtifactPayload(decoded, blockedKeys: _artifactPathKeys);
+    return jsonEncode(sanitized);
+  } catch (_) {
+    // Fall back to line-oriented scrubbing when the artifact is malformed.
+  }
+
+  var sanitized = rawJson;
+  for (final key in _artifactPathKeys) {
+    sanitized = sanitized.replaceAll(
+      RegExp('"$key"\\s*:\\s*"([^"\\\\]|\\\\.)*"\\s*,?'),
+      '',
+    );
+  }
+  return sanitized.replaceAll(RegExp(',\\s*([}\\]])'), r'$1');
 }
 
 Object? _tryDecodeJson({

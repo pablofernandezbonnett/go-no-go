@@ -1,7 +1,7 @@
 package com.pmfb.gonogo.engine.config;
 
+import com.pmfb.gonogo.engine.DirectInputSecurity;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +25,7 @@ public final class ConfigValidator {
             "reputation_risk",
             "layoff_risk"
     );
+    private final DirectInputSecurity inputSecurity = new DirectInputSecurity();
 
     public List<String> validate(EngineConfig config) {
         List<String> errors = new ArrayList<>();
@@ -61,11 +62,11 @@ public final class ConfigValidator {
                 errors.add("Duplicate company name: " + company.name());
             }
 
-            if (!isValidHttpUrl(company.careerUrl())) {
-                errors.add(context + ".career_url must be a valid http/https URL");
+            if (!isValidPublicHttpUrl(company.careerUrl())) {
+                errors.add(context + ".career_url must be a valid public http/https URL");
             }
-            if (!isValidHttpUrl(company.corporateUrl())) {
-                errors.add(context + ".corporate_url must be a valid http/https URL");
+            if (!isValidPublicHttpUrl(company.corporateUrl())) {
+                errors.add(context + ".corporate_url must be a valid public http/https URL");
             }
 
             checkDuplicates(company.profileTags(), context + ".profile_tags", errors);
@@ -396,17 +397,14 @@ public final class ConfigValidator {
         }
     }
 
-    private boolean isValidHttpUrl(String candidate) {
+    private boolean isValidPublicHttpUrl(String candidate) {
         if (candidate == null || candidate.isBlank()) {
             return false;
         }
         try {
-            URI uri = new URI(candidate);
-            String scheme = uri.getScheme();
-            return ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
-                    && uri.getHost() != null
-                    && !uri.getHost().isBlank();
-        } catch (URISyntaxException e) {
+            inputSecurity.ensureSafeHttpUri(new URI(candidate));
+            return true;
+        } catch (Exception e) {
             return false;
         }
     }

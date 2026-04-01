@@ -104,7 +104,7 @@ public final class CareerPageFetchService {
         this(new CareerPageHttpFetcher(), new JobPostingExtractor());
     }
 
-    CareerPageFetchService(CareerPageFetcher fetcher, JobPostingExtractor extractor) {
+    public CareerPageFetchService(CareerPageFetcher fetcher, JobPostingExtractor extractor) {
         this.fetcher = fetcher;
         this.extractor = extractor;
     }

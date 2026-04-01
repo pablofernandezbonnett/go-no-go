@@ -33,6 +33,7 @@ Default local URL:
 - `http://localhost:8791`
 
 The helper script already sets `ENGINE_ROOT` and dedicated Jaspr ports so this app can run beside `reports-ui`.
+The server binds to loopback by default. Set `OPS_UI_BIND_HOST=0.0.0.0` only when you intentionally need LAN exposure.
 
 ## Boundary Rules
 

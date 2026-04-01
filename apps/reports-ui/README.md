@@ -45,6 +45,7 @@ jaspr build
 ```
 
 The helper script already sets `REPORTS_ROOT`, `ENGINE_ROOT`, and dedicated Jaspr ports so this app can run beside `ops-ui`.
+The server binds to loopback by default. Set `REPORTS_UI_BIND_HOST=0.0.0.0` only when you intentionally need LAN exposure.
 
 ## Screens
 

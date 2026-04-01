@@ -6,10 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
 import com.pmfb.gonogo.engine.decision.EvaluationResult;
 import com.pmfb.gonogo.engine.decision.Verdict;
+import com.pmfb.gonogo.engine.job.CareerPageFetcher;
 import com.pmfb.gonogo.engine.job.CareerPageFetchService;
-import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,60 +61,75 @@ final class PipelineRunCommandTest {
 
     @Test
     void runsPipelineWithFetchWebFirst() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
-        server.createContext(
-                "/careers",
-                exchange -> {
-                    String html = """
-                            <html>
-                              <body>
-                                <a href="/jobs/backend">Backend Engineer</a>
-                                <a href="/jobs/frontend">Frontend Engineer</a>
-                              </body>
-                            </html>
-                            """;
-                    byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
-                    exchange.sendResponseHeaders(200, bytes.length);
-                    exchange.getResponseBody().write(bytes);
-                    exchange.close();
-                }
+        String careerUrl = "https://example.com/careers";
+        Path tempDir = Files.createTempDirectory("gonogo-pipeline-fetch-web-test");
+        Path configDir = tempDir.resolve("config");
+        Path rawDir = tempDir.resolve("raw");
+        Path jobsDir = tempDir.resolve("output/jobs");
+        Path outputDir = tempDir.resolve("output");
+        Path weeklyPath = outputDir.resolve("weekly.md");
+
+        writeConfig(configDir, careerUrl);
+
+        CareerPageFetcher stubFetcher = (url, timeout, userAgent) -> {
+            String body = switch (url) {
+                case "https://example.com/careers" -> """
+                        <html>
+                          <body>
+                            <a href="/jobs/backend">Backend Engineer</a>
+                            <a href="/jobs/frontend">Frontend Engineer</a>
+                          </body>
+                        </html>
+                        """;
+                case "https://example.com/jobs/backend" -> """
+                        <html>
+                          <body>
+                            Company: Money Forward
+                            Title: Backend Engineer
+                            Location: Tokyo
+                            Salary: JPY 9,000,000 - 12,000,000
+                            Work style: Hybrid
+                            English-first team with product ownership and code review.
+                          </body>
+                        </html>
+                        """;
+                case "https://example.com/jobs/frontend" -> """
+                        <html>
+                          <body>
+                            Company: Money Forward
+                            Title: Frontend Engineer
+                            Location: Tokyo
+                            Salary: JPY 8,000,000 - 10,000,000
+                            Work style: Hybrid
+                            English-first team with strong frontend craft.
+                          </body>
+                        </html>
+                        """;
+                default -> "<html><body>Money Forward company overview.</body></html>";
+            };
+            return new com.pmfb.gonogo.engine.job.CareerPageHttpFetcher.FetchResult(200, url, body);
+        };
+
+        int exitCode = new CommandLine(new PipelineRunCommand(
+                new DecisionEngineV1(),
+                new CareerPageFetchService(stubFetcher, new com.pmfb.gonogo.engine.job.JobPostingExtractor())
+        )).execute(
+                "--persona", "product_expat_engineer",
+                "--raw-input-dir", rawDir.toString(),
+                "--raw-pattern", "*.txt",
+                "--fetch-web-first",
+                "--fetch-web-company-ids", "moneyforward",
+                "--config-dir", configDir.toString(),
+                "--jobs-output-dir", jobsDir.toString(),
+                "--batch-output-dir", outputDir.toString(),
+                "--weekly-output-file", weeklyPath.toString()
         );
-        server.start();
 
-        try {
-            String careerUrl = "http://localhost:" + server.getAddress().getPort() + "/careers";
-            Path tempDir = Files.createTempDirectory("gonogo-pipeline-fetch-web-test");
-            Path configDir = tempDir.resolve("config");
-            Path rawDir = tempDir.resolve("raw");
-            Path jobsDir = tempDir.resolve("output/jobs");
-            Path outputDir = tempDir.resolve("output");
-            Path weeklyPath = outputDir.resolve("weekly.md");
-
-            writeConfig(configDir, careerUrl);
-
-            int exitCode = new CommandLine(new GoNoGoCommand()).execute(
-                    "pipeline",
-                    "run",
-                    "--persona", "product_expat_engineer",
-                    "--raw-input-dir", rawDir.toString(),
-                    "--raw-pattern", "*.txt",
-                    "--fetch-web-first",
-                    "--fetch-web-company-ids", "moneyforward",
-                    "--config-dir", configDir.toString(),
-                    "--jobs-output-dir", jobsDir.toString(),
-                    "--batch-output-dir", outputDir.toString(),
-                    "--weekly-output-file", weeklyPath.toString()
-            );
-
-            assertEquals(0, exitCode);
-            assertTrue(Files.exists(rawDir.resolve("moneyforward/01-backend-engineer.txt")));
-            assertTrue(Files.exists(jobsDir.resolve("moneyforward/01-backend-engineer.generated.yaml")));
-            assertTrue(Files.exists(outputDir.resolve("batch-evaluation-product_expat_engineer.json")));
-            assertTrue(Files.exists(weeklyPath));
-        } finally {
-            server.stop(0);
-        }
+        assertEquals(0, exitCode);
+        assertTrue(Files.exists(rawDir.resolve("moneyforward/01-backend-engineer.txt")));
+        assertTrue(Files.exists(jobsDir.resolve("moneyforward/01-backend-engineer.generated.yaml")));
+        assertTrue(Files.exists(outputDir.resolve("batch-evaluation-product_expat_engineer.json")));
+        assertTrue(Files.exists(weeklyPath));
     }
 
     @Test

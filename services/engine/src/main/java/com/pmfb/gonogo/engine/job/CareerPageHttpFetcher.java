@@ -1,5 +1,6 @@
 package com.pmfb.gonogo.engine.job;
 
+import com.pmfb.gonogo.engine.DirectInputSecurity;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,12 +22,12 @@ public final class CareerPageHttpFetcher implements CareerPageFetcher {
     private final UriSafetyValidator uriSafetyValidator;
 
     public CareerPageHttpFetcher() {
-        this(ALLOW_ALL_URIS);
+        this(new DirectInputSecurity()::ensureSafeHttpUri);
     }
 
     public CareerPageHttpFetcher(UriSafetyValidator uriSafetyValidator) {
         this.client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
         this.uriSafetyValidator = uriSafetyValidator == null ? ALLOW_ALL_URIS : uriSafetyValidator;
     }

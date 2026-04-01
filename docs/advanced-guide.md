@@ -126,6 +126,7 @@ Optional overrides:
 - `OPS_UI_PORT`
 - `OPS_UI_WEB_PORT`
 - `OPS_UI_PROXY_PORT`
+- `OPS_UI_BIND_HOST` (`localhost` by default; use `0.0.0.0` only on purpose)
 - `ENGINE_ROOT`
 - `ENGINE_GRADLEW`
 
@@ -146,6 +147,7 @@ Optional overrides:
 - `REPORTS_UI_PORT`
 - `REPORTS_UI_WEB_PORT`
 - `REPORTS_UI_PROXY_PORT`
+- `REPORTS_UI_BIND_HOST` (`localhost` by default; use `0.0.0.0` only on purpose)
 - `REPORTS_ROOT`
 - `ENGINE_ROOT`
 - `ENGINE_GRADLEW`

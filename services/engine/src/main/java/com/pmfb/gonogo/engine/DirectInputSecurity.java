@@ -11,11 +11,12 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-final class DirectInputSecurity {
+public final class DirectInputSecurity {
     private static final String HTTP_SCHEME = "http";
     private static final String HTTPS_SCHEME = "https";
     private static final String LOCALHOST_HOSTNAME = "localhost";
@@ -24,12 +25,25 @@ final class DirectInputSecurity {
     private static final String INTERNAL_SUFFIX = ".internal";
     private static final int MAX_RAW_TEXT_LENGTH = 100_000;
     private static final Pattern UNSAFE_CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}&&[^\\r\\n\\t]]");
-    private static final Pattern IPV4_LITERAL_PATTERN = Pattern.compile("^\\d{1,3}(?:\\.\\d{1,3}){3}$");
     private static final Pattern HTML_INPUT_PATTERN = Pattern.compile(
             "(?is)<(?:!doctype|html|body|head|script|style|div|p|span|section|article|main|a|ul|ol|li|table|form|h[1-6])\\b"
     );
+    private final HostResolver hostResolver;
 
-    String validateUrl(String rawUrl) {
+    public DirectInputSecurity() {
+        this(InetAddress::getAllByName);
+    }
+
+    public DirectInputSecurity(HostResolver hostResolver) {
+        this.hostResolver = Objects.requireNonNull(hostResolver, "hostResolver");
+    }
+
+    @FunctionalInterface
+    public interface HostResolver {
+        InetAddress[] resolve(String host) throws UnknownHostException;
+    }
+
+    public String validateUrl(String rawUrl) {
         String trimmed = rawUrl == null ? "" : rawUrl.trim();
         if (trimmed.isBlank()) {
             throw new JobInputLoadException(List.of("URL cannot be blank."));
@@ -50,7 +64,7 @@ final class DirectInputSecurity {
         return uri.toString();
     }
 
-    void ensureSafeHttpUri(URI uri) throws UnsafeInputException {
+    public void ensureSafeHttpUri(URI uri) throws UnsafeInputException {
         if (uri == null) {
             throw new UnsafeInputException("URL is invalid.");
         }
@@ -80,7 +94,7 @@ final class DirectInputSecurity {
                 || normalizedHost.endsWith(INTERNAL_SUFFIX)) {
             throw new UnsafeInputException("Local or internal hosts are not allowed.");
         }
-        if (isIpLiteral(normalizedHost) && isPrivateOrLocalAddress(normalizedHost)) {
+        if (isPrivateOrLocalAddress(normalizedHost)) {
             throw new UnsafeInputException("Private or local network addresses are not allowed.");
         }
     }
@@ -118,30 +132,37 @@ final class DirectInputSecurity {
         return text.trim();
     }
 
-    private boolean isIpLiteral(String host) {
-        return IPV4_LITERAL_PATTERN.matcher(host).matches() || host.contains(":");
-    }
-
     private boolean isPrivateOrLocalAddress(String host) {
+        if (host == null || host.isBlank()) {
+            return false;
+        }
         try {
-            InetAddress address = InetAddress.getByName(host);
-            if (address.isAnyLocalAddress()
-                    || address.isLoopbackAddress()
-                    || address.isLinkLocalAddress()
-                    || address.isSiteLocalAddress()
-                    || address.isMulticastAddress()) {
-                return true;
-            }
-            if (address instanceof Inet4Address ipv4Address) {
-                return isPrivateOrLocalIpv4(ipv4Address.getAddress());
-            }
-            if (address instanceof Inet6Address ipv6Address) {
-                return isPrivateOrLocalIpv6(ipv6Address.getAddress());
+            for (InetAddress address : hostResolver.resolve(host)) {
+                if (isPrivateOrLocalResolvedAddress(address)) {
+                    return true;
+                }
             }
             return false;
         } catch (UnknownHostException ignored) {
             return false;
         }
+    }
+
+    private boolean isPrivateOrLocalResolvedAddress(InetAddress address) {
+        if (address.isAnyLocalAddress()
+                || address.isLoopbackAddress()
+                || address.isLinkLocalAddress()
+                || address.isSiteLocalAddress()
+                || address.isMulticastAddress()) {
+            return true;
+        }
+        if (address instanceof Inet4Address ipv4Address) {
+            return isPrivateOrLocalIpv4(ipv4Address.getAddress());
+        }
+        if (address instanceof Inet6Address ipv6Address) {
+            return isPrivateOrLocalIpv6(ipv6Address.getAddress());
+        }
+        return false;
     }
 
     private boolean isPrivateOrLocalIpv4(byte[] address) {

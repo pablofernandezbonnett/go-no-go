@@ -146,6 +146,9 @@ class RunRequest {
       throw const FormatException('personaId is required.');
     }
     final idPattern = RegExp(r'^[a-zA-Z0-9_-]+$');
+    if (!idPattern.hasMatch(personaId)) {
+      throw FormatException('Invalid personaId: $personaId');
+    }
     if (candidateProfileId.isNotEmpty && !idPattern.hasMatch(candidateProfileId)) {
       throw FormatException('Invalid candidateProfileId: $candidateProfileId');
     }
