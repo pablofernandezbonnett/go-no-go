@@ -1,12 +1,12 @@
 # Documentation Assets
 
-Repository docs, screenshot sources, and preserved PR draft notes.
+Repository docs, screenshot sources, and preserved PR notes.
 
 ## Main Files
 
 - `quickstart.md`: minimum commands for getting the monorepo running locally.
 - `advanced-guide.md`: deeper CLI/UI setup, runtime notes, and troubleshooting.
-- `pr-drafts/`: preserved draft documents for notable repository branches.
+- `pr/`: preserved PR documents for notable repository branches.
 - `screenshots/`: stable assets used by the README files.
 
 ## Screenshot Set
