@@ -18,13 +18,13 @@ Harden local-only execution paths against private-network access, remove browser
 
 ## Problem / Context
 
-The repository was close to public-read-only shape, but there were still three material issues: `fetch-web` could still reach private/local destinations through the standard engine path, `reports-ui` still exposed local artifact paths in some report payloads, and git history still contained `services/engine/config/candidate-profiles/pmfb.yaml` plus older personal sample strings in tests and docs.
+The repository was close to public-read-only shape, but there were still three material issues: `fetch-web` could still reach private/local destinations through the standard engine path, `reports-ui` still exposed local artifact paths in some report payloads, and git history still contained an old private candidate profile file plus older personal sample strings in tests and docs.
 
 ## Changes Made
 
 - Locked the engine HTTP fetch path to public URLs only, including the default `fetch-web` path and manual redirect handling.
 - Tightened `ops-ui` company/run validation and sanitized browser-visible report artifacts so local paths stay server-side.
-- Rewrote repository history to remove `pmfb.yaml` from all refs and replace the old personal sample strings with generic placeholders.
+- Rewrote repository history to remove the old private candidate profile file from all refs and replace the old personal sample strings with generic placeholders.
 
 ## Files Changed (and Why)
 
@@ -39,12 +39,12 @@ The repository was close to public-read-only shape, but there were still three m
 1. Run `./scripts/verify.sh`.
 2. Confirm `reports-ui` no longer returns `source_file`, `batch_json`, or `weekly_digest` paths in browser-visible report payloads.
 3. Confirm `ops-ui` rejects local/private company URLs and invalid persona ids.
-4. Confirm `git rev-list --all -- services/engine/config/candidate-profiles/pmfb.yaml` returns `0`.
+4. Confirm the removed private profile file no longer appears anywhere in repository history.
 
 ## Validation Evidence
 
 - `./scripts/verify.sh`
-- `git rev-list --all -- services/engine/config/candidate-profiles/pmfb.yaml | wc -l`
+- `git rev-list --all -- <removed-private-profile-path> | wc -l`
 - `git fsck --full --no-reflogs`
 
 ## Risks / Trade-offs
