@@ -10,6 +10,17 @@ Keep the decision engine CLI as the source of truth while allowing lightweight b
 - `services/engine/ops-ui`: Jaspr + Dart
 - `apps/reports-ui`: Jaspr + Dart
 
+## System Boundaries
+
+```mermaid
+flowchart LR
+  Ops["Ops UI (Jaspr)"] -->|run orchestration / config| Engine["Engine CLI (Java + Picocli)"]
+  Reports["Reports UI (Jaspr)"] -->|ad-hoc evaluations| Engine
+  Engine --> Artifacts["Generated artifacts / reports"]
+  Reports -->|read-mostly| Artifacts
+  Engine --> Runtime["Local runtime inputs outside Git"]
+```
+
 ## Current Shape
 
 - The engine owns configuration, evaluation logic, output artifacts, and the primary execution flow.
