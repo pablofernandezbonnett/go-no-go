@@ -575,7 +575,10 @@ public final class DecisionEngineV1 {
             "proficiency in",
             "strong background in",
             "knowledge of",
-            "expertise in"
+            "expertise in",
+            "required",
+            "must have",
+            "must-have"
     );
     private static final List<String> CANDIDATE_ALTERNATIVE_LINE_HINTS = List.of(
             "at least one",
@@ -771,6 +774,9 @@ public final class DecisionEngineV1 {
         }
 
         List<String> reasoning = buildReasoning(
+                job,
+                combinedText,
+                candidateProfile,
                 verdict,
                 rawScore,
                 normalizedScore,
@@ -882,7 +888,7 @@ public final class DecisionEngineV1 {
         )) {
             riskSignals.add(SIGNAL_SALARY_BELOW_PERSONA_FLOOR);
         }
-        if (isOnsiteBias(remotePolicy)) {
+        if (shouldEmitOnsiteBias(persona, remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
         }
         if (hasJapaneseAssignmentDependencySignal(combinedText, decisionSignals)) {
@@ -1033,9 +1039,10 @@ public final class DecisionEngineV1 {
             CandidateProfileConfig candidateProfile
     ) {
         Set<String> productionSkills = candidateProfile.index().productionSkillIds();
-        int explicitRequiredMatches = countExplicitRequiredSkillMatches(job, productionSkills);
-        int broadMatches = countCanonicalSkillMatches(combinedText, productionSkills);
-        return explicitRequiredMatches >= 1 || broadMatches >= 2;
+        List<String> requirementLines = extractRequirementLines(job.description());
+        int explicitRequiredMatches = countExplicitRequiredSkillMatches(requirementLines, productionSkills);
+        int requirementBroadMatches = countCanonicalSkillMatches(String.join("\n", requirementLines), productionSkills);
+        return explicitRequiredMatches >= 2 || requirementBroadMatches >= 2;
     }
 
     private boolean hasCandidateStackGap(JobInput job, CandidateProfileConfig candidateProfile) {
@@ -1113,8 +1120,12 @@ public final class DecisionEngineV1 {
     }
 
     private int countExplicitRequiredSkillMatches(JobInput job, Set<String> candidateSkills) {
+        return countExplicitRequiredSkillMatches(extractRequirementLines(job.description()), candidateSkills);
+    }
+
+    private int countExplicitRequiredSkillMatches(List<String> requirementLines, Set<String> candidateSkills) {
         int matches = 0;
-        for (String line : extractRequirementLines(job.description())) {
+        for (String line : requirementLines) {
             Set<String> requiredSkills = extractMentionedTechs(line);
             if (requiredSkills.isEmpty()) {
                 continue;
@@ -1353,6 +1364,9 @@ public final class DecisionEngineV1 {
     }
 
     private List<String> buildReasoning(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
             Verdict verdict,
             int rawScore,
             int normalizedScore,
@@ -1377,6 +1391,7 @@ public final class DecisionEngineV1 {
         } else {
             reasoning.add("Risk signals: none.");
         }
+        reasoning.addAll(buildCandidateFitReasoning(job, combinedText, candidateProfile, positiveSignals));
         reasoning.add(
                 "Raw weighted score: " + rawScore
                         + " (range " + scoreRange.min() + " to " + scoreRange.max() + ")."
@@ -1390,6 +1405,130 @@ public final class DecisionEngineV1 {
             reasoning.add("Final verdict derived from weighted score: " + verdict + ".");
         }
         return reasoning;
+    }
+
+    private List<String> buildCandidateFitReasoning(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
+            Set<String> positiveSignals
+    ) {
+        if (candidateProfile == null) {
+            return List.of();
+        }
+
+        List<String> reasoning = new ArrayList<>();
+        if (positiveSignals.contains(SIGNAL_CANDIDATE_STACK_FIT)) {
+            List<String> matchedSkills = collectMatchedProductionSkillLabels(job, candidateProfile);
+            if (!matchedSkills.isEmpty()) {
+                reasoning.add("Candidate stack fit evidence: requirements overlap with your shipped skills in "
+                        + String.join(", ", matchedSkills) + ".");
+            } else {
+                reasoning.add("Candidate stack fit evidence: multiple stated requirements overlap with your shipped stack.");
+            }
+        }
+        if (positiveSignals.contains(SIGNAL_CANDIDATE_DOMAIN_FIT)) {
+            List<String> matchedDomains = collectMatchedDomainLabels(
+                    combinedText,
+                    candidateProfile.index().strongDirectDomainIds(),
+                    candidateProfile.index().moderateDirectDomainIds()
+            );
+            if (!matchedDomains.isEmpty()) {
+                reasoning.add("Candidate domain fit evidence: the post aligns with your background in "
+                        + String.join(", ", matchedDomains) + ".");
+            } else {
+                reasoning.add("Candidate domain fit evidence: the domain language lines up with your recent direct experience.");
+            }
+        }
+        if (positiveSignals.contains(SIGNAL_CANDIDATE_SENIORITY_FIT)) {
+            int requiredYears = extractRequiredYears(combinedText);
+            if (requiredYears > 0) {
+                reasoning.add("Candidate seniority fit evidence: the role asks for "
+                        + requiredYears + "+ years and your profile shows "
+                        + candidateProfile.totalExperienceYears() + " years.");
+            } else {
+                reasoning.add("Candidate seniority fit evidence: the role reads senior enough for your "
+                        + candidateProfile.totalExperienceYears() + " years of experience.");
+            }
+        }
+        return reasoning;
+    }
+
+    private List<String> collectMatchedProductionSkillLabels(
+            JobInput job,
+            CandidateProfileConfig candidateProfile
+    ) {
+        Set<String> productionSkills = candidateProfile.index().productionSkillIds();
+        LinkedHashSet<String> matched = new LinkedHashSet<>();
+        for (String line : extractRequirementLines(job.description())) {
+            Set<String> requiredSkills = extractMentionedTechs(line);
+            for (String skill : requiredSkills) {
+                if (productionSkills.contains(skill)) {
+                    matched.add(formatSkillLabel(skill));
+                }
+            }
+        }
+        return limitLabels(matched, 3);
+    }
+
+    private List<String> collectMatchedDomainLabels(
+            String combinedText,
+            Set<String> strongDomainIds,
+            Set<String> moderateDomainIds
+    ) {
+        LinkedHashSet<String> matched = new LinkedHashSet<>();
+        for (String domainId : strongDomainIds) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matched.add(formatDomainLabel(domainId));
+            }
+        }
+        for (String domainId : moderateDomainIds) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matched.add(formatDomainLabel(domainId));
+            }
+        }
+        return limitLabels(matched, 3);
+    }
+
+    private List<String> limitLabels(LinkedHashSet<String> values, int maxItems) {
+        List<String> limited = new ArrayList<>();
+        for (String value : values) {
+            limited.add(value);
+            if (limited.size() >= maxItems) {
+                break;
+            }
+        }
+        return List.copyOf(limited);
+    }
+
+    private String formatSkillLabel(String skillId) {
+        return switch (skillId) {
+            case "spring_boot" -> "Spring Boot";
+            case "spring" -> "Spring";
+            case "rest_api" -> "REST APIs";
+            case "sap_hybris" -> "SAP Commerce / Hybris";
+            case "sql" -> "SQL / PostgreSQL";
+            default -> skillId.replace('_', ' ').toUpperCase(Locale.ROOT).charAt(0)
+                    + skillId.replace('_', ' ').substring(1);
+        };
+    }
+
+    private String formatDomainLabel(String domainId) {
+        return switch (domainId) {
+            case "ecommerce_platforms" -> "e-commerce / commerce platforms";
+            case "payment_integrations" -> "payment integrations";
+            case "payment_adjacent_flows" -> "payment-adjacent flows";
+            case "product_platforms" -> "product platforms";
+            case "distributed_product_systems" -> "distributed product systems";
+            case "international_teams" -> "international teams";
+            case "frontend_delivery" -> "frontend delivery";
+            case "cloud_environments_basics" -> "cloud environments";
+            case "system_design" -> "system design";
+            case "event_driven_patterns" -> "event-driven patterns";
+            default -> domainId.replace('_', ' ');
+        };
     }
 
     private ScoreRange computeScoreRange(Set<String> personaPriorities, Map<String, Integer> signalWeights) {
@@ -2010,6 +2149,14 @@ public final class DecisionEngineV1 {
             return false;
         }
         return remotePolicy.contains("onsite") || remotePolicy.contains("office");
+    }
+
+    private boolean shouldEmitOnsiteBias(PersonaConfig persona, String remotePolicy) {
+        Set<String> hardNo = normalizeSet(persona.hardNo());
+        if (isOnsiteOnly(remotePolicy)) {
+            return !hardNo.contains("onsite_only");
+        }
+        return isOnsiteBias(remotePolicy);
     }
 
     private boolean isSalaryMissing(String salaryRange) {

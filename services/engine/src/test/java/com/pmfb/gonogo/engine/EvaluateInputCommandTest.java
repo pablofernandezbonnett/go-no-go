@@ -227,6 +227,113 @@ final class EvaluateInputCommandTest {
     }
 
     @Test
+    void ignoresRelatedJobsAndTreatsNoRemoteAsOnsiteOnlyForTokyodevStylePages() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-evaluate-tokyodev-detail-test");
+        Path configDir = tempDir.resolve("config");
+        writeConfig(configDir);
+
+        String html = """
+                <html>
+                  <head>
+                    <title>Software Engineer - Lunaris | TokyoDev</title>
+                  </head>
+                  <body>
+                    <header>
+                      <section id="job-header">
+                        <h1>Software Engineer</h1>
+                        <p>Lunaris</p>
+                        <ul>
+                          <li>¥4.5M ~ ¥8M annually</li>
+                          <li>No remote</li>
+                          <li>Japan residents only</li>
+                          <li>No Japanese required</li>
+                        </ul>
+                      </section>
+                    </header>
+                    <main>
+                      <nav>
+                        <a href="/jobs">Jobs</a>
+                        <a href="/articles">Articles</a>
+                      </nav>
+                      <h1>Software Engineer</h1>
+                      <section>
+                        <h2>About Lunaris</h2>
+                        <p>We started out as an otaku-centric online shop called Solaris Japan, and now offer solutions to other e-commerce platforms.</p>
+                      </section>
+                      <section>
+                        <h2>About the position</h2>
+                        <p>We’re looking for a software engineer to join us.</p>
+                        <p>Requirements</p>
+                        <p>At least 2 years of experience as a software engineer</p>
+                        <p>Experience with database design and writing performant SQL queries using PostgreSQL</p>
+                        <p>Nice to haves</p>
+                        <p>Experience with front-end technologies such as React (preferred), Vue or Angular</p>
+                      </section>
+                      <section>
+                        <h2>Hiring Process</h2>
+                        <p>In-person or remote interview with the team</p>
+                      </section>
+                      <section>
+                        <h2>Meet Lunaris's Developers</h2>
+                        <p>Developer story content that should not be used for evaluation.</p>
+                      </section>
+                      <section>
+                        <h2>Related jobs</h2>
+                        <a href="https://www.tokyodev.com/companies/rapyuta/jobs/software-engineer">Software Engineer - Robotics Control Systems</a>
+                        <p>No remote</p>
+                        <p>Partially remote</p>
+                      </section>
+                    </main>
+                  </body>
+                </html>
+                """;
+
+        com.pmfb.gonogo.engine.job.CareerPageFetcher stubFetcher = new StubCareerPageFetcher(
+                "https://www.tokyodev.com/companies/lunaris/jobs/software-engineer",
+                html
+        );
+        EvaluateInputCommand command = new EvaluateInputCommand(
+                new com.pmfb.gonogo.engine.decision.DecisionEngineV1(),
+                new com.pmfb.gonogo.engine.job.RawJobParser(),
+                new com.pmfb.gonogo.engine.job.JobPostingExtractor(),
+                stubFetcher,
+                new DirectInputSecurity(),
+                new EvaluateInputArtifactWriter(),
+                new EvaluateInputOutputFormatter()
+        );
+
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        try {
+            System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
+
+            int exitCode = new CommandLine(command).execute(
+                    "--persona", "product_expat_engineer",
+                    "--config-dir", configDir.toString(),
+                    "--job-url", "https://www.tokyodev.com/companies/lunaris/jobs/software-engineer",
+                    "--output-format", "json"
+            );
+
+            assertEquals(0, exitCode, stderr.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
+
+        String json = stdout.toString(StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"company_name\":\"Lunaris\""), json);
+        assertTrue(json.contains("\"title\":\"Software Engineer\""), json);
+        assertTrue(json.contains("\"remote_policy\":\"Onsite-only\""), json);
+        assertTrue(json.contains("\"onsite_bias\""), json);
+        assertFalse(json.contains("onsite-only work policy detected"), json);
+        assertFalse(json.contains("\"remote_friendly\""), json);
+        assertFalse(json.contains("Robotics Control Systems"), json);
+    }
+
+    @Test
     void usesMetadataFallbackWhenUrlPageIsClientRenderedShell() throws IOException {
         Path tempDir = Files.createTempDirectory("gonogo-evaluate-workable-shell-test");
         Path configDir = tempDir.resolve("config");
@@ -318,7 +425,6 @@ final class EvaluateInputCommandTest {
                               - stability
                             hard_no:
                               - consulting_company
-                              - onsite_only
                               - early_stage_startup
                             acceptable_if:
                               - hybrid_partial
@@ -405,7 +511,6 @@ final class EvaluateInputCommandTest {
                               - stability
                             hard_no:
                               - consulting_company
-                              - onsite_only
                               - early_stage_startup
                             acceptable_if:
                               - hybrid_partial

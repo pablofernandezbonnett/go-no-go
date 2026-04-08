@@ -9,8 +9,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 final class HumanReadingSynthesizer {
+    private static final Pattern YEARS_EXPERIENCE_PATTERN =
+            Pattern.compile("(?i)(\\d+)\\+?\\s+years?(?: of)?\\s+(?:hands-on )?(?:experience|exp)");
     private static final List<String> STRUCTURED_CONDITIONS_KEYWORDS = List.of(
             "salary",
             "bonus",
@@ -38,6 +42,13 @@ final class HumanReadingSynthesizer {
             "commerce", List.of("retail", "commerce", "ecommerce", "e-commerce", "checkout", "payment", "fashion"),
             "mobile", List.of("mobile", "ios", "android", "smartphone", "app"),
             "platform", List.of("platform", "performance", "reliability", "scalability")
+    );
+    private static final List<String> SENIOR_ROLE_KEYWORDS = List.of(
+            "senior",
+            "staff",
+            "lead",
+            "principal",
+            "architect"
     );
 
     HumanReading synthesize(
@@ -72,6 +83,9 @@ final class HumanReadingSynthesizer {
         );
 
         List<String> whyStillInteresting = buildWhyStillInteresting(
+                job,
+                candidateProfile,
+                combinedText,
                 positiveSignals,
                 accessFit,
                 executionFit,
@@ -233,6 +247,9 @@ final class HumanReadingSynthesizer {
     }
 
     private List<String> buildWhyStillInteresting(
+            JobInput job,
+            CandidateProfileConfig candidateProfile,
+            String combinedText,
             Set<String> positiveSignals,
             HumanReadingLevel accessFit,
             HumanReadingLevel executionFit,
@@ -242,16 +259,21 @@ final class HumanReadingSynthesizer {
             boolean structuredConditions
     ) {
         LinkedHashSet<String> reasons = new LinkedHashSet<>();
-        if (positiveSignals.contains(SignalIds.CANDIDATE_STACK_FIT)) {
-            reasons.add("Your shipped backend stack looks relevant to the role.");
+        String stackFitReason = buildStackFitReason(combinedText, candidateProfile, positiveSignals);
+        if (!stackFitReason.isBlank()) {
+            reasons.add(stackFitReason);
         }
-        if (executionFit == HumanReadingLevel.STRONG) {
-            reasons.add("The execution fit looks strong for your current senior backend profile.");
+        String seniorityFitReason = buildSeniorityFitReason(job, combinedText, candidateProfile, positiveSignals);
+        if (!seniorityFitReason.isBlank()) {
+            reasons.add(seniorityFitReason);
         }
-        if (positiveSignals.contains(SignalIds.CANDIDATE_DOMAIN_FIT)) {
-            reasons.add("The domain lines up directly with your recent experience.");
+        String domainFitReason = buildDomainFitReason(combinedText, candidateProfile, positiveSignals);
+        if (!domainFitReason.isBlank()) {
+            reasons.add(domainFitReason);
         } else if (domainFit == HumanReadingLevel.MIXED && adjacentDomainAffinity) {
             reasons.add("There is adjacent domain potential from your background and education.");
+        } else if (executionFit == HumanReadingLevel.STRONG) {
+            reasons.add("The execution fit looks strong for your current senior backend profile.");
         }
         if (positiveSignals.contains(SignalIds.ENGLISH_ENVIRONMENT)
                 || accessFit == HumanReadingLevel.STRONG) {
@@ -338,6 +360,57 @@ final class HumanReadingSynthesizer {
         };
     }
 
+    private String buildStackFitReason(
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
+            Set<String> positiveSignals
+    ) {
+        if (candidateProfile == null || !positiveSignals.contains(SignalIds.CANDIDATE_STACK_FIT)) {
+            return "";
+        }
+        List<String> matchedSkills = collectMatchedSkillLabels(combinedText, candidateProfile);
+        if (matchedSkills.isEmpty()) {
+            return "The shipped stack overlap looks direct enough for this role.";
+        }
+        return "There is direct stack overlap on " + String.join(", ", matchedSkills) + ".";
+    }
+
+    private String buildDomainFitReason(
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
+            Set<String> positiveSignals
+    ) {
+        if (candidateProfile == null || !positiveSignals.contains(SignalIds.CANDIDATE_DOMAIN_FIT)) {
+            return "";
+        }
+        List<String> matchedDomains = collectMatchedDomainLabels(combinedText, candidateProfile);
+        if (matchedDomains.isEmpty()) {
+            return "The domain lines up directly with your recent experience.";
+        }
+        return "The post maps well to your background in " + String.join(", ", matchedDomains) + ".";
+    }
+
+    private String buildSeniorityFitReason(
+            JobInput job,
+            String combinedText,
+            CandidateProfileConfig candidateProfile,
+            Set<String> positiveSignals
+    ) {
+        if (candidateProfile == null || !positiveSignals.contains(SignalIds.CANDIDATE_SENIORITY_FIT)) {
+            return "";
+        }
+        int requiredYears = extractRequiredYears(combinedText);
+        if (requiredYears > 0) {
+            return "The seniority bar looks fine: the role asks for "
+                    + requiredYears + "+ years and your profile shows "
+                    + candidateProfile.totalExperienceYears() + " years.";
+        }
+        if (isSeniorRoleTitle(job.title())) {
+            return "The role is explicitly senior-level and your profile already sits above that bar.";
+        }
+        return "The seniority level looks compatible with your profile.";
+    }
+
     private boolean hasStructuredConditionsEvidence(String combinedText) {
         return containsAny(combinedText, STRUCTURED_CONDITIONS_KEYWORDS);
     }
@@ -380,6 +453,100 @@ final class HumanReadingSynthesizer {
             }
         }
         return matches;
+    }
+
+    private List<String> collectMatchedSkillLabels(String combinedText, CandidateProfileConfig candidateProfile) {
+        LinkedHashSet<String> matched = new LinkedHashSet<>();
+        for (String skillId : candidateProfile.index().productionSkillIds()) {
+            List<String> aliases = CandidateProfileTaxonomy.skillAliases(skillId);
+            if (containsAny(combinedText, aliases)) {
+                matched.add(formatSkillLabel(skillId));
+            }
+        }
+        return limitLabels(matched, 3);
+    }
+
+    private List<String> collectMatchedDomainLabels(String combinedText, CandidateProfileConfig candidateProfile) {
+        LinkedHashSet<String> matched = new LinkedHashSet<>();
+        for (String domainId : candidateProfile.index().strongDirectDomainIds()) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matched.add(formatDomainLabel(domainId));
+            }
+        }
+        for (String domainId : candidateProfile.index().moderateDirectDomainIds()) {
+            List<String> aliases = CandidateProfileTaxonomy.domainAliases(domainId);
+            if (aliases != null && containsAny(combinedText, aliases)) {
+                matched.add(formatDomainLabel(domainId));
+            }
+        }
+        return limitLabels(matched, 3);
+    }
+
+    private List<String> limitLabels(Set<String> labels, int maxItems) {
+        List<String> limited = new ArrayList<>(maxItems);
+        for (String label : labels) {
+            limited.add(label);
+            if (limited.size() >= maxItems) {
+                break;
+            }
+        }
+        return List.copyOf(limited);
+    }
+
+    private int extractRequiredYears(String combinedText) {
+        Matcher matcher = YEARS_EXPERIENCE_PATTERN.matcher(combinedText);
+        int maxYears = 0;
+        while (matcher.find()) {
+            int value = Integer.parseInt(matcher.group(1));
+            if (value > maxYears) {
+                maxYears = value;
+            }
+        }
+        return maxYears;
+    }
+
+    private boolean isSeniorRoleTitle(String title) {
+        String normalizedTitle = normalize(title);
+        for (String keyword : SENIOR_ROLE_KEYWORDS) {
+            if (normalizedTitle.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String formatSkillLabel(String skillId) {
+        return switch (skillId) {
+            case "aws" -> "AWS";
+            case "gcp" -> "GCP";
+            case "spring_boot" -> "Spring Boot";
+            case "spring" -> "Spring";
+            case "rest_api" -> "REST APIs";
+            case "sap_hybris" -> "SAP Commerce / Hybris";
+            case "sql" -> "SQL / PostgreSQL";
+            case "react" -> "React";
+            case "typescript" -> "TypeScript";
+            case "mongodb" -> "MongoDB";
+            default -> skillId.replace('_', ' ').toUpperCase(Locale.ROOT).charAt(0)
+                    + skillId.replace('_', ' ').substring(1);
+        };
+    }
+
+    private String formatDomainLabel(String domainId) {
+        return switch (domainId) {
+            case "ecommerce_platforms" -> "e-commerce / commerce platforms";
+            case "payment_integrations" -> "payment integrations";
+            case "payment_adjacent_flows" -> "payment-adjacent flows";
+            case "product_platforms" -> "product platforms";
+            case "distributed_product_systems" -> "distributed product systems";
+            case "international_teams" -> "international teams";
+            case "frontend_delivery", "frontend_fullstack" -> "frontend delivery";
+            case "cloud_environments_basics", "cloud_basics" -> "cloud environments";
+            case "system_design" -> "system design";
+            case "event_driven_patterns", "event_driven_architecture" -> "event-driven patterns";
+            default -> domainId.replace('_', ' ');
+        };
     }
 
     private List<String> limit(Set<String> reasons, int maxItems) {

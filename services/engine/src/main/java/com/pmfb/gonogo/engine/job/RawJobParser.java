@@ -70,11 +70,28 @@ public final class RawJobParser {
             "リモート",
             "在宅勤務"
     );
+    private static final List<String> NO_REMOTE_KEYWORDS = List.of(
+            "no remote",
+            "not remote",
+            "remote not available",
+            "remote unavailable",
+            "remote work not available",
+            "without remote"
+    );
     private static final List<String> HYBRID_KEYWORDS = List.of(
             "hybrid",
+            "partially remote",
+            "partial remote",
             "remote and office",
             "office and remote",
             "ハイブリッド"
+    );
+    private static final List<String> REMOTE_POLICY_IGNORED_LINE_KEYWORDS = List.of(
+            "interview",
+            "technical assignment",
+            "hiring process",
+            "selection process",
+            "group video call"
     );
     private static final List<String> TITLE_CANDIDATE_KEYWORDS = List.of(
             "engineer",
@@ -162,7 +179,7 @@ public final class RawJobParser {
 
         String remotePolicy = detectFirstMatchingValue(lines, REMOTE_POLICY_PATTERNS)
                 .map(this::normalizeRemotePolicyLabelValue)
-                .orElseGet(() -> inferRemotePolicy(lowered));
+                .orElseGet(() -> inferRemotePolicy(lines));
         if ("Unspecified".equals(remotePolicy)) {
             warnings.add("Remote policy not found; using 'Unspecified'.");
         }
@@ -321,6 +338,9 @@ public final class RawJobParser {
         if (loweredText.contains("日本国内")) {
             return "Japan";
         }
+        if (containsAny(loweredText, NO_REMOTE_KEYWORDS)) {
+            return "";
+        }
         if (loweredText.contains("remote")) {
             return "Remote";
         }
@@ -330,11 +350,37 @@ public final class RawJobParser {
         return "";
     }
 
-    private String inferRemotePolicy(String loweredText) {
-        boolean hasRemote = containsAny(loweredText, REMOTE_KEYWORDS);
-        boolean hasHybrid = containsAny(loweredText, HYBRID_KEYWORDS);
-        boolean hasOnsite = containsAny(loweredText, ONSITE_ONLY_KEYWORDS);
+    private String inferRemotePolicy(List<String> lines) {
+        boolean hasNoRemote = false;
+        boolean hasRemote = false;
+        boolean hasHybrid = false;
+        boolean hasOnsite = false;
 
+        for (String line : lines) {
+            String normalizedLine = normalize(line);
+            if (normalizedLine.isBlank()) {
+                continue;
+            }
+            if (containsAny(normalizedLine, REMOTE_POLICY_IGNORED_LINE_KEYWORDS)) {
+                continue;
+            }
+            if (containsAny(normalizedLine, NO_REMOTE_KEYWORDS)) {
+                hasNoRemote = true;
+            }
+            if (containsAny(normalizedLine, REMOTE_KEYWORDS)) {
+                hasRemote = true;
+            }
+            if (containsAny(normalizedLine, HYBRID_KEYWORDS)) {
+                hasHybrid = true;
+            }
+            if (containsAny(normalizedLine, ONSITE_ONLY_KEYWORDS)) {
+                hasOnsite = true;
+            }
+        }
+
+        if (hasNoRemote) {
+            return "Onsite-only";
+        }
         if (hasHybrid || (hasRemote && hasOnsite)) {
             return "Hybrid";
         }
@@ -349,9 +395,15 @@ public final class RawJobParser {
 
     private String normalizeRemotePolicyLabelValue(String rawValue) {
         String lowered = normalize(rawValue);
+        boolean hasNoRemote = containsAny(lowered, NO_REMOTE_KEYWORDS);
         boolean hasRemote = containsAny(lowered, REMOTE_KEYWORDS);
         boolean hasHybrid = containsAny(lowered, HYBRID_KEYWORDS);
-        boolean hasOnsite = containsAny(lowered, ONSITE_ONLY_KEYWORDS) || "office".equals(lowered);
+        boolean hasOnsite = containsAny(lowered, ONSITE_ONLY_KEYWORDS)
+                || "office".equals(lowered)
+                || hasNoRemote;
+        if (hasNoRemote) {
+            return "Onsite-only";
+        }
         if (hasHybrid || (hasRemote && hasOnsite)) {
             return "Hybrid";
         }

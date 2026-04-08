@@ -252,12 +252,12 @@ cases:
       remote_policy: "Onsite-only, Tokyo office"
       description: "English first product team."
     expected:
-      verdict: NO_GO
+      verdict: GO_WITH_CAUTION
       positive_signals_contains:
         - salary_transparency
-      risk_signals_contains: []
-      hard_reject_reasons_contains:
-        - onsite-only work policy detected
+      risk_signals_contains:
+        - onsite_bias
+      hard_reject_reasons_contains: []
 
   - id: no_go_consulting_detected
     job:
@@ -356,8 +356,8 @@ cases:
       positive_signals_contains: []
       risk_signals_contains:
         - salary_low_confidence
-      hard_reject_reasons_contains:
-        - onsite-only work policy detected
+        - onsite_bias
+      hard_reject_reasons_contains: []
 
   - id: no_go_client_assignment_dispatch
     job:

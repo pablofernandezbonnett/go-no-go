@@ -76,4 +76,27 @@ final class JobPostingExtractorTest {
         assertFalse(results.get(0).snippet().isBlank());
         assertTrue(results.get(0).snippet().toLowerCase().contains("english-first"));
     }
+
+    @Test
+    void keepsNearbyCardMetadataInSnippet() {
+        String html = """
+                <html>
+                  <body>
+                    <section>
+                      <div class="job-card">
+                        <h4><a href="/companies/lunaris/jobs/software-engineer">Software Engineer</a></h4>
+                        <p>Lunaris</p>
+                        <p>No Japanese required Apply from abroad No remote Backend</p>
+                      </div>
+                    </section>
+                  </body>
+                </html>
+                """;
+
+        List<JobPostingCandidate> results = extractor.extract(html, "https://www.tokyodev.com/companies/lunaris", 10);
+
+        assertEquals(1, results.size());
+        assertTrue(results.get(0).snippet().contains("No remote"));
+        assertTrue(results.get(0).snippet().contains("Apply from abroad"));
+    }
 }

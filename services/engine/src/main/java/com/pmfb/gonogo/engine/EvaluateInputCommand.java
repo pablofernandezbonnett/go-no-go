@@ -30,7 +30,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -46,12 +48,60 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private static final String DEFAULT_USER_AGENT = "go-no-go-engine/0.1 (+https://local)";
     private static final String DEFAULT_UNKNOWN = "Unknown";
     private static final String SOURCE_URL_PREFIX = "Source URL: ";
-    private static final String PAGE_CONTENT_ROOT_SELECTOR = "main,article,.job-description,.content,body";
-    private static final String PAGE_NOISE_SELECTOR = "script,style,noscript,svg,footer,header,nav";
+    private static final String PAGE_CONTENT_ROOT_SELECTOR = "main,article,.job-description,.content";
+    private static final String PAGE_NOISE_SELECTOR = "script,style,noscript,svg,footer,nav";
     private static final String PAGE_DESCRIPTION_META_SELECTOR =
             "meta[name=description],meta[property=og:description],meta[name=twitter:description]";
     private static final String PAGE_TITLE_META_SELECTOR =
             "meta[property=og:title],meta[name=twitter:title]";
+    private static final List<String> PAGE_TITLE_SELECTOR_PRIORITY = List.of(
+            "header h1",
+            "#job-header h1",
+            "main h1",
+            "article h1",
+            "h1",
+            "header h2",
+            "#job-header h2",
+            "main h2",
+            "article h2",
+            "h2"
+    );
+    private static final List<Pattern> PAGE_SECTION_STOP_PATTERNS = List.of(
+            Pattern.compile("(?i)^related jobs$"),
+            Pattern.compile("(?i)^more jobs like this$"),
+            Pattern.compile("(?i)^other openings$"),
+            Pattern.compile("(?i)^similar jobs$"),
+            Pattern.compile("(?i)^you may also like$"),
+            Pattern.compile("(?i)^meet .+ developers$"),
+            Pattern.compile("(?i)^get the newsletter$")
+    );
+    private static final Pattern ABOUT_COMPANY_HEADING_PATTERN = Pattern.compile("(?i)^about\\s+(.+)$");
+    private static final Set<String> GENERIC_ABOUT_SECTION_LABELS = Set.of(
+            "the job",
+            "the position",
+            "the role",
+            "the company",
+            "the team",
+            "us"
+    );
+    private static final Set<String> CONTENT_ROOT_METADATA_HINTS = Set.of(
+            "remote",
+            "hybrid",
+            "onsite",
+            "japan residents only",
+            "apply from abroad",
+            "no japanese required",
+            "experience required",
+            "requirements",
+            "responsibilities",
+            "salary",
+            "¥"
+    );
+    private static final List<String> PAGE_CHALLENGE_HINTS = List.of(
+            "just a moment",
+            "enable javascript and cookies to continue",
+            "__cf_chl_opt"
+    );
     private static final int MAX_URL_DESCRIPTION_LENGTH = 16000;
     private static final String OUTPUT_FORMAT_TEXT = "text";
     private static final String OUTPUT_FORMAT_JSON = "json";
@@ -394,7 +444,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         }
         companyName = enrichCompanyName(companyName, title, doc);
 
-        String pageText = extractPageText(doc);
+        String pageText = extractPageText(doc, title);
         if (pageText.isBlank()) {
             pageText = candidate.map(JobPostingCandidate::snippet)
                     .map(this::normalizeMultilineText)
@@ -435,32 +485,42 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         if (titleOverride != null && !titleOverride.isBlank()) {
             return titleOverride.trim();
         }
+        for (String selector : PAGE_TITLE_SELECTOR_PRIORITY) {
+            Element heading = doc.selectFirst(selector);
+            if (heading == null) {
+                continue;
+            }
+            String headingText = normalizeText(heading.text());
+            if (!headingText.isBlank()) {
+                return headingText;
+            }
+        }
         if (candidate.isPresent()) {
             String extractedTitle = normalizeText(candidate.get().title());
             if (!extractedTitle.isBlank()) {
                 return extractedTitle;
             }
         }
-        Element heading = doc.selectFirst("main h1, article h1, h1, main h2, article h2");
-        if (heading != null) {
-            String headingText = normalizeText(heading.text());
-            if (!headingText.isBlank()) {
-                return headingText;
-            }
-        }
         return normalizeText(doc.title());
     }
 
-    private String extractPageText(Document doc) {
-        Element contentRoot = doc.selectFirst(PAGE_CONTENT_ROOT_SELECTOR);
-        if (contentRoot == null) {
-            return "";
+    private String extractPageText(Document doc, String resolvedTitle) {
+        List<Element> roots = collectContentRoots(doc);
+        String bestText = "";
+        int bestScore = Integer.MIN_VALUE;
+        for (Element root : roots) {
+            String candidateText = normalizeMultilineText(root.wholeText());
+            if (candidateText.isBlank()) {
+                candidateText = normalizeMultilineText(root.text());
+            }
+            candidateText = trimTrailingNonJobSections(trimLeadingPageChrome(candidateText, resolvedTitle));
+            int score = scoreContentRootText(candidateText, resolvedTitle);
+            if (score > bestScore) {
+                bestScore = score;
+                bestText = candidateText;
+            }
         }
-        String wholeText = normalizeMultilineText(contentRoot.wholeText());
-        if (!wholeText.isBlank()) {
-            return wholeText;
-        }
-        return normalizeMultilineText(contentRoot.text());
+        return bestText;
     }
 
     private String extractMetadataFallbackText(Document doc, String resolvedTitle) {
@@ -515,6 +575,11 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             return fromDescription;
         }
 
+        String fromAboutHeading = inferCompanyNameFromAboutHeading(doc);
+        if (!fromAboutHeading.isBlank()) {
+            return fromAboutHeading;
+        }
+
         return companyName;
     }
 
@@ -567,6 +632,29 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             return "";
         }
         return candidate;
+    }
+
+    private String inferCompanyNameFromAboutHeading(Document doc) {
+        for (Element heading : doc.select("main h2, main h3, article h2, article h3, h2, h3")) {
+            String text = normalizeText(heading.text());
+            java.util.regex.Matcher matcher = ABOUT_COMPANY_HEADING_PATTERN.matcher(text);
+            if (!matcher.matches()) {
+                continue;
+            }
+            String candidate = normalizeText(matcher.group(1));
+            if (candidate.isBlank()) {
+                continue;
+            }
+            String lowered = candidate.toLowerCase(Locale.ROOT);
+            if (GENERIC_ABOUT_SECTION_LABELS.contains(lowered)) {
+                continue;
+            }
+            if (candidate.length() > 80) {
+                continue;
+            }
+            return candidate;
+        }
+        return "";
     }
 
     private String hostOf(String value) {
@@ -624,6 +712,87 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 .distinct()
                 .reduce((left, right) -> left + "\n" + right)
                 .orElse("");
+    }
+
+    private List<Element> collectContentRoots(Document doc) {
+        LinkedHashSet<Element> roots = new LinkedHashSet<>();
+        if (doc.body() != null) {
+            roots.add(doc.body());
+        }
+        roots.addAll(doc.select(PAGE_CONTENT_ROOT_SELECTOR));
+        return List.copyOf(roots);
+    }
+
+    private String trimLeadingPageChrome(String text, String resolvedTitle) {
+        if (text.isBlank()) {
+            return "";
+        }
+        String normalizedTitle = normalizeText(resolvedTitle);
+        if (normalizedTitle.isBlank()) {
+            return text;
+        }
+        List<String> lines = Arrays.stream(text.split("\\R"))
+                .map(this::normalizeText)
+                .filter(line -> !line.isBlank())
+                .toList();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.equalsIgnoreCase(normalizedTitle)) {
+                return String.join("\n", lines.subList(i, lines.size()));
+            }
+        }
+        return String.join("\n", lines);
+    }
+
+    private int scoreContentRootText(String text, String resolvedTitle) {
+        if (text.isBlank()) {
+            return Integer.MIN_VALUE;
+        }
+        String lowered = text.toLowerCase(Locale.ROOT);
+        for (String hint : PAGE_CHALLENGE_HINTS) {
+            if (lowered.contains(hint)) {
+                return Integer.MIN_VALUE / 2;
+            }
+        }
+        int score = Math.min(text.length(), 320);
+        String normalizedTitle = normalizeText(resolvedTitle);
+        if (!normalizedTitle.isBlank()) {
+            if (text.startsWith(normalizedTitle + "\n") || text.equals(normalizedTitle)) {
+                score += 220;
+            } else if (lowered.contains(normalizedTitle.toLowerCase(Locale.ROOT))) {
+                score += 120;
+            }
+        }
+        for (String hint : CONTENT_ROOT_METADATA_HINTS) {
+            if (lowered.contains(hint)) {
+                score += 30;
+            }
+        }
+        return score;
+    }
+
+    private String trimTrailingNonJobSections(String text) {
+        if (text.isBlank()) {
+            return "";
+        }
+        List<String> kept = new ArrayList<>();
+        for (String line : text.split("\\R")) {
+            if (isNonJobSectionHeading(line)) {
+                break;
+            }
+            kept.add(line);
+        }
+        return String.join("\n", kept);
+    }
+
+    private boolean isNonJobSectionHeading(String line) {
+        String normalized = normalizeText(line);
+        for (Pattern pattern : PAGE_SECTION_STOP_PATTERNS) {
+            if (pattern.matcher(normalized).matches()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String readStdinText() throws IOException {

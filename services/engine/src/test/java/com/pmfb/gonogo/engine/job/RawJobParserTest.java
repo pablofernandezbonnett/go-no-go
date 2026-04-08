@@ -128,6 +128,35 @@ final class RawJobParserTest {
     }
 
     @Test
+    void treatsNoRemoteAsOnsiteOnlyEvenWhenInterviewMentionsRemote() {
+        String rawText = """
+                Title: Software Engineer
+                Location: Tokyo
+                No remote
+                Hiring Process:
+                In-person or remote interview with the team
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, "Lunaris", null);
+
+        assertEquals("Onsite-only", result.jobInput().remotePolicy());
+    }
+
+    @Test
+    void treatsPartiallyRemoteAsHybrid() {
+        String rawText = """
+                Title: Backend Engineer
+                Location: Tokyo
+                Partially remote
+                English-first team.
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, "Example Co", null);
+
+        assertEquals("Hybrid", result.jobInput().remotePolicy());
+    }
+
+    @Test
     void infersCompanyFromAboutHeadingAndTitleFromNarrativeSentence() {
         String rawText = """
                 About the job

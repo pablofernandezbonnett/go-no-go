@@ -34,7 +34,6 @@ personas:
 
     hard_no:
       - consulting_company
-      - onsite_only
       - early_stage_startup
 
     acceptable_if:
@@ -55,7 +54,6 @@ personas:
 
     hard_no:
       - consulting_company
-      - onsite_only
       - early_stage_startup
       - japanese_only_environment
       - workload_overload
@@ -67,7 +65,7 @@ personas:
       - stable_scaleup
 
   - id: product_expat_engineer_pragmatic
-    description: "Product-oriented expat engineer optimizing for employability first, with consulting tolerated but penalized"
+    description: "Product-oriented expat engineer optimizing for employability first, with consulting and onsite-only roles tolerated but penalized"
     priorities:
       - english_environment
       - product_company
@@ -78,7 +76,6 @@ personas:
       - stability
 
     hard_no:
-      - onsite_only
       - early_stage_startup
 
     acceptable_if:

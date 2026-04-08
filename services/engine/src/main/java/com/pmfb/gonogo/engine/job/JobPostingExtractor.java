@@ -57,6 +57,23 @@ public final class JobPostingExtractor {
             "hiring",
             "apply"
     );
+    private static final Set<String> SNIPPET_METADATA_HINTS = Set.of(
+            "remote",
+            "hybrid",
+            "onsite",
+            "japanese",
+            "english",
+            "apply from abroad",
+            "residents only",
+            "fully remote",
+            "partially remote",
+            "backend",
+            "frontend",
+            "fullstack",
+            "tokyo",
+            "¥",
+            "jpy"
+    );
     private static final Set<String> NON_JOB_TEXT_KEYWORDS = Set.of(
             "cookie",
             "privacy",
@@ -343,7 +360,7 @@ public final class JobPostingExtractor {
 
     private Document sanitizedDocument(String html, String baseUrl) {
         Document doc = Jsoup.parse(html, baseUrl);
-        doc.select("script,style,noscript,svg,footer,header,nav").remove();
+        doc.select("script,style,noscript,svg,footer,nav").remove();
         return doc;
     }
 
@@ -434,15 +451,38 @@ public final class JobPostingExtractor {
     }
 
     private String extractSnippet(Element anchor, String title) {
+        String bestSnippet = "";
+        int bestScore = Integer.MIN_VALUE;
         Element current = anchor;
-        for (int i = 0; i < 4 && current != null; i++) {
+        for (int i = 0; i < 6 && current != null; i++) {
             String text = normalizeWhitespace(current.text());
-            if (text.length() >= 40) {
-                return shorten(text, 420);
+            if (text.length() >= 40 && text.length() <= 520) {
+                int score = scoreSnippetCandidate(text, title);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestSnippet = text;
+                }
             }
             current = current.parent();
         }
+        if (!bestSnippet.isBlank()) {
+            return shorten(bestSnippet, 420);
+        }
         return title;
+    }
+
+    private int scoreSnippetCandidate(String text, String title) {
+        String lowered = text.toLowerCase(Locale.ROOT);
+        int score = Math.min(text.length(), 220);
+        if (!title.isBlank() && lowered.contains(title.toLowerCase(Locale.ROOT))) {
+            score += 40;
+        }
+        for (String hint : SNIPPET_METADATA_HINTS) {
+            if (lowered.contains(hint.toLowerCase(Locale.ROOT))) {
+                score += 20;
+            }
+        }
+        return score;
     }
 
     private boolean isLikelyJobCandidate(String title, String url, String snippet, boolean hasDirectUrl) {
