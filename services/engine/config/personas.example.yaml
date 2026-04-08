@@ -18,9 +18,9 @@ personas:
     # Common engine-supported hard rejects:
     # onsite_only, consulting_company, salary_missing, early_stage_startup,
     # japanese_only_environment, workload_overload, forced_relocation
-    # Use the subset that matches this persona.
+    # Use the subset that matches this persona. If you omit onsite_only,
+    # onsite-only roles are penalized as a risk instead of auto-rejected.
     hard_no:
-      - onsite_only
       - japanese_only_environment
       - forced_relocation
 
@@ -35,7 +35,7 @@ personas:
     minimum_salary_yen: 8000000
 
   - id: product_expat_engineer_pragmatic_example
-    description: "Optimize for employability first, with consulting tolerated but penalized"
+    description: "Optimize for employability first, with consulting and onsite-only roles tolerated but penalized"
     priorities:
       - english_environment
       - product_company
@@ -45,7 +45,6 @@ personas:
       - salary
       - stability
     hard_no:
-      - onsite_only
       - early_stage_startup
     acceptable_if:
       - hybrid_partial

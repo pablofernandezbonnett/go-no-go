@@ -24,7 +24,7 @@ final class DecisionTestFixtureSupport {
                         "salary",
                         "stability"
                 ),
-                List.of("consulting_company", "onsite_only", "early_stage_startup"),
+                List.of("consulting_company", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
         );
     }

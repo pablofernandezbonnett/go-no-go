@@ -58,7 +58,8 @@ Baseline default:
 
 Persona variation:
 
-- The engine may support alternate personas where consulting is tolerated but penalized rather than auto-rejected.
+- Consulting may be tolerated but penalized rather than auto-rejected, depending on persona config.
+- Onsite-only should be treated as a scored risk by default, and only become a hard reject when a persona explicitly includes `onsite_only` in `hard_no`.
 - Persona-specific policy belongs in runtime config, not in agent instructions.
 
 ---

@@ -39,6 +39,7 @@ Template files live beside the active files and act as schema references:
 Notes:
 
 - `hard_no` defines what forces `NO_GO` for that persona.
+- If `onsite_only` is omitted from `hard_no`, onsite-only roles still emit `onsite_bias` and are penalized without being auto-rejected.
 - Criteria outside `hard_no` can still appear as risk signals and reduce score.
 - `minimum_salary_yen` is a conservative threshold, not a guess about the posted maximum.
 - `salary_missing` means there is no usable range. `TBD`, negotiable-only text, blank salary, or a single number without a range all count as missing.

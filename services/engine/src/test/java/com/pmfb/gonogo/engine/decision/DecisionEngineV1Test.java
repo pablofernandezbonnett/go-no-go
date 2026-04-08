@@ -18,7 +18,7 @@ final class DecisionEngineV1Test {
     private final DecisionEngineV1 engine = new DecisionEngineV1();
 
     @Test
-    void returnsNoGoWhenOnsiteOnlyIsDetected() {
+    void returnsGoWithCautionWhenOnsiteOnlyIsDetectedByDefaultPersona() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
                         "Mercari",
@@ -29,6 +29,42 @@ final class DecisionEngineV1Test {
                         "English first team with product ownership."
                 ),
                 defaultPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.GO_WITH_CAUTION, result.verdict());
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.riskSignals().contains("onsite_bias"));
+    }
+
+    @Test
+    void returnsNoGoWhenOnsiteOnlyIsExplicitHardReject() {
+        PersonaConfig strictOnsitePersona = new PersonaConfig(
+                "strict_remote_only",
+                "Persona that explicitly rejects onsite-only roles",
+                List.of(
+                        "english_environment",
+                        "product_company",
+                        "engineering_culture",
+                        "hybrid_work",
+                        "work_life_balance",
+                        "salary",
+                        "stability"
+                ),
+                List.of("onsite_only"),
+                List.of("hybrid_partial")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Mercari",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 8,000,000 - 12,000,000",
+                        "Onsite-only, Tokyo office",
+                        "English first team with product ownership."
+                ),
+                strictOnsitePersona,
                 defaultConfig()
         );
 
@@ -135,7 +171,7 @@ final class DecisionEngineV1Test {
                         "salary",
                         "stability"
                 ),
-                List.of("consulting_company", "onsite_only", "salary_missing", "early_stage_startup"),
+                List.of("consulting_company", "salary_missing", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
         );
 
@@ -521,6 +557,26 @@ final class DecisionEngineV1Test {
     }
 
     @Test
+    void treatsOnsiteOnlyAsPenaltyInsteadOfHardRejectForPragmaticPersona() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Atlas Labs",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "JPY 8,000,000 - 10,000,000",
+                        "Onsite-only",
+                        "English-first product engineering role with clear ownership and code reviews."
+                ),
+                pragmaticPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.riskSignals().contains("onsite_bias"));
+        assertEquals(Verdict.GO_WITH_CAUTION, result.verdict());
+    }
+
+    @Test
     void usesConservativeSalaryBenchmarkForIntermediaryRoles() {
         EvaluationResult result = engine.evaluate(
                 new JobInput(
@@ -581,6 +637,55 @@ final class DecisionEngineV1Test {
         assertTrue(result.positiveSignals().contains("candidate_domain_fit"));
         assertTrue(result.positiveSignals().contains("candidate_seniority_fit"));
         assertFalse(result.riskSignals().contains("candidate_stack_gap"));
+    }
+
+    @Test
+    void keepsStackFitConservativeWhenOnlyPeripheralOverlapExists() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "demo_candidate",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Japan",
+                20,
+                List.of("Java", "Spring Boot", "React", "SQL / relational"),
+                List.of("TypeScript"),
+                List.of(),
+                List.of("ecommerce_platforms", "product_platforms"),
+                List.of("frontend_fullstack"),
+                List.of("kubernetes")
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Lunaris",
+                        "Software Engineer",
+                        "Tokyo",
+                        "JPY 4,500,000 - 8,000,000",
+                        "Hybrid",
+                        """
+                                We’re looking for a software engineer to contribute to several e-commerce products using Elixir with the Phoenix framework and PostgreSQL.
+                                Requirements:
+                                - At least 2 years of experience as a software engineer
+                                - Experience with database design and writing performant SQL queries using PostgreSQL
+                                Nice to haves:
+                                - Experience with front-end technologies such as React (preferred), Vue or Angular
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertFalse(result.positiveSignals().contains("candidate_stack_fit"));
+        assertTrue(result.positiveSignals().contains("candidate_domain_fit"));
+        assertTrue(result.positiveSignals().contains("candidate_seniority_fit"));
+        assertEquals(HumanReadingLevel.MIXED, result.humanReading().executionFit());
+        assertTrue(result.reasoning().stream()
+                .anyMatch(entry -> entry.contains("e-commerce / commerce platforms")));
+        assertTrue(result.reasoning().stream()
+                .anyMatch(entry -> entry.contains("2+ years") && entry.contains("20 years")));
+        assertTrue(result.humanReading().whyStillInteresting().stream()
+                .anyMatch(entry -> entry.contains("e-commerce / commerce platforms")));
     }
 
     @Test
@@ -1023,7 +1128,7 @@ final class DecisionEngineV1Test {
                         "salary",
                         "stability"
                 ),
-                List.of("consulting_company", "onsite_only", "early_stage_startup"),
+                List.of("consulting_company", "early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup")
         );
     }
@@ -1031,7 +1136,7 @@ final class DecisionEngineV1Test {
     private PersonaConfig pragmaticPersona() {
         return new PersonaConfig(
                 "product_expat_engineer_pragmatic",
-                "Product-oriented expat engineer optimizing for employability first",
+                "Product-oriented expat engineer optimizing for employability first, with consulting and onsite-only roles tolerated but penalized",
                 List.of(
                         "english_environment",
                         "product_company",
@@ -1041,7 +1146,7 @@ final class DecisionEngineV1Test {
                         "salary",
                         "stability"
                 ),
-                List.of("onsite_only", "early_stage_startup"),
+                List.of("early_stage_startup"),
                 List.of("hybrid_partial", "japanese_not_blocking", "stable_scaleup"),
                 java.util.Map.of(),
                 RankingStrategy.BY_SCORE,
