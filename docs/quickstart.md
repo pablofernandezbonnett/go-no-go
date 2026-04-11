@@ -1,12 +1,39 @@
 # Project Quickstart
 
-Fast path to get the monorepo working locally with the minimum command set.
+Fast path to get the monorepo working locally from a fresh clone.
 
 ## Prerequisites
 
+- Git
 - Java 21 on your `PATH`
-- Dart SDK installed
-- `jaspr_cli` installed
+- Dart SDK 3.10+ on your `PATH`
+- `jaspr_cli` installed and available on your `PATH`
+
+You do not need to add personal candidate data to boot the repo. The tracked config and example files are enough for verification, the TUI, and both UIs.
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/pablofernandezbonnett/go-no-go.git
+cd go-no-go
+```
+
+## Install Local UI Dependencies
+
+Install the Jaspr CLI once:
+
+```bash
+dart pub global activate jaspr_cli
+```
+
+If `jaspr` is not found afterwards, add the Dart pub global bin directory to your `PATH` and restart your shell.
+
+Fetch the app dependencies:
+
+```bash
+(cd services/engine/ops-ui && dart pub get)
+(cd apps/reports-ui && dart pub get)
+```
 
 ## Verify the Repository
 
@@ -39,6 +66,13 @@ From `services/engine`:
 ```
 
 This runs the default end-to-end pipeline and writes artifacts under `services/engine/output/`.
+
+If you only want a quick smoke test without a full pipeline run, use:
+
+```bash
+cd services/engine
+./gradlew run --args="check examples/raw-job-text.example.txt"
+```
 
 ## Start the Operations UI
 

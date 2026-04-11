@@ -1,6 +1,7 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
+import '../components/evaluation_human_reading.dart';
 import '../constants/evaluation_contract.dart';
 import '../models/evaluation_payload.dart';
 import '../services/evaluation_api.dart';
@@ -406,65 +407,72 @@ class _EvaluateBody extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     return div([
-      section(classes: 'page', [
-        ...pageHeader(
-          'Evaluate',
-          'Submit a URL or pasted job post for ad-hoc evaluation and compare the output across one persona or all personas.',
-        ),
-        _PanelCard(
-          title: 'Evaluate Input',
-          description:
-              'Paste a job post or submit a URL for ad-hoc evaluation against one persona or all configured personas.',
-          isExpanded: isInputPanelExpanded,
-          onToggle: onToggleInputPanel,
-          children: [
-            _EvaluateForm(
-              options: options,
-              inputMode: inputMode,
-              selectedPersonaId: selectedPersonaId,
-              selectedCandidateProfileId: selectedCandidateProfileId,
-              jobUrl: jobUrl,
-              rawText: rawText,
-              isSubmitting: isSubmitting,
-              onInputModeChanged: onInputModeChanged,
-              onPersonaChanged: onPersonaChanged,
-              onCandidateProfileChanged: onCandidateProfileChanged,
-              onJobUrlChanged: onJobUrlChanged,
-              onRawTextChanged: onRawTextChanged,
-              onSubmit: onSubmit,
-            ),
-            if (submitError != null) p(classes: 'error', [.text(submitError!)]),
-          ],
-        ),
-        _EvaluateUrlHistoryCard(
-          items: urlHistory,
-          query: urlHistoryQuery,
-          selectedSource: selectedHistorySource,
-          isExpanded: isHistoryPanelExpanded,
-          error: historyError,
-          onQueryChanged: onUrlHistoryQueryChanged,
-          onSourceChanged: onHistorySourceChanged,
-          onToggle: onToggleHistoryPanel,
-          onUseUrl: onUseUrl,
-          onOpenHistoryDetail: onOpenHistoryDetail,
-        ),
-        if (session != null)
-          _EvaluateResultsSection(
-            session: session!,
-            expandedPersonas: expandedResultPersonas,
-            onToggleResultPanel: onToggleResultPanel,
+      _pageSection(),
+      if (selectedHistoryItem != null) _historyDetailModal(),
+    ]);
+  }
+
+  Component _pageSection() {
+    return section(classes: 'page', [
+      ...pageHeader(
+        'Evaluate',
+        'Submit a URL or pasted job post for ad-hoc evaluation and compare the output across one persona or all personas.',
+      ),
+      _PanelCard(
+        title: 'Evaluate Input',
+        description:
+            'Paste a job post or submit a URL for ad-hoc evaluation against one persona or all configured personas.',
+        isExpanded: isInputPanelExpanded,
+        onToggle: onToggleInputPanel,
+        children: [
+          _EvaluateForm(
+            options: options,
+            inputMode: inputMode,
+            selectedPersonaId: selectedPersonaId,
+            selectedCandidateProfileId: selectedCandidateProfileId,
+            jobUrl: jobUrl,
+            rawText: rawText,
+            isSubmitting: isSubmitting,
+            onInputModeChanged: onInputModeChanged,
+            onPersonaChanged: onPersonaChanged,
+            onCandidateProfileChanged: onCandidateProfileChanged,
+            onJobUrlChanged: onJobUrlChanged,
+            onRawTextChanged: onRawTextChanged,
+            onSubmit: onSubmit,
           ),
-      ]),
-      if (selectedHistoryItem != null)
-        _SavedEvaluationModal(
-          item: selectedHistoryItem!,
-          payload: selectedHistoryDetail,
-          error: historyDetailError,
-          isLoading: isLoadingHistoryDetail,
-          onClose: onCloseHistoryDetail,
-          onUseUrl: onUseUrl,
+          if (submitError != null) p(classes: 'error', [.text(submitError!)]),
+        ],
+      ),
+      _EvaluateUrlHistoryCard(
+        items: urlHistory,
+        query: urlHistoryQuery,
+        selectedSource: selectedHistorySource,
+        isExpanded: isHistoryPanelExpanded,
+        error: historyError,
+        onQueryChanged: onUrlHistoryQueryChanged,
+        onSourceChanged: onHistorySourceChanged,
+        onToggle: onToggleHistoryPanel,
+        onUseUrl: onUseUrl,
+        onOpenHistoryDetail: onOpenHistoryDetail,
+      ),
+      if (session != null)
+        _EvaluateResultsSection(
+          session: session!,
+          expandedPersonas: expandedResultPersonas,
+          onToggleResultPanel: onToggleResultPanel,
         ),
     ]);
+  }
+
+  Component _historyDetailModal() {
+    return _SavedEvaluationModal(
+      item: selectedHistoryItem!,
+      payload: selectedHistoryDetail,
+      error: historyDetailError,
+      isLoading: isLoadingHistoryDetail,
+      onClose: onCloseHistoryDetail,
+      onUseUrl: onUseUrl,
+    );
   }
 }
 
@@ -704,8 +712,6 @@ class _EvaluateResultCard extends StatelessComponent {
       children: [
         _EvaluationPayloadView(
           payload: result,
-          artifactTitle: 'Evaluation Output',
-          artifactSubtitle: 'Persona ${result.persona} · candidate profile ${result.candidateProfile}',
         ),
       ],
     );
@@ -748,59 +754,70 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
       isExpanded: isExpanded,
       onToggle: onToggle,
       children: [
-        div(classes: 'controls form-grid', [
-          label([
-            .text('Search URLs'),
-            input<String>(
-              type: InputType.text,
-              value: query,
-              attributes: const {'placeholder': 'Filter by company, title, or URL'},
-              onInput: onQueryChanged,
-            ),
-          ]),
-          label([
-            .text('Source'),
-            select(
-              value: selectedSource,
-              onChange: (values) => onSourceChanged(values.isEmpty ? _allSourcesFilter : values.first),
-              [
-                option(
-                  value: _allSourcesFilter,
-                  selected: selectedSource == _allSourcesFilter,
-                  [.text('All sources')],
-                ),
-                for (final source in sourceOptions)
-                  option(
-                    value: source,
-                    selected: selectedSource == source,
-                    [.text(source)],
-                  ),
-              ],
-            ),
-          ]),
-        ]),
+        _filters(sourceOptions),
         p([
           .text('Showing ${filteredItems.length} of ${items.length} URLs'),
         ]),
         if (error != null) p(classes: 'error', [.text(error!)]),
-        if (filteredItems.isEmpty && error == null)
-          p([
-            .text(items.isEmpty ? 'No reusable URLs were found yet.' : 'No URLs match the current filters.'),
-          ])
-        else if (filteredItems.isNotEmpty)
-          reportTable(
-            columns: const [
-              ReportTableColumn('Seen', width: ReportTableWidth.medium),
-              ReportTableColumn('Company'),
-              ReportTableColumn('Title', width: ReportTableWidth.xwide),
-              ReportTableColumn('Source', width: ReportTableWidth.wide),
-              ReportTableColumn('Link'),
-              ReportTableColumn('Action', width: ReportTableWidth.compact),
-            ],
-            rows: [
-              for (final item in filteredItems) _historyRow(item),
-            ],
-          ),
+        _historyContent(filteredItems),
+      ],
+    );
+  }
+
+  Component _filters(List<String> sourceOptions) {
+    return div(classes: 'controls form-grid', [
+      label([
+        .text('Search URLs'),
+        input<String>(
+          type: InputType.text,
+          value: query,
+          attributes: const {'placeholder': 'Filter by company, title, or URL'},
+          onInput: onQueryChanged,
+        ),
+      ]),
+      label([
+        .text('Source'),
+        select(
+          value: selectedSource,
+          onChange: (values) => onSourceChanged(values.isEmpty ? _allSourcesFilter : values.first),
+          [
+            option(
+              value: _allSourcesFilter,
+              selected: selectedSource == _allSourcesFilter,
+              [.text('All sources')],
+            ),
+            for (final source in sourceOptions)
+              option(
+                value: source,
+                selected: selectedSource == source,
+                [.text(source)],
+              ),
+          ],
+        ),
+      ]),
+    ]);
+  }
+
+  Component _historyContent(List<EvaluationUrlHistoryItemPayload> filteredItems) {
+    if (filteredItems.isEmpty && error == null) {
+      return p([
+        .text(items.isEmpty ? 'No reusable URLs were found yet.' : 'No URLs match the current filters.'),
+      ]);
+    }
+    if (filteredItems.isEmpty) {
+      return div([]);
+    }
+    return reportTable(
+      columns: const [
+        ReportTableColumn('Seen', width: ReportTableWidth.medium),
+        ReportTableColumn('Company'),
+        ReportTableColumn('Title', width: ReportTableWidth.xwide),
+        ReportTableColumn('Source', width: ReportTableWidth.wide),
+        ReportTableColumn('Link'),
+        ReportTableColumn('Action', width: ReportTableWidth.compact),
+      ],
+      rows: [
+        for (final item in filteredItems) _historyRow(item),
       ],
     );
   }
@@ -1020,8 +1037,6 @@ class _SavedEvaluationModal extends StatelessComponent {
             ]),
             _EvaluationPayloadView(
               payload: payload!,
-              artifactTitle: 'Saved Evaluation Output',
-              artifactSubtitle: 'Persona ${payload!.persona} · candidate profile ${payload!.candidateProfile}',
             ),
           ] else
             p([.text('No saved ad-hoc evaluation is available for this URL.')]),
@@ -1034,13 +1049,9 @@ class _SavedEvaluationModal extends StatelessComponent {
 class _EvaluationPayloadView extends StatelessComponent {
   const _EvaluationPayloadView({
     required this.payload,
-    required this.artifactTitle,
-    required this.artifactSubtitle,
   });
 
   final EvaluationResponsePayload payload;
-  final String artifactTitle;
-  final String artifactSubtitle;
 
   @override
   Component build(BuildContext context) {
@@ -1055,20 +1066,11 @@ class _EvaluationPayloadView extends StatelessComponent {
         _metricCard('Salary', payload.jobInput.salaryRange.isEmpty ? 'Unknown' : payload.jobInput.salaryRange),
         _metricCard('Remote', payload.jobInput.remotePolicy.isEmpty ? 'Unknown' : payload.jobInput.remotePolicy),
       ]),
-      div(classes: 'signal-summary-grid', [
-        _SignalSummaryCard(
-          title: 'Strengths',
-          toneClass: 'positive',
-          emptyMessage: 'No explicit positive signals were emitted for this evaluation.',
-          values: payload.evaluation.positiveSignals,
-        ),
-        _SignalSummaryCard(
-          title: 'Watchouts',
-          toneClass: 'risk',
-          emptyMessage: 'No explicit risk or hard-reject signals were emitted for this evaluation.',
-          values: negativeAspects,
-        ),
-      ]),
+      EvaluationHumanReadingSection(
+        humanReading: payload.evaluation.humanReading,
+        positiveSignals: payload.evaluation.positiveSignals,
+        negativeSignals: negativeAspects,
+      ),
       _DisclosureSection(
         title: 'Source details',
         description:
@@ -1076,7 +1078,7 @@ class _EvaluationPayloadView extends StatelessComponent {
         child: _EvaluateSourceBlock(source: payload.source),
       ),
       _DisclosureSection(
-        title: 'Job snapshot',
+        title: 'Normalized job snapshot',
         description: 'See the normalized job input that the engine actually evaluated.',
         child: artifactViewer(
           title: 'Job Snapshot',
@@ -1089,30 +1091,17 @@ class _EvaluationPayloadView extends StatelessComponent {
       ),
       if (payload.normalizationWarnings.isNotEmpty)
         _DisclosureSection(
-          title: 'Normalization warnings',
-          description: 'Warnings recorded while shaping the source into a normalized evaluation input.',
+          title: 'Normalization notes',
+          description: 'Notes recorded while shaping the source into a normalized evaluation input.',
           child: artifactViewer(
-            title: 'Normalization Warnings',
+            title: 'Normalization Notes',
             subtitle: 'Applied while shaping the artifact into an evaluation input',
-            formatLabel: 'Warnings',
+            formatLabel: 'Notes',
             content: payload.normalizationWarnings.map((item) => '- $item').join('\n'),
             preClasses: 'text-artifact',
             showHeader: false,
           ),
         ),
-      _DisclosureSection(
-        title: 'Evaluation output',
-        description:
-            'Expand the full console-style artifact only when you need the detailed reasoning or raw signal list.',
-        child: artifactViewer(
-          title: artifactTitle,
-          subtitle: artifactSubtitle,
-          formatLabel: 'Console',
-          content: _evaluationConsoleOutput(payload),
-          preClasses: 'console-artifact',
-          showHeader: false,
-        ),
-      ),
     ]);
   }
 
@@ -1133,50 +1122,6 @@ class _EvaluationPayloadView extends StatelessComponent {
       'description:',
       for (final line in payload.jobInput.description.split(RegExp(r'\r?\n'))) '  $line',
     ].join('\n');
-  }
-
-  String _evaluationConsoleOutput(EvaluationResponsePayload payload) {
-    final lines = <String>[
-      'verdict: ${payload.evaluation.verdict}',
-      'score: ${payload.evaluation.score}/100',
-      'raw_score: ${payload.evaluation.rawScore} (range ${payload.evaluation.rawScoreMin}..${payload.evaluation.rawScoreMax})',
-      'language_friction_index: ${payload.evaluation.languageFrictionIndex}/100',
-      'company_reputation_index: ${payload.evaluation.companyReputationIndex}/100',
-      'persona: ${payload.persona}',
-      'candidate_profile: ${payload.candidateProfile}',
-      'source_kind: ${payload.source.kind}',
-      if (payload.source.url.isNotEmpty) 'source_url: ${payload.source.url}',
-      if (payload.source.rawText.isNotEmpty) _multilineSourceText(payload.source.rawText),
-      'company: ${payload.jobInput.companyName}',
-      'role: ${payload.jobInput.title}',
-      _listLine('hard_reject_reasons', payload.evaluation.hardRejectReasons),
-      _listLine('positive_signals', payload.evaluation.positiveSignals),
-      _listLine('risk_signals', payload.evaluation.riskSignals),
-      _listLine('reasoning', payload.evaluation.reasoning),
-    ];
-    if (payload.normalizationWarnings.isNotEmpty) {
-      lines.add(_listLine('normalization_warnings', payload.normalizationWarnings));
-    }
-    return lines.join('\n');
-  }
-
-  String _listLine(String key, List<String> values) {
-    if (values.isEmpty) {
-      return '$key: []';
-    }
-    final buffer = StringBuffer('$key:\n');
-    for (final value in values) {
-      buffer.writeln(' - $value');
-    }
-    return buffer.toString().trimRight();
-  }
-
-  String _multilineSourceText(String rawText) {
-    final buffer = StringBuffer('source_raw_text:\n');
-    for (final line in rawText.split(RegExp(r'\r?\n'))) {
-      buffer.writeln(' | $line');
-    }
-    return buffer.toString().trimRight();
   }
 
   List<String> _negativeAspects(EvaluationResponsePayload payload) {
@@ -1222,43 +1167,6 @@ class _DisclosureSection extends StatelessComponent {
       div(classes: 'disclosure-body', [
         child,
       ]),
-    ]);
-  }
-}
-
-class _SignalSummaryCard extends StatelessComponent {
-  const _SignalSummaryCard({
-    required this.title,
-    required this.values,
-    required this.emptyMessage,
-    required this.toneClass,
-  });
-
-  final String title;
-  final List<String> values;
-  final String emptyMessage;
-  final String toneClass;
-
-  @override
-  Component build(BuildContext context) {
-    final previewValues = values
-        .take(3)
-        .map(humanizeIdentifier)
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-    final overflowCount = values.length - previewValues.length;
-
-    return div(classes: 'signal-summary-card $toneClass', [
-      div(classes: 'signal-summary-title', [.text(title)]),
-      if (previewValues.isEmpty)
-        p(classes: 'signal-summary-empty', [.text(emptyMessage)])
-      else ...[
-        ul(classes: 'signal-summary-list', [
-          for (final item in previewValues) li([.text(item)]),
-        ]),
-        if (overflowCount > 0)
-          p(classes: 'signal-summary-overflow', [.text('+$overflowCount more in the full output')]),
-      ],
     ]);
   }
 }

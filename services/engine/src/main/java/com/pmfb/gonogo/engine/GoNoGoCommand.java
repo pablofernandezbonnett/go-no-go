@@ -17,6 +17,7 @@ import picocli.CommandLine.Model.CommandSpec;
                 EvaluateCommand.class,
                 EvaluateInputCommand.class,
                 RerunAdHocEvaluationsCommand.class,
+                RerunAdHocMatrixCommand.class,
                 CheckCommand.class,
                 BatchEvaluateCommand.class,
                 WeeklyDigestCommand.class,

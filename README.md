@@ -42,8 +42,22 @@ The project exists to reduce low-signal interview effort, especially for interna
 Prerequisites:
 
 - Java 21 available on your `PATH`
-- Dart SDK installed
+- Dart SDK 3.10+ available on your `PATH`
 - `jaspr_cli` installed for local UI development
+
+You can clone and run the repository without adding personal candidate data. The tracked config and example files are enough to build the engine and both UIs.
+
+First-time local setup:
+
+```bash
+git clone https://github.com/pablofernandezbonnett/go-no-go.git
+cd go-no-go
+dart pub global activate jaspr_cli
+(cd services/engine/ops-ui && dart pub get)
+(cd apps/reports-ui && dart pub get)
+```
+
+If `jaspr` is still not found after activation, add the Dart pub global bin directory to your `PATH` and restart your shell.
 
 Essential local commands:
 
@@ -75,7 +89,7 @@ Default local URLs:
 
 ## Public Status
 
-This repository is published as a personal read-only reference project.
+This repository is published as a read-only example of a personal tool I use locally.
 
 - License: [MIT](LICENSE)
 - Contribution policy: [CONTRIBUTING.md](CONTRIBUTING.md)

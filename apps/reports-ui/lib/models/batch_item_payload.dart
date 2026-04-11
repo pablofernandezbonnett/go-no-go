@@ -1,3 +1,5 @@
+import 'human_reading_payload.dart';
+
 class BatchItemPayload {
   const BatchItemPayload({
     required this.jobId,
@@ -18,6 +20,7 @@ class BatchItemPayload {
     required this.positiveSignals,
     required this.riskSignals,
     required this.reasoning,
+    required this.humanReading,
   });
 
   final String jobId;
@@ -38,6 +41,7 @@ class BatchItemPayload {
   final List<String> positiveSignals;
   final List<String> riskSignals;
   final List<String> reasoning;
+  final HumanReadingPayload humanReading;
 
   factory BatchItemPayload.fromJson(Map<String, dynamic> json) {
     final jobKey = _asString(json['job_key']);
@@ -63,6 +67,7 @@ class BatchItemPayload {
       positiveSignals: _asStringList(json['positive_signals']),
       riskSignals: _asStringList(json['risk_signals']),
       reasoning: _asStringList(json['reasoning']),
+      humanReading: HumanReadingPayload.fromJson(_asMap(json['human_reading'])),
     );
   }
 }

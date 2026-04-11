@@ -36,11 +36,13 @@ final class RerunAdHocEvaluationsCommandTest {
 
         List<List<String>> invocations = new ArrayList<>();
         RerunAdHocEvaluationsCommand command = new RerunAdHocEvaluationsCommand(
-                new AdHocEvaluationArtifactLoader(),
-                args -> {
-                    invocations.add(List.copyOf(args));
-                    return 0;
-                }
+                new AdHocEvaluationRerunSupport(
+                        new AdHocEvaluationArtifactLoader(),
+                        args -> {
+                            invocations.add(List.copyOf(args));
+                            return 0;
+                        }
+                )
         );
 
         int exitCode = new CommandLine(command).execute(
@@ -84,23 +86,25 @@ final class RerunAdHocEvaluationsCommandTest {
 
         AtomicReference<Path> tempRawTextFile = new AtomicReference<>();
         RerunAdHocEvaluationsCommand command = new RerunAdHocEvaluationsCommand(
-                new AdHocEvaluationArtifactLoader(),
-                args -> {
-                    int rawTextIndex = args.indexOf("--raw-text-file");
-                    assertTrue(rawTextIndex >= 0);
-                    Path rawTextFile = Path.of(args.get(rawTextIndex + 1));
-                    tempRawTextFile.set(rawTextFile);
-                    try {
-                        String content = Files.readString(rawTextFile);
-                        assertTrue(content.contains("Company: Example"));
-                        assertTrue(content.contains("Title: Backend Engineer"));
-                    } catch (IOException e) {
-                        throw new AssertionError(e);
-                    }
-                    assertTrue(args.contains("--candidate-profile"));
-                    assertTrue(args.contains("none"));
-                    return 0;
-                }
+                new AdHocEvaluationRerunSupport(
+                        new AdHocEvaluationArtifactLoader(),
+                        args -> {
+                            int rawTextIndex = args.indexOf("--raw-text-file");
+                            assertTrue(rawTextIndex >= 0);
+                            Path rawTextFile = Path.of(args.get(rawTextIndex + 1));
+                            tempRawTextFile.set(rawTextFile);
+                            try {
+                                String content = Files.readString(rawTextFile);
+                                assertTrue(content.contains("Company: Example"));
+                                assertTrue(content.contains("Title: Backend Engineer"));
+                            } catch (IOException e) {
+                                throw new AssertionError(e);
+                            }
+                            assertTrue(args.contains("--candidate-profile"));
+                            assertTrue(args.contains("none"));
+                            return 0;
+                        }
+                )
         );
 
         int exitCode = new CommandLine(command).execute(
