@@ -2,10 +2,11 @@
 
 ## Current mode
 
-This repository is currently published as a read-only personal project.
+This repository is currently published as a read-only personal reference project.
 
 - External pull requests are not being accepted at this time.
-- Small factual corrections or documentation issues can still be reported through the repository host when that workflow is available.
+- General feature requests, support requests, and repo-hosted collaboration are not part of the current workflow.
+- Public issues may be closed or left unanswered when they do not affect the repository's documented local-only boundaries.
 - Security issues should follow [SECURITY.md](SECURITY.md), not public bug reports.
 
 ## Repository conventions

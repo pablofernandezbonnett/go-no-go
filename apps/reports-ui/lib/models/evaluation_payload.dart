@@ -1,3 +1,5 @@
+import 'human_reading_payload.dart';
+
 class EvaluationOptionItemPayload {
   const EvaluationOptionItemPayload({
     required this.id,
@@ -78,7 +80,8 @@ class EvaluationUrlHistoryItemPayload {
       sourceKind: json['source_kind']?.toString() ?? '',
       persona: json['persona']?.toString() ?? '',
       candidateProfile: json['candidate_profile']?.toString() ?? '',
-      savedEvaluationAvailable: savedEvaluationAvailableRaw == true || savedEvaluationAvailableRaw?.toString() == 'true',
+      savedEvaluationAvailable:
+          savedEvaluationAvailableRaw == true || savedEvaluationAvailableRaw?.toString() == 'true',
       savedEvaluationGeneratedAt: json['saved_evaluation_generated_at']?.toString() ?? '',
       savedEvaluationPersona: json['saved_evaluation_persona']?.toString() ?? '',
       savedEvaluationCandidateProfile: json['saved_evaluation_candidate_profile']?.toString() ?? '',
@@ -166,6 +169,7 @@ class EvaluationResultPayload {
     required this.positiveSignals,
     required this.riskSignals,
     required this.reasoning,
+    required this.humanReading,
   });
 
   final String verdict;
@@ -179,6 +183,7 @@ class EvaluationResultPayload {
   final List<String> positiveSignals;
   final List<String> riskSignals;
   final List<String> reasoning;
+  final HumanReadingPayload humanReading;
 
   factory EvaluationResultPayload.fromJson(Map<String, dynamic> json) {
     List<String> readList(String key) {
@@ -209,7 +214,22 @@ class EvaluationResultPayload {
       positiveSignals: readList('positive_signals'),
       riskSignals: readList('risk_signals'),
       reasoning: readList('reasoning'),
+      humanReading: _readHumanReading(json['human_reading']),
     );
+  }
+
+  static HumanReadingPayload _readHumanReading(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return HumanReadingPayload.fromJson(value);
+    }
+    if (value is Map) {
+      final mapped = <String, dynamic>{};
+      for (final entry in value.entries) {
+        mapped[entry.key.toString()] = entry.value;
+      }
+      return HumanReadingPayload.fromJson(mapped);
+    }
+    return HumanReadingPayload.empty;
   }
 }
 
@@ -268,6 +288,7 @@ class EvaluationResponsePayload {
               positiveSignals: [],
               riskSignals: [],
               reasoning: [],
+              humanReading: HumanReadingPayload.empty,
             ),
       normalizationWarnings: warningsRaw is List ? warningsRaw.map((item) => item.toString()).toList() : const [],
     );

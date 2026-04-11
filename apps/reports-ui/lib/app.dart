@@ -565,6 +565,100 @@ class App extends StatelessComponent {
       flexDirection: .column,
       gap: Gap.all(1.rem),
     ),
+    css('.human-reading-hero').styles(
+      border: Border.all(width: 1.px, color: const Color('#c7d7eb')),
+      radius: .all(.circular(12.px)),
+      padding: .all(0.95.rem),
+      backgroundColor: const Color('#f8fbff'),
+    ),
+    css('.human-reading-kicker').styles(
+      color: const Color('#01589B'),
+      fontSize: 0.78.rem,
+      fontWeight: .w700,
+      raw: const {
+        'letter-spacing': '0.08em',
+        'text-transform': 'uppercase',
+      },
+    ),
+    css('.human-reading-summary').styles(
+      margin: Spacing.only(top: 0.45.rem, bottom: 0.rem),
+      color: const Color('#0f172a'),
+      fontSize: 1.03.rem,
+      fontWeight: .w600,
+      lineHeight: 1.55.em,
+    ),
+    css('.human-reading-fit-grid').styles(
+      display: Display.grid,
+      gap: Gap.all(0.65.rem),
+      raw: const {
+        'grid-template-columns': 'repeat(auto-fit, minmax(140px, 1fr))',
+      },
+    ),
+    css('.human-reading-fit').styles(
+      border: Border.all(width: 1.px, color: const Color('#d8dfeb')),
+      radius: .all(.circular(10.px)),
+      padding: .all(0.7.rem),
+      backgroundColor: Colors.white,
+    ),
+    css('.human-reading-fit.fit-strong').styles(
+      backgroundColor: const Color('#f0fdf4'),
+      border: Border.all(width: 1.px, color: const Color('#bbf7d0')),
+    ),
+    css('.human-reading-fit.fit-mixed').styles(
+      backgroundColor: const Color('#fffbeb'),
+      border: Border.all(width: 1.px, color: const Color('#fde68a')),
+    ),
+    css('.human-reading-fit.fit-weak').styles(
+      backgroundColor: const Color('#fff7ed'),
+      border: Border.all(width: 1.px, color: const Color('#fed7aa')),
+    ),
+    css('.human-reading-fit-label').styles(
+      color: const Color('#475569'),
+      fontSize: 0.8.rem,
+      margin: Spacing.only(bottom: 0.18.rem),
+    ),
+    css('.human-reading-fit-value').styles(
+      color: const Color('#0f172a'),
+      fontWeight: .w700,
+    ),
+    css('.human-reading-reasons-grid').styles(
+      display: Display.grid,
+      gap: Gap.all(0.65.rem),
+      raw: const {
+        'grid-template-columns': 'repeat(auto-fit, minmax(260px, 1fr))',
+      },
+    ),
+    css('.human-reading-reason-card').styles(
+      border: Border.all(width: 1.px, color: const Color('#d8dfeb')),
+      radius: .all(.circular(10.px)),
+      padding: .all(0.8.rem),
+      backgroundColor: Colors.white,
+    ),
+    css('.human-reading-reason-card.positive').styles(
+      backgroundColor: const Color('#f0fdf4'),
+      border: Border.all(width: 1.px, color: const Color('#bbf7d0')),
+    ),
+    css('.human-reading-reason-card.risk').styles(
+      backgroundColor: const Color('#fff7ed'),
+      border: Border.all(width: 1.px, color: const Color('#fed7aa')),
+    ),
+    css('.human-reading-reason-title').styles(
+      color: const Color('#0f172a'),
+      fontWeight: .w700,
+      margin: Spacing.only(bottom: 0.35.rem),
+    ),
+    css('.human-reading-reason-list').styles(
+      margin: Spacing.only(top: 0.1.rem, bottom: 0.rem, left: 1.rem),
+      padding: .zero,
+    ),
+    css('.human-reading-reason-list li').styles(
+      margin: Spacing.only(bottom: 0.24.rem),
+    ),
+    css('.human-reading-reason-empty').styles(
+      margin: .zero,
+      color: const Color('#475569'),
+      fontSize: 0.9.rem,
+    ),
     css('.signal-summary-grid').styles(
       display: Display.grid,
       gap: Gap.all(0.65.rem),

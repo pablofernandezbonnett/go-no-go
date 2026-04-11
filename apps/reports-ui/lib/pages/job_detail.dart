@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import '../components/evaluation_human_reading.dart';
 import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
 import '../services/batch_report_parser.dart';
@@ -19,7 +20,7 @@ class JobDetailPage extends StatefulComponent {
 class _JobDetailPageState extends State<JobDetailPage> {
   static const _client = ReportsApiClient();
   static const _description =
-      'Inspect one evaluated job in depth, including score breakdown, supporting signals, and the reasoning behind the verdict.';
+      'Read one evaluated job in plain English first, then inspect the supporting engine details behind the verdict.';
 
   ReportsIndexPayload? _index;
   String? _loadError;
@@ -73,7 +74,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
     if (_isLoading && index == null) {
       return pageLoading('Job Detail', 'Loading job details...', description: _description);
     }
-    if (index == null || index.runs.isEmpty) return pageEmpty('Job Detail', 'No runs available.', description: _description);
+    if (index == null || index.runs.isEmpty) {
+      return pageEmpty('Job Detail', 'No runs available.', description: _description);
+    }
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Job Detail', 'Selected run was not found.', description: _description);
     if (run.batchEvaluationJsonReports.isEmpty) {
@@ -102,7 +105,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   void _selectRun(ReportRunPayload run) {
     final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
-    final nextItems = batchReport == null ? const <BatchItemPayload>[] : batchItemsFromDecodedJson(batchReport.decodedJson);
+    final nextItems = batchReport == null
+        ? const <BatchItemPayload>[]
+        : batchItemsFromDecodedJson(batchReport.decodedJson);
     setState(() {
       _selectedRunId = run.runId;
       _selectedJobId = nextItems.isEmpty ? null : nextItems.first.jobId;
@@ -138,16 +143,21 @@ class _JobDetailBody extends StatelessComponent {
     return section(classes: 'page', [
       ...pageHeader(
         'Job Detail',
-        'Inspect one evaluated job in depth, including score breakdown, supporting signals, and the reasoning behind the verdict.',
+        'Read one evaluated job in plain English first, then inspect the supporting engine details behind the verdict.',
       ),
       card([
-        p([.text('Run: '), code([.text(run.runId)])]),
+        p([
+          .text('Run: '),
+          code([.text(run.runId)]),
+        ]),
         runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
-        p([Link(to: buildRouteWithQuery('/batch', {'run': run.runId}), child: .text('Back to Batch'))]),
+        p([
+          Link(to: buildRouteWithQuery('/batch', {'run': run.runId}), child: .text('Back to Batch')),
+        ]),
       ]),
       _JobSummaryCard(selected: selected),
-      _JobSignalsCard(selected: selected),
-      if (items.length > 1) _JobOthersList(run: run, items: items, selectedJobId: selected.jobId, onJobSelected: onJobSelected),
+      if (items.length > 1)
+        _JobOthersList(run: run, items: items, selectedJobId: selected.jobId, onJobSelected: onJobSelected),
     ]);
   }
 }
@@ -159,21 +169,28 @@ class _JobSummaryCard extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
+    final negativeAspects = <String>[
+      ...selected.hardRejectReasons,
+      ...selected.riskSignals,
+    ];
     return card([
       h2([.text(selected.title)]),
-      p([strong([.text(selected.company)])]),
+      p([
+        strong([.text(selected.company)]),
+      ]),
       div(classes: 'summary-grid', [
         _metric('Verdict', selected.verdict),
         _metric('Score', selected.score == null ? 'n/a' : '${selected.score}/100'),
-        _metric('Language Friction',
-            selected.languageFrictionIndex == null ? 'n/a' : '${selected.languageFrictionIndex}/100'),
-        _metric('Company Reputation',
-            selected.companyReputationIndex == null ? 'n/a' : '${selected.companyReputationIndex}/100'),
-        _metric('Change', selected.changeStatus.isEmpty ? '-' : selected.changeStatus),
         _metric('Remote Policy', selected.remotePolicy.isEmpty ? '-' : selected.remotePolicy),
         _metric('Location', selected.location.isEmpty ? '-' : selected.location),
         _metric('Salary', selected.salaryRange.isEmpty ? '-' : selected.salaryRange),
+        _metric('Change', selected.changeStatus.isEmpty ? '-' : selected.changeStatus),
       ]),
+      EvaluationHumanReadingSection(
+        humanReading: selected.humanReading,
+        positiveSignals: selected.positiveSignals,
+        negativeSignals: negativeAspects,
+      ),
     ]);
   }
 
@@ -182,31 +199,6 @@ class _JobSummaryCard extends StatelessComponent {
       div(classes: 'metric-label', [.text(labelText)]),
       div(classes: 'metric-value', [.text(valueText)]),
     ]);
-  }
-}
-
-class _JobSignalsCard extends StatelessComponent {
-  const _JobSignalsCard({required this.selected});
-
-  final BatchItemPayload selected;
-
-  @override
-  Component build(BuildContext context) {
-    return card([
-      h3([.text('Positive Signals')]),
-      _listOrFallback(selected.positiveSignals, 'No positive signals.'),
-      h3([.text('Risk Signals')]),
-      _listOrFallback(selected.riskSignals, 'No risk signals.'),
-      h3([.text('Hard Reject Reasons')]),
-      _listOrFallback(selected.hardRejectReasons, 'No hard reject reasons.'),
-      h3([.text('Reasoning')]),
-      _listOrFallback(selected.reasoning, 'No reasoning details.'),
-    ]);
-  }
-
-  Component _listOrFallback(List<String> values, String fallback) {
-    if (values.isEmpty) return p([.text(fallback)]);
-    return ul([for (final value in values) li([.text(value)])]);
   }
 }
 

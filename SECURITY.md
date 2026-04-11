@@ -1,21 +1,25 @@
 # Security Policy
 
-## Supported scope
+## Why this file exists
 
-Security fixes are applied on the current default branch only.
+This repository is a public read-only reference project, not a supported product.
 
-The most relevant areas for this repository are:
+The purpose of this file is narrow: if the public repo ever exposes something sensitive, there should be a clear place that says not to report it publicly.
 
-- accidental exposure of local candidate data, CVs, or private runtime inputs
-- browser endpoints leaking filesystem paths, shell commands, logs, or raw local profile content
+## In Scope
+
 - committed secrets or credentials
-- unsafe handling of local-only artifacts that should remain untracked
+- accidental exposure of local candidate data, CVs, or private runtime inputs
+- browser or CLI surfaces leaking filesystem paths, shell commands, logs, or raw local profile content
+- unsafe access to local or private network targets through public repo code paths
 
 ## Reporting a vulnerability
 
 Please avoid opening public issues for security reports.
 
-If private vulnerability reporting is available on the repository host, use that channel first. If it is not available, contact the maintainer through a private channel on the hosting platform before public disclosure.
+- Use private vulnerability reporting on the repository host if that feature is enabled.
+- If no private reporting channel is available, do not post sensitive details publicly.
+- General bugs, support requests, and feature ideas are out of scope for this file.
 
 Include:
 
@@ -24,8 +28,8 @@ Include:
 - reproduction steps
 - whether private local data can be disclosed through the issue
 
-## Operational expectations
+## Support Level
 
+- Fixes, if any, are made on the current default branch only.
+- There is no response-time commitment or formal support process.
 - Real candidate profiles, CVs, resumes, and similar personal files are expected to stay local and untracked.
-- The repository should keep templates and examples only.
-- Browser-facing surfaces should expose the minimum safe metadata required for local use.

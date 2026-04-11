@@ -5,8 +5,18 @@ Operational guide for the whole monorepo. This keeps the longer command list out
 ## Prerequisites
 
 - Java 21 on your `PATH`
-- Dart SDK installed
-- `jaspr_cli` installed
+- Dart SDK 3.10+ on your `PATH`
+- `jaspr_cli` installed and available on your `PATH`
+
+Fresh clone setup:
+
+```bash
+dart pub global activate jaspr_cli
+(cd services/engine/ops-ui && dart pub get)
+(cd apps/reports-ui && dart pub get)
+```
+
+The tracked config and examples are enough to build and browse the repo. Real candidate profiles remain optional local-only runtime inputs.
 
 ## Repository Verification
 
@@ -88,6 +98,12 @@ Refresh saved ad-hoc evaluation artifacts:
 
 ```bash
 ./gradlew run --args="rerun-ad-hoc --input-dir output/ad-hoc-evaluations"
+```
+
+Rebuild saved ad-hoc sources for one candidate profile across all personas:
+
+```bash
+./gradlew run --args="rerun-ad-hoc-matrix --candidate-profile <profile_id> --input-dir output/ad-hoc-evaluations"
 ```
 
 Launch the terminal UI:
