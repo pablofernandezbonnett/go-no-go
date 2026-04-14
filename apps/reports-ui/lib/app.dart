@@ -471,6 +471,43 @@ class App extends StatelessComponent {
       color: const Color('#64748b'),
       fontSize: 0.82.rem,
     ),
+    css('.history-pagination').styles(
+      display: .flex,
+      flexDirection: .column,
+      gap: Gap.all(0.45.rem),
+      margin: Spacing.only(top: 0.2.rem, bottom: 0.7.rem),
+    ),
+    css('.history-pagination-controls').styles(
+      display: .flex,
+      flexWrap: .wrap,
+      justifyContent: JustifyContent.spaceBetween,
+      alignItems: .end,
+      gap: Gap.all(0.75.rem),
+      margin: .zero,
+    ),
+    css('.history-pagination-buttons').styles(
+      display: .flex,
+      flexWrap: .wrap,
+      alignItems: .center,
+      gap: Gap.all(0.5.rem),
+    ),
+    css('.history-pagination-status').styles(
+      display: .inlineFlex,
+      alignItems: .center,
+      border: Border.all(width: 1.px, color: const Color('#cbd5e1')),
+      radius: .all(.circular(999.px)),
+      backgroundColor: const Color('#f8fafc'),
+      color: const Color('#334155'),
+      padding: .symmetric(horizontal: 0.75.rem, vertical: 0.4.rem),
+      fontSize: 0.88.rem,
+      fontWeight: .w700,
+    ),
+    css('.history-pagination button:disabled').styles(
+      backgroundColor: const Color('#e2e8f0'),
+      border: Border.all(width: 1.px, color: const Color('#cbd5e1')),
+      color: const Color('#94a3b8'),
+      cursor: Cursor.notAllowed,
+    ),
     css('.icon-button').styles(
       display: .inlineFlex,
       alignItems: .center,
@@ -932,6 +969,14 @@ class App extends StatelessComponent {
       css('.disclosure-summary-row').styles(
         flexDirection: .column,
         alignItems: .start,
+      ),
+      css('.history-pagination-controls').styles(
+        flexDirection: .column,
+        alignItems: .start,
+      ),
+      css('.history-pagination-buttons').styles(
+        width: 100.percent,
+        justifyContent: JustifyContent.start,
       ),
       css('section.page table').styles(
         display: .block,

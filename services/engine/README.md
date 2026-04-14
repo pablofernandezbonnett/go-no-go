@@ -49,6 +49,7 @@ repository.
 - `./gradlew run --args="check examples/raw-job-text.example.txt"`: quick local evaluation from sample text.
 - `./gradlew run --args="pipeline run --persona product_expat_engineer"`: fetch, evaluate, and write reports for one persona.
 - `./gradlew run --args="evaluate-input --raw-text-file examples/raw-job-text.example.txt --persona product_expat_engineer"`: ad-hoc evaluation without a full pipeline run.
+- `./gradlew run --args="normalize-ad-hoc-company-names --input-dir output/ad-hoc-evaluations"`: rewrite generic saved company names from existing URL artifacts without re-running evaluation.
 - `./gradlew run --args="rerun-ad-hoc --input-dir output/ad-hoc-evaluations"`: refresh saved ad-hoc artifacts in place.
 - `./gradlew run --args="rerun-ad-hoc-matrix --candidate-profile pmfb --input-dir output/ad-hoc-evaluations"`: rebuild saved ad-hoc sources for one candidate profile across all personas.
 - `./gradlew installDist && ./build/install/go-no-go-engine/bin/go-no-go-engine tui`: launch the terminal UI.

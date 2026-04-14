@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 
@@ -8,6 +10,8 @@ import '../services/evaluation_api.dart';
 import 'reports_view_helpers.dart';
 
 const _allSourcesFilter = 'all_sources';
+const _urlHistoryPageSizeOptions = <int>[10, 25, 50];
+const _defaultUrlHistoryPageSize = 10;
 
 @client
 class EvaluatePage extends StatefulComponent {
@@ -38,6 +42,8 @@ class _EvaluatePageState extends State<EvaluatePage> {
   String _rawText = '';
   String _urlHistoryQuery = '';
   String _selectedHistorySource = _allSourcesFilter;
+  int _urlHistoryPage = 1;
+  int _urlHistoryPageSize = _defaultUrlHistoryPageSize;
   bool _isInputPanelExpanded = true;
   bool _isHistoryPanelExpanded = false;
   Set<String> _expandedResultPersonas = const <String>{};
@@ -190,12 +196,28 @@ class _EvaluatePageState extends State<EvaluatePage> {
   void _updateUrlHistoryQuery(String value) {
     setState(() {
       _urlHistoryQuery = value;
+      _urlHistoryPage = 1;
     });
   }
 
   void _updateHistorySource(String value) {
     setState(() {
       _selectedHistorySource = value;
+      _urlHistoryPage = 1;
+    });
+  }
+
+  void _updateUrlHistoryPage(int value) {
+    setState(() {
+      _urlHistoryPage = value;
+    });
+  }
+
+  void _updateUrlHistoryPageSize(int value) {
+    final resolvedValue = _urlHistoryPageSizeOptions.contains(value) ? value : _defaultUrlHistoryPageSize;
+    setState(() {
+      _urlHistoryPageSize = resolvedValue;
+      _urlHistoryPage = 1;
     });
   }
 
@@ -305,6 +327,8 @@ class _EvaluatePageState extends State<EvaluatePage> {
       urlHistory: _urlHistory,
       urlHistoryQuery: _urlHistoryQuery,
       selectedHistorySource: _selectedHistorySource,
+      urlHistoryPage: _urlHistoryPage,
+      urlHistoryPageSize: _urlHistoryPageSize,
       historyError: _historyError,
       submitError: _submitError,
       session: _session,
@@ -316,6 +340,8 @@ class _EvaluatePageState extends State<EvaluatePage> {
       onRawTextChanged: _updateRawText,
       onUrlHistoryQueryChanged: _updateUrlHistoryQuery,
       onHistorySourceChanged: _updateHistorySource,
+      onUrlHistoryPageChanged: _updateUrlHistoryPage,
+      onUrlHistoryPageSizeChanged: _updateUrlHistoryPageSize,
       onToggleInputPanel: _toggleInputPanel,
       onToggleHistoryPanel: _toggleHistoryPanel,
       onToggleResultPanel: _toggleResultPanel,
@@ -345,6 +371,8 @@ class _EvaluateBody extends StatelessComponent {
     required this.urlHistory,
     required this.urlHistoryQuery,
     required this.selectedHistorySource,
+    required this.urlHistoryPage,
+    required this.urlHistoryPageSize,
     required this.historyError,
     required this.submitError,
     required this.session,
@@ -356,6 +384,8 @@ class _EvaluateBody extends StatelessComponent {
     required this.onRawTextChanged,
     required this.onUrlHistoryQueryChanged,
     required this.onHistorySourceChanged,
+    required this.onUrlHistoryPageChanged,
+    required this.onUrlHistoryPageSizeChanged,
     required this.onToggleInputPanel,
     required this.onToggleHistoryPanel,
     required this.onToggleResultPanel,
@@ -381,6 +411,8 @@ class _EvaluateBody extends StatelessComponent {
   final List<EvaluationUrlHistoryItemPayload> urlHistory;
   final String urlHistoryQuery;
   final String selectedHistorySource;
+  final int urlHistoryPage;
+  final int urlHistoryPageSize;
   final String? historyError;
   final String? submitError;
   final EvaluationSessionPayload? session;
@@ -392,6 +424,8 @@ class _EvaluateBody extends StatelessComponent {
   final void Function(String) onRawTextChanged;
   final void Function(String) onUrlHistoryQueryChanged;
   final void Function(String) onHistorySourceChanged;
+  final void Function(int) onUrlHistoryPageChanged;
+  final void Function(int) onUrlHistoryPageSizeChanged;
   final void Function() onToggleInputPanel;
   final void Function() onToggleHistoryPanel;
   final void Function(String) onToggleResultPanel;
@@ -447,10 +481,14 @@ class _EvaluateBody extends StatelessComponent {
         items: urlHistory,
         query: urlHistoryQuery,
         selectedSource: selectedHistorySource,
+        page: urlHistoryPage,
+        pageSize: urlHistoryPageSize,
         isExpanded: isHistoryPanelExpanded,
         error: historyError,
         onQueryChanged: onUrlHistoryQueryChanged,
         onSourceChanged: onHistorySourceChanged,
+        onPageChanged: onUrlHistoryPageChanged,
+        onPageSizeChanged: onUrlHistoryPageSizeChanged,
         onToggle: onToggleHistoryPanel,
         onUseUrl: onUseUrl,
         onOpenHistoryDetail: onOpenHistoryDetail,
@@ -723,10 +761,14 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
     required this.items,
     required this.query,
     required this.selectedSource,
+    required this.page,
+    required this.pageSize,
     required this.isExpanded,
     required this.error,
     required this.onQueryChanged,
     required this.onSourceChanged,
+    required this.onPageChanged,
+    required this.onPageSizeChanged,
     required this.onToggle,
     required this.onUseUrl,
     required this.onOpenHistoryDetail,
@@ -735,10 +777,14 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
   final List<EvaluationUrlHistoryItemPayload> items;
   final String query;
   final String selectedSource;
+  final int page;
+  final int pageSize;
   final bool isExpanded;
   final String? error;
   final void Function(String) onQueryChanged;
   final void Function(String) onSourceChanged;
+  final void Function(int) onPageChanged;
+  final void Function(int) onPageSizeChanged;
   final void Function() onToggle;
   final void Function(String) onUseUrl;
   final void Function(EvaluationUrlHistoryItemPayload) onOpenHistoryDetail;
@@ -747,6 +793,13 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
   Component build(BuildContext context) {
     final filteredItems = _filteredItems();
     final sourceOptions = _sourceOptions();
+    final totalPages = _totalPages(filteredItems.length);
+    final currentPage = _resolvedPage(totalPages);
+    final startIndex = filteredItems.isEmpty ? 0 : (currentPage - 1) * pageSize;
+    final endIndex = filteredItems.isEmpty ? 0 : math.min(startIndex + pageSize, filteredItems.length);
+    final visibleItems = filteredItems.isEmpty
+        ? const <EvaluationUrlHistoryItemPayload>[]
+        : filteredItems.sublist(startIndex, endIndex);
 
     return _PanelCard(
       title: 'Recent URLs',
@@ -756,10 +809,18 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
       children: [
         _filters(sourceOptions),
         p([
-          .text('Showing ${filteredItems.length} of ${items.length} URLs'),
+          .text(_resultsSummary(filteredItems.length, startIndex, endIndex)),
         ]),
         if (error != null) p(classes: 'error', [.text(error!)]),
-        _historyContent(filteredItems),
+        if (filteredItems.isNotEmpty)
+          _historyPagination(
+            currentPage: currentPage,
+            totalPages: totalPages,
+          ),
+        _historyContent(
+          filteredItems: filteredItems,
+          visibleItems: visibleItems,
+        ),
       ],
     );
   }
@@ -798,7 +859,10 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
     ]);
   }
 
-  Component _historyContent(List<EvaluationUrlHistoryItemPayload> filteredItems) {
+  Component _historyContent({
+    required List<EvaluationUrlHistoryItemPayload> filteredItems,
+    required List<EvaluationUrlHistoryItemPayload> visibleItems,
+  }) {
     if (filteredItems.isEmpty && error == null) {
       return p([
         .text(items.isEmpty ? 'No reusable URLs were found yet.' : 'No URLs match the current filters.'),
@@ -817,9 +881,70 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
         ReportTableColumn('Action', width: ReportTableWidth.compact),
       ],
       rows: [
-        for (final item in filteredItems) _historyRow(item),
+        for (final item in visibleItems) _historyRow(item),
       ],
     );
+  }
+
+  Component _historyPagination({
+    required int currentPage,
+    required int totalPages,
+  }) {
+    return div(classes: 'history-pagination', [
+      div(classes: 'history-pagination-controls controls', [
+        label([
+          .text('Rows per page'),
+          select(
+            value: '$pageSize',
+            onChange: (values) {
+              if (values.isEmpty) {
+                return;
+              }
+              final value = int.tryParse(values.first);
+              if (value != null) {
+                onPageSizeChanged(value);
+              }
+            },
+            [
+              for (final optionValue in _urlHistoryPageSizeOptions)
+                option(
+                  value: '$optionValue',
+                  selected: pageSize == optionValue,
+                  [.text('$optionValue')],
+                ),
+            ],
+          ),
+        ]),
+        div(classes: 'history-pagination-buttons', [
+          label([
+            .text('Page'),
+            select(
+              value: '$currentPage',
+              onChange: (values) {
+                if (values.isEmpty) {
+                  return;
+                }
+                final value = int.tryParse(values.first);
+                if (value != null) {
+                  onPageChanged(value);
+                }
+              },
+              [
+                for (var pageNumber = 1; pageNumber <= totalPages; pageNumber += 1)
+                  option(
+                    value: '$pageNumber',
+                    selected: currentPage == pageNumber,
+                    [.text('$pageNumber')],
+                  ),
+              ],
+            ),
+          ]),
+          span(classes: 'history-pagination-status', [
+            .text('Page $currentPage of $totalPages'),
+          ]),
+        ]),
+      ]),
+    ]);
   }
 
   List<String> _sourceOptions() {
@@ -857,6 +982,34 @@ class _EvaluateUrlHistoryCard extends StatelessComponent {
           return haystack.contains(normalizedQuery);
         })
         .toList(growable: false);
+  }
+
+  int _totalPages(int itemCount) {
+    if (itemCount == 0) {
+      return 1;
+    }
+    return ((itemCount - 1) ~/ pageSize) + 1;
+  }
+
+  int _resolvedPage(int totalPages) {
+    if (page < 1) {
+      return 1;
+    }
+    if (page > totalPages) {
+      return totalPages;
+    }
+    return page;
+  }
+
+  String _resultsSummary(int filteredCount, int startIndex, int endIndex) {
+    if (filteredCount == 0) {
+      return 'Showing 0 of ${items.length} URLs';
+    }
+    final visibleRange = '${startIndex + 1}-$endIndex';
+    if (filteredCount == items.length) {
+      return 'Showing $visibleRange of $filteredCount URLs';
+    }
+    return 'Showing $visibleRange of $filteredCount matching URLs (${items.length} total)';
   }
 
   bool _matchesSelectedSource(EvaluationUrlHistoryItemPayload item) {

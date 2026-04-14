@@ -1,6 +1,5 @@
 package com.pmfb.gonogo.engine;
 
-import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.ConfigValidator;
 import com.pmfb.gonogo.engine.config.ConfigSelections;
@@ -19,7 +18,6 @@ import com.pmfb.gonogo.engine.job.JobPostingExtractor;
 import com.pmfb.gonogo.engine.job.RawJobExtractionResult;
 import com.pmfb.gonogo.engine.job.RawJobParser;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +44,6 @@ import picocli.CommandLine.Option;
 )
 public final class EvaluateInputCommand implements Callable<Integer> {
     private static final String DEFAULT_USER_AGENT = "go-no-go-engine/0.1 (+https://local)";
-    private static final String DEFAULT_UNKNOWN = "Unknown";
     private static final String SOURCE_URL_PREFIX = "Source URL: ";
     private static final String PAGE_CONTENT_ROOT_SELECTOR = "main,article,.job-description,.content";
     private static final String PAGE_NOISE_SELECTOR = "script,style,noscript,svg,footer,nav";
@@ -115,6 +112,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
     private final DirectInputSecurity directInputSecurity;
     private final EvaluateInputArtifactWriter artifactWriter;
     private final EvaluateInputOutputFormatter outputFormatter;
+    private final CompanyNameResolver companyNameResolver;
 
     @Option(
             names = {"--persona"},
@@ -207,7 +205,8 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                 new CareerPageHttpFetcher(new DirectInputSecurity()::ensureSafeHttpUri),
                 new DirectInputSecurity(),
                 new EvaluateInputArtifactWriter(),
-                new EvaluateInputOutputFormatter()
+                new EvaluateInputOutputFormatter(),
+                new CompanyNameResolver()
         );
     }
 
@@ -220,6 +219,28 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             EvaluateInputArtifactWriter artifactWriter,
             EvaluateInputOutputFormatter outputFormatter
     ) {
+        this(
+                engine,
+                rawJobParser,
+                extractor,
+                httpFetcher,
+                directInputSecurity,
+                artifactWriter,
+                outputFormatter,
+                new CompanyNameResolver()
+        );
+    }
+
+    EvaluateInputCommand(
+            DecisionEngineV1 engine,
+            RawJobParser rawJobParser,
+            JobPostingExtractor extractor,
+            CareerPageFetcher httpFetcher,
+            DirectInputSecurity directInputSecurity,
+            EvaluateInputArtifactWriter artifactWriter,
+            EvaluateInputOutputFormatter outputFormatter,
+            CompanyNameResolver companyNameResolver
+    ) {
         this.engine = engine;
         this.rawJobParser = rawJobParser;
         this.extractor = extractor;
@@ -227,6 +248,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         this.directInputSecurity = directInputSecurity;
         this.artifactWriter = artifactWriter;
         this.outputFormatter = outputFormatter;
+        this.companyNameResolver = companyNameResolver;
     }
 
     @Override
@@ -431,7 +453,7 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         Document doc = Jsoup.parse(response.body(), response.finalUrl());
         doc.select(PAGE_NOISE_SELECTOR).remove();
         List<String> warnings = new ArrayList<>();
-        String companyName = resolveCompanyName(response.finalUrl(), config.companies());
+        String companyName = companyNameResolver.resolveConfiguredCompanyName(response.finalUrl(), config.companies());
         if (companyNameOverride != null && !companyNameOverride.isBlank()) {
             companyName = companyNameOverride.trim();
         }
@@ -442,7 +464,13 @@ public final class EvaluateInputCommand implements Callable<Integer> {
                     "Could not infer a job title from URL page content."
             ));
         }
-        companyName = enrichCompanyName(companyName, title, doc);
+        companyName = companyNameResolver.resolve(
+                companyName,
+                title,
+                readMetaContent(doc, PAGE_DESCRIPTION_META_SELECTOR),
+                inferCompanyNameFromAboutHeading(doc),
+                response.finalUrl()
+        );
 
         String pageText = extractPageText(doc, title);
         if (pageText.isBlank()) {
@@ -549,91 +577,6 @@ public final class EvaluateInputCommand implements Callable<Integer> {
         }
     }
 
-    private String resolveCompanyName(String url, List<CompanyConfig> companies) {
-        String host = hostOf(url);
-        for (CompanyConfig company : companies) {
-            if (sameOrSubdomain(host, hostOf(company.careerUrl()))
-                    || sameOrSubdomain(host, hostOf(company.corporateUrl()))) {
-                return company.name();
-            }
-        }
-        return host.isBlank() ? DEFAULT_UNKNOWN : host;
-    }
-
-    private String enrichCompanyName(String companyName, String title, Document doc) {
-        if (!looksLikeGenericCompanyPlaceholder(companyName)) {
-            return companyName;
-        }
-
-        String fromTitle = inferCompanyNameFromTitle(title);
-        if (!fromTitle.isBlank()) {
-            return fromTitle;
-        }
-
-        String fromDescription = inferCompanyNameFromDescription(readMetaContent(doc, PAGE_DESCRIPTION_META_SELECTOR));
-        if (!fromDescription.isBlank()) {
-            return fromDescription;
-        }
-
-        String fromAboutHeading = inferCompanyNameFromAboutHeading(doc);
-        if (!fromAboutHeading.isBlank()) {
-            return fromAboutHeading;
-        }
-
-        return companyName;
-    }
-
-    private boolean looksLikeGenericCompanyPlaceholder(String companyName) {
-        String normalized = normalizeText(companyName);
-        if (normalized.isBlank()) {
-            return true;
-        }
-        if (DEFAULT_UNKNOWN.equalsIgnoreCase(normalized)) {
-            return true;
-        }
-        return normalized.contains(".");
-    }
-
-    private String inferCompanyNameFromTitle(String title) {
-        String normalized = normalizeText(title);
-        if (normalized.isBlank()) {
-            return "";
-        }
-        int separatorIndex = normalized.lastIndexOf(" - ");
-        if (separatorIndex < 0) {
-            separatorIndex = normalized.lastIndexOf(" | ");
-        }
-        if (separatorIndex < 0 || separatorIndex + 3 >= normalized.length()) {
-            return "";
-        }
-        String candidate = normalized.substring(separatorIndex + 3).trim();
-        if (candidate.length() > 80) {
-            return "";
-        }
-        return candidate;
-    }
-
-    private String inferCompanyNameFromDescription(String description) {
-        String normalized = normalizeText(description);
-        String lowered = normalized.toLowerCase(Locale.ROOT);
-        if (!lowered.startsWith("about ") || normalized.length() <= 6) {
-            return "";
-        }
-
-        int separatorIndex = normalized.indexOf('.');
-        if (separatorIndex < 0) {
-            separatorIndex = normalized.indexOf(' ');
-        }
-        if (separatorIndex <= 6) {
-            return "";
-        }
-        String candidate = normalized.substring(6, separatorIndex).trim();
-        if (candidate.length() > 80) {
-            return "";
-        }
-        return candidate;
-    }
-
     private String inferCompanyNameFromAboutHeading(Document doc) {
         for (Element heading : doc.select("main h2, main h3, article h2, article h3, h2, h3")) {
             String text = normalizeText(heading.text());
@@ -655,26 +598,6 @@ public final class EvaluateInputCommand implements Callable<Integer> {
             return candidate;
         }
         return "";
-    }
-
-    private String hostOf(String value) {
-        try {
-            URI uri = URI.create(value);
-            String host = uri.getHost();
-            if (host == null) {
-                return "";
-            }
-            return host.trim().toLowerCase(Locale.ROOT);
-        } catch (IllegalArgumentException e) {
-            return "";
-        }
-    }
-
-    private boolean sameOrSubdomain(String candidateHost, String baseHost) {
-        if (candidateHost == null || candidateHost.isBlank() || baseHost == null || baseHost.isBlank()) {
-            return false;
-        }
-        return candidateHost.equals(baseHost) || candidateHost.endsWith("." + baseHost);
     }
 
     private void printErrors(String title, List<String> errors) {
