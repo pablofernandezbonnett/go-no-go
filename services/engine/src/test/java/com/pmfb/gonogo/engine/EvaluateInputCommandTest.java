@@ -394,6 +394,65 @@ final class EvaluateInputCommandTest {
         assertTrue(json.contains("Page body was unavailable; evaluated the URL using title and metadata only."));
     }
 
+    @Test
+    void infersRecruiterBrandFromUrlWhenTitleAndDescriptionUseGenericPlaceholders() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-evaluate-michaelpage-shell-test");
+        Path configDir = tempDir.resolve("config");
+        writeConfig(configDir);
+
+        String html = """
+                <html>
+                  <head>
+                    <title>Senior Software Engineer - Based in Japan</title>
+                    <meta property="og:title" content="Senior Software Engineer - Based in Japan">
+                    <meta name="description" content="About Our Client. Build backend services for a growing platform team in Tokyo, Japan.">
+                  </head>
+                  <body>
+                    <div id="app"></div>
+                  </body>
+                </html>
+                """;
+
+        com.pmfb.gonogo.engine.job.CareerPageFetcher stubFetcher = new StubCareerPageFetcher(
+                "https://www.michaelpage.co.jp/en/job-detail/senior-software-engineer/jn-042026-6994215",
+                html
+        );
+        EvaluateInputCommand command = new EvaluateInputCommand(
+                new com.pmfb.gonogo.engine.decision.DecisionEngineV1(),
+                new com.pmfb.gonogo.engine.job.RawJobParser(),
+                new com.pmfb.gonogo.engine.job.JobPostingExtractor(),
+                stubFetcher,
+                new DirectInputSecurity(),
+                new EvaluateInputArtifactWriter(),
+                new EvaluateInputOutputFormatter()
+        );
+
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        PrintStream originalErr = System.err;
+        try {
+            System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
+
+            int exitCode = new CommandLine(command).execute(
+                    "--persona", "product_expat_engineer",
+                    "--config-dir", configDir.toString(),
+                    "--job-url", "https://www.michaelpage.co.jp/en/job-detail/senior-software-engineer/jn-042026-6994215",
+                    "--output-format", "json"
+            );
+
+            assertEquals(0, exitCode, stderr.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
+
+        String json = stdout.toString(StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"company_name\":\"Michael Page\""), json);
+        assertTrue(json.contains("Page body was unavailable; evaluated the URL using title and metadata only."));
+    }
+
     private void writeConfig(Path configDir) throws IOException {
         Files.createDirectories(configDir);
         Files.writeString(
