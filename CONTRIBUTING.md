@@ -1,23 +1,39 @@
 # Contributing
 
-## Current mode
+This repository is public, but it is kept read-only by default.
 
-This repository is currently published as a read-only personal reference project.
+## Default Path
 
-- External pull requests are not being accepted at this time.
-- General feature requests, support requests, and repo-hosted collaboration are not part of the current workflow.
-- Public issues may be closed or left unanswered when they do not affect the repository's documented local-only boundaries.
-- Security issues should follow [SECURITY.md](SECURITY.md), not public bug reports.
+If you want to reuse or adapt the workflow for your own local setup:
+
+- fork the repository
+- customize the personas, workflows, and local runtime inputs around your own process
+
+That is the expected path for most people.
+
+## Direct Contributions
+
+If you want to contribute back to this repository itself:
+
+- contact me first
+- if it makes sense, I can add you as a contributor
+
+The goal is to keep the repository curated and consistent instead of turning it into an
+open-ended shared hiring tool.
+
+## Commercial Use
+
+Commercial use is not allowed.
+
+See `LICENSE` for the repository licensing split between documentation and code.
 
 ## Repository conventions
 
-- Repository-level documentation stays in English.
-- Keep the engine as the source of truth for behavior and artifacts.
-- Keep `ops-ui` under engine ownership.
-- Do not commit local candidate profiles, CVs, resumes, or other personal job-search inputs.
+- Security issues should follow [SECURITY.md](SECURITY.md), not public bug reports.
+- Personal candidate profiles, CVs, resumes, and other private job-search inputs must stay local and untracked.
 - Keep only example templates under `config/candidate-profiles/`.
 
-## Maintainer checklist
+## Maintainer Checklist
 
 When maintainers make changes:
 

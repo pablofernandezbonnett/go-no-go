@@ -91,7 +91,7 @@ Default local URLs:
 
 This repository is published as a read-only example of a personal tool I use locally.
 
-- License: [MIT](LICENSE)
+- License: [LICENSE](LICENSE)
 - Contribution policy: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Security policy: [SECURITY.md](SECURITY.md)
 
