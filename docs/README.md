@@ -2,12 +2,24 @@
 
 Repository docs, screenshot sources, and preserved PR notes.
 
+This folder exists to support the main repository docs, not to compete with
+them. Use it when you need a quickstart, a deeper setup guide, or stable image
+assets that the top-level README files depend on.
+
 ## Main Files
 
 - `quickstart.md`: minimum commands for getting the monorepo running locally.
 - `advanced-guide.md`: deeper CLI/UI setup, runtime notes, and troubleshooting.
 - `pr/`: preserved PR documents for notable repository branches.
 - `screenshots/`: stable assets used by the README files.
+
+## Which Document To Read
+
+- Start with `quickstart.md` when you want the fastest path to a working local
+  setup.
+- Use `advanced-guide.md` when the quick path is not enough or you need more
+  runtime context and troubleshooting detail.
+- Use `screenshots/` only when you are updating documentation visuals.
 
 ## Screenshot Set
 
