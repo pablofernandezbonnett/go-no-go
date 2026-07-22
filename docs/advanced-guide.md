@@ -4,14 +4,14 @@ Operational guide for the whole monorepo. This keeps the longer command list out
 
 ## Prerequisites
 
-- Java 21 on your `PATH`
+- Java 26 on your `PATH`
 - Dart SDK 3.10+ on your `PATH`
 - `jaspr_cli` installed and available on your `PATH`
 
 Fresh clone setup:
 
 ```bash
-dart pub global activate jaspr_cli
+dart pub global activate jaspr_cli ^0.23.2
 (cd services/engine/ops-ui && dart pub get)
 (cd apps/reports-ui && dart pub get)
 ```

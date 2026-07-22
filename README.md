@@ -27,7 +27,7 @@ The project exists to reduce low-signal interview effort, especially for interna
 
 ## Stack Snapshot
 
-- Engine: Java 21 + Gradle + Picocli
+- Engine: Java 26 + Gradle + Picocli
 - Browser UIs: Jaspr + Dart
 
 ## Start Here
@@ -41,7 +41,7 @@ The project exists to reduce low-signal interview effort, especially for interna
 
 Prerequisites:
 
-- Java 21 available on your `PATH`
+- Java 26 available on your `PATH`
 - Dart SDK 3.10+ available on your `PATH`
 - `jaspr_cli` installed for local UI development
 
@@ -52,7 +52,7 @@ First-time local setup:
 ```bash
 git clone https://github.com/pablofernandezbonnett/go-no-go.git
 cd go-no-go
-dart pub global activate jaspr_cli
+dart pub global activate jaspr_cli ^0.23.2
 (cd services/engine/ops-ui && dart pub get)
 (cd apps/reports-ui && dart pub get)
 ```

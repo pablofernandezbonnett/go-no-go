@@ -232,7 +232,7 @@ void main() async {
   var handler =
       const Pipeline() //
           .addMiddleware(logRequests())
-          .addHandler(router);
+          .addHandler(router.call);
 
   // Object to resolve async locking of reloads.
   var reloadLock = activeReloadLock = Object();

@@ -85,7 +85,7 @@ class BatchEvaluationJsonPayload {
       runId: json['runId']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       reportId: json['reportId']?.toString() ?? '',
-      personaId: personaValue == null ? null : personaValue.toString(),
+      personaId: personaValue?.toString(),
       decodedJson: json['decodedJson'],
       isValidJson: json['isValidJson'] == true,
     );
@@ -113,7 +113,7 @@ class BatchEvaluationMarkdownPayload {
       runId: json['runId']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       reportId: json['reportId']?.toString() ?? '',
-      personaId: personaValue == null ? null : personaValue.toString(),
+      personaId: personaValue?.toString(),
       markdownContent: json['markdownContent']?.toString() ?? '',
     );
   }
@@ -163,7 +163,7 @@ class TrendHistoryPayload {
       runId: json['runId']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       historyId: json['historyId']?.toString() ?? '',
-      personaId: personaValue == null ? null : personaValue.toString(),
+      personaId: personaValue?.toString(),
       yamlContent: json['yamlContent']?.toString() ?? '',
     );
   }
@@ -194,7 +194,7 @@ class TrendAlertsPayload {
       runId: json['runId']?.toString() ?? '',
       fileName: json['fileName']?.toString() ?? '',
       alertsId: json['alertsId']?.toString() ?? '',
-      personaId: personaValue == null ? null : personaValue.toString(),
+      personaId: personaValue?.toString(),
       rawJson: json['rawJson']?.toString() ?? '',
       decodedJson: json['decodedJson'],
       isValidJson: json['isValidJson'] == true,

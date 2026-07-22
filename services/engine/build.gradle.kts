@@ -7,11 +7,11 @@ group = "com.pmfb.gonogo.engine"
 version = "0.1.0-SNAPSHOT"
 
 val targetJavaVersion = providers.gradleProperty("gonogoJavaVersion")
-    .orElse(JavaVersion.current().majorVersion)
+    .orElse("26")
     .map { value ->
         value.substringBefore('.').toIntOrNull()
             ?: throw GradleException(
-                "Invalid Java version value '$value'. Use major version like 21 or 25 " +
+                "Invalid Java version value '$value'. Use major version like 26 " +
                     "via -PgonogoJavaVersion=<major>."
             )
     }

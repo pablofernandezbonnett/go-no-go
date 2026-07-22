@@ -4,7 +4,7 @@ Explainable CLI for screening engineering roles against explicit personas and ge
 
 This is a decision engine, not a scraping-at-scale project. It stays CLI-first on purpose: rules, config, and output contracts live here first, and the UIs remain thin companions around those contracts.
 
-Stack: Java 21, Gradle, and Picocli.
+Stack: Java 26, Gradle, and Picocli.
 
 ## What It Does
 

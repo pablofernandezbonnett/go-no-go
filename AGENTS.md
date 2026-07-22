@@ -29,7 +29,7 @@ Operational contract for the Go No-Go parent repository.
 
 ## Repository Stack
 
-- Java 21 + Gradle + Picocli
+- Java 26 + Gradle + Picocli
 - Jaspr + Dart
 
 ## Verification Entry Point
