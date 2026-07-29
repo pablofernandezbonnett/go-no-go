@@ -47,5 +47,5 @@ ServerOptions get defaultServerOptions => ServerOptions(
         ClientTarget<_trends_alerts.TrendsAlertsPage>('trends_alerts'),
     _weekly.WeeklyPage: ClientTarget<_weekly.WeeklyPage>('weekly'),
   },
-  styles: () => [..._header.Header.styles, ..._app.App.styles],
+  styles: () => [..._app.App.styles, ..._header.Header.styles],
 );

@@ -22,11 +22,11 @@ analyzer:
 # You can toggle Jaspr specific lint rules in the 'diagnostics' section below.
 plugins:
   jaspr_lints:
-    version: ^0.6.0
+    version: ^0.7.1
     diagnostics:
       prefer_html_components: true
       sort_children_last: true
-      styles_ordering: true
+      styles_ordering: false
 
 # Uncomment the following section to enable or disable additional rules.
 

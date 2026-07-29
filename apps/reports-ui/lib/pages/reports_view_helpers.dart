@@ -95,7 +95,7 @@ Component runTabs({
       Link(
         to: buildRouteWithQuery(destinationPath, {
           'run': run.runId,
-          if (extraQueryKey != null) extraQueryKey: extraQueryValue,
+          ?extraQueryKey: extraQueryValue,
         }),
         classes: run.runId == selectedRunId ? 'run-tab active' : 'run-tab',
         child: .text(run.runId),
