@@ -67,3 +67,6 @@ The server binds to loopback by default. Set `REPORTS_UI_BIND_HOST=0.0.0.0` only
 - Candidate profiles are shown by stable id only.
 - The browser never becomes the source of truth for engine logic or artifacts.
 - Human-facing summaries come from engine-owned `human_reading` fields; internal scoring diagnostics are not part of the default public UI.
+- A `NO_GO` displays both its decision-band score and its negative raw score
+  (for example, `49/100 · raw -1`), so the verdict and the margin behind it are
+  both visible.

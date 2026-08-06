@@ -121,7 +121,9 @@ final class HumanReadingSynthesizer {
             Set<String> positiveSignals,
             Set<String> riskSignals
     ) {
-        if (riskSignals.contains(SignalIds.LANGUAGE_FRICTION_CRITICAL) || languageFrictionIndex >= 85) {
+        if (riskSignals.contains(SignalIds.LANGUAGE_FRICTION_CRITICAL)
+                || riskSignals.contains(SignalIds.CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL)
+                || languageFrictionIndex >= 85) {
             return HumanReadingLevel.WEAK;
         }
         if (riskSignals.contains(SignalIds.JAPANESE_ASSIGNMENT_DEPENDENCY)
@@ -303,6 +305,15 @@ final class HumanReadingSynthesizer {
         if (salaryOpaque) {
             reasons.add("Salary is opaque, so interview ROI is hard to justify under this persona.");
         }
+        if (riskSignals.contains(SignalIds.ANONYMOUS_EMPLOYER_RISK)) {
+            reasons.add("The employer is unnamed, so the actual role and conditions still need verification.");
+        }
+        if (riskSignals.contains(SignalIds.ROLE_SCOPE_SALARY_MISALIGNED)) {
+            reasons.add("The salary ceiling looks low for the explicit scope, experience, and stack breadth requested.");
+        }
+        if (riskSignals.contains(SignalIds.CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL)) {
+            reasons.add("The required Japanese level is materially above your declared proficiency.");
+        }
         if (riskSignals.contains(SignalIds.LANGUAGE_FRICTION_CRITICAL)
                 || accessFit == HumanReadingLevel.WEAK) {
             reasons.add("Japanese looks like a real gate for getting through the process.");
@@ -459,7 +470,7 @@ final class HumanReadingSynthesizer {
         LinkedHashSet<String> matched = new LinkedHashSet<>();
         for (String skillId : candidateProfile.index().productionSkillIds()) {
             List<String> aliases = CandidateProfileTaxonomy.skillAliases(skillId);
-            if (containsAny(combinedText, aliases)) {
+            if (matchesAnySkillAlias(combinedText, aliases)) {
                 matched.add(formatSkillLabel(skillId));
             }
         }
@@ -481,6 +492,20 @@ final class HumanReadingSynthesizer {
             }
         }
         return limitLabels(matched, 3);
+    }
+
+    private boolean matchesAnySkillAlias(String text, List<String> aliases) {
+        for (String alias : aliases) {
+            String normalizedAlias = normalize(alias);
+            if (normalizedAlias.isBlank()) {
+                continue;
+            }
+            String pattern = "(^|[^a-z0-9])" + Pattern.quote(normalizedAlias) + "([^a-z0-9]|$)";
+            if (Pattern.compile(pattern).matcher(text).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private List<String> limitLabels(Set<String> labels, int maxItems) {

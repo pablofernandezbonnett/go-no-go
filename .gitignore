@@ -5,6 +5,9 @@ Thumbs.db
 # Editor metadata
 .vscode/
 
+# Locally installed agent skills
+**/.agents/
+
 # Local personal candidate material
 **/candidate-profiles/*.yaml
 **/candidate-profiles/*.yml

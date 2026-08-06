@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Public catalog of all 59 signals recognized by DecisionEngineV1.
+ * Public catalog of all 61 signals recognized by DecisionEngineV1.
  *
  * <p>Provides metadata (name, type, priority group, default weight) for each signal,
  * enabling YAML config validation and API exposure via GET /api/signals.
@@ -69,10 +69,12 @@ public final class SignalRegistry {
             // ── Risk signals (35) ─────────────────────────────────────────────────
             new SignalDescriptor(SignalIds.SALARY_LOW_CONFIDENCE,             SignalType.RISK,     PriorityGroupIds.SALARY,              2),
             new SignalDescriptor(SignalIds.SALARY_BELOW_PERSONA_FLOOR,        SignalType.RISK,     PriorityGroupIds.SALARY,              3),
+            new SignalDescriptor(SignalIds.ROLE_SCOPE_SALARY_MISALIGNED,      SignalType.RISK,     PriorityGroupIds.SALARY,              5),
             new SignalDescriptor(SignalIds.ONSITE_BIAS,                       SignalType.RISK,     PriorityGroupIds.HYBRID_WORK,         2),
             new SignalDescriptor(SignalIds.JAPANESE_ASSIGNMENT_DEPENDENCY,    SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 2),
             new SignalDescriptor(SignalIds.LANGUAGE_FRICTION,                 SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 3),
             new SignalDescriptor(SignalIds.LANGUAGE_FRICTION_CRITICAL,        SignalType.RISK,     PriorityGroupIds.ENGLISH_ENVIRONMENT, 7),
+            new SignalDescriptor(SignalIds.CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL, SignalType.RISK,  PriorityGroupIds.ENGLISH_ENVIRONMENT, 7),
             new SignalDescriptor(SignalIds.CONSULTING_RISK,                   SignalType.RISK,     PriorityGroupIds.PRODUCT_COMPANY,     3),
             new SignalDescriptor(SignalIds.OVERTIME_RISK,                     SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   3),
             new SignalDescriptor(SignalIds.ENGINEERING_ENVIRONMENT_RISK,      SignalType.RISK,     PriorityGroupIds.WORK_LIFE_BALANCE,   2),

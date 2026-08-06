@@ -180,7 +180,14 @@ class _JobSummaryCard extends StatelessComponent {
       ]),
       div(classes: 'summary-grid', [
         _metric('Verdict', selected.verdict),
-        _metric('Score', selected.score == null ? 'n/a' : '${selected.score}/100'),
+        _metric(
+          'Score',
+          formatDecisionScore(
+            verdict: selected.verdict,
+            score: selected.score,
+            rawScore: selected.rawScore,
+          ),
+        ),
         _metric('Remote Policy', selected.remotePolicy.isEmpty ? '-' : selected.remotePolicy),
         _metric('Location', selected.location.isEmpty ? '-' : selected.location),
         _metric('Salary', selected.salaryRange.isEmpty ? '-' : selected.salaryRange),

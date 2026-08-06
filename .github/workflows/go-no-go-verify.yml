@@ -33,7 +33,7 @@ jobs:
         run: dart pub get
 
       - name: Install Jaspr CLI
-        run: dart pub global activate jaspr_cli 0.23.2
+        run: dart pub global activate jaspr_cli 0.23.3
 
       - name: Run repository verification
         run: ./scripts/verify.sh

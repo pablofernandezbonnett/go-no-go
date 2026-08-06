@@ -141,6 +141,17 @@ Human-reading layer:
 These dimensions are derived from scored signals and candidate profile evidence.
 They do not replace the verdict; they explain it in more human terms.
 
+Decision-aligned score rule:
+
+- Scores are mapped to verdict bands, rather than to the theoretical range of
+  every possible signal: weighted `NO_GO` is `0–49`, `GO_WITH_CAUTION` is
+  `50–69`, and `GO` is `70–100`. This keeps adjacent raw scores from jumping
+  from a very low display score to a high one when they cross a verdict
+  threshold.
+- A hard-filter `NO_GO` retains its capped score (at most `20/100`) because
+  positive evidence can still be useful context, but it can never override the
+  explicit filter.
+
 Current hard-filter baseline:
 
 - abusive overtime signals
@@ -155,9 +166,32 @@ Persona-configurable hard filters may also include:
 - workload overload
 - forced relocation
 
+Candidate-aware language hard filter:
+
+- A candidate profile may declare a verified JLPT level (`N5`–`N1`). An explicit
+  role requirement that is at least two levels above it is a critical access gap
+  and forces `NO_GO`. This is candidate-specific, not a claim that every
+  foreign candidate has the same language constraint.
+
 Salary seriousness rule:
 
 - A role is only salary-transparent if it provides an explicit salary range.
+
+Role-scope salary alignment:
+
+- `role_scope_salary_misaligned` is a weighted salary risk, not a market-rate
+  estimate. It fires only when the advertised ceiling is at or below ¥6M and
+  the post simultaneously requires at least three years of experience,
+  responsibility for requirements/architecture/upstream work, and four or more
+  distinct technologies. The three explicit conditions keep a broad but junior
+  role from being penalized merely for having a low range.
+
+Anonymous recruiter posts:
+
+- `anonymous_employer_risk` also covers an unnamed employer with at least two
+  recruiter-style indicators, such as an invitation to connect, a vague
+  long-term opportunity, or an unspecified large-scale organization. It is a
+  verification risk, not a claim that the opportunity is fraudulent.
 - `TBD`, negotiable-only wording, blank salary, or a single salary number without a range are treated as non-transparent.
 - Non-transparent salary is a strong negative signal by default and remains available as a persona-level hard filter when needed.
 

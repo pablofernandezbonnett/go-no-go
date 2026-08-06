@@ -18,6 +18,7 @@ public record CandidateProfileConfig(
         List<EducationItem> education,
         List<String> targetRoleHints,
         List<String> differentiators,
+        JapaneseProficiency japaneseProficiency,
         CandidateProfileIndex index
 ) {
     public CandidateProfileConfig {
@@ -34,6 +35,7 @@ public record CandidateProfileConfig(
         education = education == null ? List.of() : List.copyOf(education);
         targetRoleHints = targetRoleHints == null ? List.of() : List.copyOf(targetRoleHints);
         differentiators = differentiators == null ? List.of() : List.copyOf(differentiators);
+        japaneseProficiency = japaneseProficiency == null ? JapaneseProficiency.UNSPECIFIED : japaneseProficiency;
         index = index == null
                 ? CandidateProfileIndex.from(
                         productionSkills,
@@ -47,6 +49,43 @@ public record CandidateProfileConfig(
                         differentiators
                 )
                 : index;
+    }
+
+    public CandidateProfileConfig(
+            String id,
+            String name,
+            String title,
+            String location,
+            int totalExperienceYears,
+            List<String> productionSkills,
+            List<String> learningSkills,
+            List<String> gapSkills,
+            List<ProfileDomain> strongDomains,
+            List<ProfileDomain> moderateDomains,
+            List<ProfileDomain> limitedDomains,
+            List<EducationItem> education,
+            List<String> targetRoleHints,
+            List<String> differentiators,
+            CandidateProfileIndex index
+    ) {
+        this(
+                id,
+                name,
+                title,
+                location,
+                totalExperienceYears,
+                productionSkills,
+                learningSkills,
+                gapSkills,
+                strongDomains,
+                moderateDomains,
+                limitedDomains,
+                education,
+                targetRoleHints,
+                differentiators,
+                JapaneseProficiency.UNSPECIFIED,
+                index
+        );
     }
 
     public CandidateProfileConfig(
@@ -77,6 +116,7 @@ public record CandidateProfileConfig(
                 List.of(),
                 List.of(),
                 List.of(),
+                JapaneseProficiency.UNSPECIFIED,
                 null
         );
     }
@@ -112,6 +152,7 @@ public record CandidateProfileConfig(
                 toEducationItems(educationKeywords),
                 targetRoleHints,
                 differentiators,
+                JapaneseProficiency.UNSPECIFIED,
                 null
         );
     }
