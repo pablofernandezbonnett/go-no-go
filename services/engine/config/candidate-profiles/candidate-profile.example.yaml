@@ -9,7 +9,9 @@ candidate:
   total_experience_years: 10
   languages:
     - English: professional_working
-    - Japanese: conversational
+    # Optional but recommended when known: N5, N4, N3, N2, or N1.
+    # The engine uses this only to flag material gaps with explicit JLPT requirements.
+    - Japanese: N3
 
 stack:
   production_proven:

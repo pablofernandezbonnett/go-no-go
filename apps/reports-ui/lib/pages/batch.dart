@@ -288,7 +288,15 @@ class _BatchTable extends StatelessComponent {
                 td([.text(item.company)]),
                 td([.text(item.title)]),
                 td([.text(item.verdict)]),
-                td([.text(item.score == null ? 'n/a' : '${item.score}/100')]),
+                td([
+                  .text(
+                    formatDecisionScore(
+                      verdict: item.verdict,
+                      score: item.score,
+                      rawScore: item.rawScore,
+                    ),
+                  ),
+                ]),
                 td([.text(item.changeStatus.isEmpty ? '-' : item.changeStatus)]),
                 td([.text(formattedGeneratedAt)]),
                 td([

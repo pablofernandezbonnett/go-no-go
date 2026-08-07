@@ -33,6 +33,7 @@ schema references tracked.
 ## How the Engine Uses Them
 
 - candidate stack, domain, and seniority fit
+- material gaps between a declared JLPT level (`N5`–`N1`) and an explicit role requirement
 - explanation copy backed by fields such as `education`, `target_roles`, and `differentiators`
 - auto-selection of the single real profile when exactly one exists
 

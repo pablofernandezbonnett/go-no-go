@@ -94,6 +94,11 @@ final class CandidateProfileYamlLoader {
         String name = readRequiredString(candidate, "name", context + ".candidate", errors);
         String title = readRequiredString(candidate, "title", context + ".candidate", errors);
         String location = readOptionalString(candidate, "location", context + ".candidate", errors);
+        JapaneseProficiency japaneseProficiency = readJapaneseProficiency(
+                candidate,
+                context + ".candidate",
+                errors
+        );
         int totalExperienceYears = readRequiredInt(
                 candidate,
                 "total_experience_years",
@@ -148,8 +153,44 @@ final class CandidateProfileYamlLoader {
                 education,
                 targetRoleHints,
                 differentiators,
+                japaneseProficiency,
                 null
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private JapaneseProficiency readJapaneseProficiency(
+            Map<String, Object> candidate,
+            String context,
+            List<String> errors
+    ) {
+        Object value = candidate.get("languages");
+        if (value == null) {
+            return JapaneseProficiency.UNSPECIFIED;
+        }
+        if (!(value instanceof List<?> languages)) {
+            errors.add(context + " field 'languages' must be a list");
+            return JapaneseProficiency.UNSPECIFIED;
+        }
+        for (int i = 0; i < languages.size(); i++) {
+            Object item = languages.get(i);
+            if (!(item instanceof Map<?, ?> rawLanguage)) {
+                errors.add(context + " field 'languages' item[" + i + "] must be a map");
+                continue;
+            }
+            for (Map.Entry<?, ?> entry : rawLanguage.entrySet()) {
+                if (!(entry.getKey() instanceof String language)
+                        || !"japanese".equalsIgnoreCase(language.trim())) {
+                    continue;
+                }
+                if (!(entry.getValue() instanceof String level)) {
+                    errors.add(context + " Japanese language level must be a string");
+                    return JapaneseProficiency.UNSPECIFIED;
+                }
+                return JapaneseProficiency.fromProfileValue(level);
+            }
+        }
+        return JapaneseProficiency.UNSPECIFIED;
     }
 
     @SuppressWarnings("unchecked")

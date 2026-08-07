@@ -6,6 +6,7 @@ import com.pmfb.gonogo.engine.config.CandidateProfileTaxonomy;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.DecisionSignalsConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
+import com.pmfb.gonogo.engine.config.JapaneseProficiency;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.job.JobInput;
 import java.net.URI;
@@ -32,8 +33,12 @@ public final class DecisionEngineV1 {
     private static final int VERDICT_GO_WITH_CAUTION_MIN_RAW_SCORE = 1;
     private static final int NORMALIZED_SCORE_MIN = 0;
     private static final int NORMALIZED_SCORE_MAX = 100;
-    private static final int NORMALIZED_SCORE_NEUTRAL = 50;
+    private static final int DECISION_NO_GO_SCORE_MAX = 49;
+    private static final int DECISION_GO_WITH_CAUTION_SCORE_MIN = 50;
+    private static final int DECISION_GO_WITH_CAUTION_SCORE_MAX = 69;
+    private static final int DECISION_GO_SCORE_MIN = 70;
     private static final int HARD_FILTER_SCORE_CAP = 20;
+    private static final int CRITICAL_JAPANESE_LEVEL_GAP = 2;
 
     private static final int LANGUAGE_INDEX_REQUIRED_BASE = 75;
     private static final int LANGUAGE_INDEX_OPTIONAL_BASE = 5;
@@ -60,6 +65,9 @@ public final class DecisionEngineV1 {
     private static final int REPUTATION_INDEX_RISK_THRESHOLD = 40;
     private static final int REPUTATION_INDEX_HIGH_RISK_THRESHOLD = 20;
     private static final int MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN = 9_000_000;
+    private static final int ROLE_SCOPE_SALARY_MISALIGNED_MAX_YEN = 6_000_000;
+    private static final int ROLE_SCOPE_MINIMUM_YEARS_EXPERIENCE = 3;
+    private static final int ROLE_SCOPE_MINIMUM_TECHNOLOGY_COUNT = 4;
     private static final int WORKLOAD_OVERLOAD_SIGNAL_THRESHOLD = 2;
     private static final String UNKNOWN_COMPANY_NAME = "Unknown Company";
 
@@ -273,10 +281,41 @@ public final class DecisionEngineV1 {
             "goal setting and evaluation",
             "engineering organization",
             "organization performance",
-            "tech lead",
             "team management",
             "line management"
     );
+    private static final List<String> ROLE_SCOPE_RESPONSIBILITY_KEYWORDS = List.of(
+            "requirements definition",
+            "requirement definition",
+            "upstream phase",
+            "technical architecture",
+            "system architecture",
+            "architecture design",
+            "technical leadership",
+            "tech lead",
+            "people management"
+    );
+    private static final List<Pattern> ROLE_SCOPE_TECHNOLOGY_PATTERNS = List.of(
+            Pattern.compile("(?i)\\bjava\\b"),
+            Pattern.compile("(?i)\\bkotlin\\b"),
+            Pattern.compile("(?i)\\btypescript\\b"),
+            Pattern.compile("(?i)\\bjavascript\\b"),
+            Pattern.compile("(?i)\\bpython\\b"),
+            Pattern.compile("(?i)\\bruby\\b"),
+            Pattern.compile("(?i)\\bphp\\b"),
+            Pattern.compile("(?i)\\bdart\\b"),
+            Pattern.compile("(?i)\\bflutter\\b"),
+            Pattern.compile("(?i)\\bgo\\b"),
+            Pattern.compile("(?i)\\bc\\+\\+\\b"),
+            Pattern.compile("(?i)\\bc#\\b"),
+            Pattern.compile("(?i)\\bvb\\.net\\b"),
+            Pattern.compile("(?i)\\baws\\b"),
+            Pattern.compile("(?i)\\bgcp\\b"),
+            Pattern.compile("(?i)\\bazure\\b"),
+            Pattern.compile("(?i)\\bsql\\b")
+    );
+    private static final Pattern ROLE_SCOPE_YEARS_EXPERIENCE_PATTERN =
+            Pattern.compile("(?i)\\b(\\d+)\\+?\\s+years?(?: of)?\\s+(?:hands-on |practical )?(?:experience|exp)\\b");
     private static final List<String> ROLE_MANAGER_TITLE_KEYWORDS = List.of(
             "manager",
             "lead",
@@ -334,6 +373,14 @@ public final class DecisionEngineV1 {
             "industry-leading company",
             "large organization operating within"
     );
+    private static final List<String> ANONYMOUS_RECRUITER_POST_KEYWORDS = List.of(
+            "looking to speak with",
+            "long-term opportunity",
+            "large-scale technology organization",
+            "large scale technology organization",
+            "happy to connect and share more details"
+    );
+    private static final int ANONYMOUS_RECRUITER_POST_HIT_MIN = 2;
     private static final List<String> APPLICATION_PROCESS_TEMPLATE_KEYWORDS = List.of(
             "application process",
             "upload resume",
@@ -483,10 +530,13 @@ public final class DecisionEngineV1 {
 
     private static final String SIGNAL_SALARY_LOW_CONFIDENCE = SignalIds.SALARY_LOW_CONFIDENCE;
     private static final String SIGNAL_SALARY_BELOW_PERSONA_FLOOR = SignalIds.SALARY_BELOW_PERSONA_FLOOR;
+    private static final String SIGNAL_ROLE_SCOPE_SALARY_MISALIGNED = SignalIds.ROLE_SCOPE_SALARY_MISALIGNED;
     private static final String SIGNAL_ONSITE_BIAS = SignalIds.ONSITE_BIAS;
     private static final String SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY = SignalIds.JAPANESE_ASSIGNMENT_DEPENDENCY;
     private static final String SIGNAL_LANGUAGE_FRICTION = SignalIds.LANGUAGE_FRICTION;
     private static final String SIGNAL_LANGUAGE_FRICTION_CRITICAL = SignalIds.LANGUAGE_FRICTION_CRITICAL;
+    private static final String SIGNAL_CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL =
+            SignalIds.CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL;
     private static final String SIGNAL_CONSULTING_RISK = SignalIds.CONSULTING_RISK;
     private static final String SIGNAL_OVERTIME_RISK = SignalIds.OVERTIME_RISK;
     private static final String SIGNAL_ENGINEERING_ENVIRONMENT_RISK = SignalIds.ENGINEERING_ENVIRONMENT_RISK;
@@ -523,6 +573,7 @@ public final class DecisionEngineV1 {
     private static final int EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION = 2;
     private static final int EXTRA_RISK_PENALTY_PRE_IPO = 1;
     private static final int EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY = 2;
+    private static final int EXTRA_RISK_PENALTY_ROLE_SCOPE_SALARY = 2;
     private static final int EXTRA_RISK_PENALTY_WORKLOAD_POLICY = 3;
     private static final int EXTRA_RISK_PENALTY_HOLIDAY_POLICY = 2;
     private static final int EXTRA_RISK_PENALTY_LOCATION_MOBILITY = 1;
@@ -629,10 +680,12 @@ public final class DecisionEngineV1 {
     private static final Map<String, String> RISK_SIGNAL_TO_PRIORITY = Map.ofEntries(
             Map.entry(SIGNAL_SALARY_LOW_CONFIDENCE, PRIORITY_SALARY),
             Map.entry(SIGNAL_SALARY_BELOW_PERSONA_FLOOR, PRIORITY_SALARY),
+            Map.entry(SIGNAL_ROLE_SCOPE_SALARY_MISALIGNED, PRIORITY_SALARY),
             Map.entry(SIGNAL_ONSITE_BIAS, PRIORITY_HYBRID_WORK),
             Map.entry(SIGNAL_JAPANESE_ASSIGNMENT_DEPENDENCY, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, PRIORITY_ENGLISH_ENVIRONMENT),
+            Map.entry(SIGNAL_CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL, PRIORITY_ENGLISH_ENVIRONMENT),
             Map.entry(SIGNAL_CONSULTING_RISK, PRIORITY_PRODUCT_COMPANY),
             Map.entry(SIGNAL_OVERTIME_RISK, PRIORITY_WORK_LIFE_BALANCE),
             Map.entry(SIGNAL_ENGINEERING_ENVIRONMENT_RISK, PRIORITY_WORK_LIFE_BALANCE),
@@ -665,12 +718,14 @@ public final class DecisionEngineV1 {
     );
     private static final Map<String, Integer> RISK_SIGNAL_EXTRA_PENALTY = Map.ofEntries(
             Map.entry(SIGNAL_LANGUAGE_FRICTION_CRITICAL, EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE),
+            Map.entry(SIGNAL_CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL, EXTRA_RISK_PENALTY_CRITICAL_LANGUAGE),
             Map.entry(SIGNAL_ROLE_MISMATCH_MANAGER_VS_IC_TITLE, EXTRA_RISK_PENALTY_ROLE_MISMATCH),
             Map.entry(SIGNAL_ROLE_IDENTITY_MISMATCH, EXTRA_RISK_PENALTY_ROLE_IDENTITY_MISMATCH),
             Map.entry(SIGNAL_INTERMEDIARY_CONTRACT_RISK, EXTRA_RISK_PENALTY_INTERMEDIARY_CONTRACT),
             Map.entry(SIGNAL_INCLUSION_CONTRADICTION, EXTRA_RISK_PENALTY_INCLUSION_CONTRADICTION),
             Map.entry(SIGNAL_PRE_IPO_RISK, EXTRA_RISK_PENALTY_PRE_IPO),
             Map.entry(SIGNAL_MANAGER_SCOPE_SALARY_MISALIGNED, EXTRA_RISK_PENALTY_MANAGER_SCOPE_SALARY),
+            Map.entry(SIGNAL_ROLE_SCOPE_SALARY_MISALIGNED, EXTRA_RISK_PENALTY_ROLE_SCOPE_SALARY),
             Map.entry(SIGNAL_WORKLOAD_POLICY_RISK, EXTRA_RISK_PENALTY_WORKLOAD_POLICY),
             Map.entry(SIGNAL_HOLIDAY_POLICY_RISK, EXTRA_RISK_PENALTY_HOLIDAY_POLICY),
             Map.entry(SIGNAL_LOCATION_MOBILITY_RISK, EXTRA_RISK_PENALTY_LOCATION_MOBILITY),
@@ -746,6 +801,7 @@ public final class DecisionEngineV1 {
                 trackedCompany,
                 config.blacklistedCompanies(),
                 persona,
+                candidateProfile,
                 decisionSignals,
                 riskSignals
         );
@@ -760,6 +816,7 @@ public final class DecisionEngineV1 {
                 personaPriorities,
                 personaHardNo,
                 config.blacklistedCompanies(),
+                candidateProfile,
                 decisionSignals,
                 hardRejectReasons
         );
@@ -873,6 +930,7 @@ public final class DecisionEngineV1 {
             Optional<CompanyConfig> trackedCompany,
             List<BlacklistedCompanyConfig> blacklist,
             PersonaConfig persona,
+            CandidateProfileConfig candidateProfile,
             DecisionSignalsConfig decisionSignals,
             Set<String> riskSignals
     ) {
@@ -888,6 +946,9 @@ public final class DecisionEngineV1 {
         )) {
             riskSignals.add(SIGNAL_SALARY_BELOW_PERSONA_FLOOR);
         }
+        if (hasRoleScopeSalaryMisaligned(combinedText, salaryRange)) {
+            riskSignals.add(SIGNAL_ROLE_SCOPE_SALARY_MISALIGNED);
+        }
         if (shouldEmitOnsiteBias(persona, remotePolicy)) {
             riskSignals.add(SIGNAL_ONSITE_BIAS);
         }
@@ -899,6 +960,9 @@ public final class DecisionEngineV1 {
         }
         if (hasCriticalLanguageFrictionSignal(combinedText, decisionSignals)) {
             riskSignals.add(SIGNAL_LANGUAGE_FRICTION_CRITICAL);
+        }
+        if (hasCriticalCandidateJapaneseLevelGap(combinedText, candidateProfile)) {
+            riskSignals.add(SIGNAL_CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL);
         }
         if (containsAny(combinedText, decisionSignals.workLifeBalance().overtimeRiskKeywords())) {
             riskSignals.add(SIGNAL_OVERTIME_RISK);
@@ -1276,6 +1340,7 @@ public final class DecisionEngineV1 {
             Set<String> personaPriorities,
             Set<String> personaHardNo,
             List<BlacklistedCompanyConfig> blacklist,
+            CandidateProfileConfig candidateProfile,
             DecisionSignalsConfig decisionSignals,
             List<String> hardRejectReasons
     ) {
@@ -1299,6 +1364,13 @@ public final class DecisionEngineV1 {
 
         if (containsAny(combinedText, ABUSIVE_OVERTIME_KEYWORDS)) {
             hardRejectReasons.add("abusive overtime indicators detected");
+        }
+
+        if (hasCriticalCandidateJapaneseLevelGap(combinedText, candidateProfile)) {
+            hardRejectReasons.add(
+                    "role requires Japanese N1 while the candidate profile declares "
+                            + candidateProfile.japaneseProficiency().name()
+            );
         }
 
         if (personaHardNo.contains(HARD_NO_JAPANESE_ONLY_ENVIRONMENT)
@@ -1544,18 +1616,33 @@ public final class DecisionEngineV1 {
     }
 
     private int normalizeScore(int rawScore, ScoreRange range) {
-        if (range.max() <= range.min()) {
-            return NORMALIZED_SCORE_NEUTRAL;
+        if (rawScore < VERDICT_GO_WITH_CAUTION_MIN_RAW_SCORE) {
+            int minimumRawScore = Math.min(range.min(), -1);
+            double ratio = (rawScore - minimumRawScore) / (double) -minimumRawScore;
+            return clampScore((int) Math.round(ratio * DECISION_NO_GO_SCORE_MAX));
         }
-        double ratio = (rawScore - range.min()) / (double) (range.max() - range.min());
-        int score = (int) Math.round(ratio * NORMALIZED_SCORE_MAX);
+        if (rawScore < VERDICT_GO_MIN_RAW_SCORE) {
+            int cautionSpan = VERDICT_GO_MIN_RAW_SCORE - VERDICT_GO_WITH_CAUTION_MIN_RAW_SCORE - 1;
+            double ratio = (rawScore - VERDICT_GO_WITH_CAUTION_MIN_RAW_SCORE) / (double) cautionSpan;
+            int score = DECISION_GO_WITH_CAUTION_SCORE_MIN
+                    + (int) Math.round(ratio * (DECISION_GO_WITH_CAUTION_SCORE_MAX
+                    - DECISION_GO_WITH_CAUTION_SCORE_MIN));
+            return clampScore(score);
+        }
+
+        int maximumRawScore = Math.max(range.max(), VERDICT_GO_MIN_RAW_SCORE + 1);
+        double ratio = (rawScore - VERDICT_GO_MIN_RAW_SCORE)
+                / (double) (maximumRawScore - VERDICT_GO_MIN_RAW_SCORE);
+        int score = DECISION_GO_SCORE_MIN
+                + (int) Math.round(ratio * (NORMALIZED_SCORE_MAX - DECISION_GO_SCORE_MIN));
+        return clampScore(score);
+    }
+
+    private int clampScore(int score) {
         if (score < NORMALIZED_SCORE_MIN) {
             return NORMALIZED_SCORE_MIN;
         }
-        if (score > NORMALIZED_SCORE_MAX) {
-            return NORMALIZED_SCORE_MAX;
-        }
-        return score;
+        return Math.min(score, NORMALIZED_SCORE_MAX);
     }
 
     private Optional<CompanyConfig> findTrackedCompany(String companyName, List<CompanyConfig> companies) {
@@ -1657,6 +1744,42 @@ public final class DecisionEngineV1 {
         boolean hasJapaneseInternalOnly = containsAny(combinedText, JAPANESE_INTERNAL_ONLY_KEYWORDS)
                 || matchesAnyPattern(combinedText, JAPANESE_INTERNAL_ONLY_PATTERNS);
         return hasMediumOrHighLanguageRequirement && hasJapaneseInternalOnly;
+    }
+
+    private boolean hasCriticalCandidateJapaneseLevelGap(
+            String combinedText,
+            CandidateProfileConfig candidateProfile
+    ) {
+        if (candidateProfile == null
+                || candidateProfile.japaneseProficiency() == JapaneseProficiency.UNSPECIFIED) {
+            return false;
+        }
+        JapaneseProficiency requiredLevel = detectRequiredJapaneseProficiency(combinedText);
+        return requiredLevel.rank() - candidateProfile.japaneseProficiency().rank()
+                >= CRITICAL_JAPANESE_LEVEL_GAP;
+    }
+
+    private JapaneseProficiency detectRequiredJapaneseProficiency(String combinedText) {
+        if (combinedText == null || combinedText.isBlank()) {
+            return JapaneseProficiency.UNSPECIFIED;
+        }
+        if (matchesAnyPattern(combinedText, List.of(
+                Pattern.compile("(?i)\\bjlpt\\s*n1\\b"),
+                Pattern.compile("(?i)\\bn1\\s*(?:level\\s*)?japanese\\b"),
+                Pattern.compile("(?i)\\bjapanese\\s*(?:level\\s*)?n1\\b"),
+                Pattern.compile("(?im)^\\s*[•・*\\-]?\\s*n1\\s*$")
+        ))) {
+            return JapaneseProficiency.N1;
+        }
+        if (matchesAnyPattern(combinedText, List.of(
+                Pattern.compile("(?i)\\bjlpt\\s*n2\\b"),
+                Pattern.compile("(?i)\\bn2\\s*(?:level\\s*)?japanese\\b"),
+                Pattern.compile("(?i)\\bjapanese\\s*(?:level\\s*)?n2\\b"),
+                Pattern.compile("(?im)^\\s*[•・*\\-]?\\s*n2\\s*$")
+        ))) {
+            return JapaneseProficiency.N2;
+        }
+        return JapaneseProficiency.UNSPECIFIED;
     }
 
     private int computeLanguageFrictionIndex(
@@ -1843,7 +1966,9 @@ public final class DecisionEngineV1 {
         if (!UNKNOWN_COMPANY_NAME.equals(companyName)) {
             return false;
         }
-        return containsAny(combinedText, ANONYMOUS_EMPLOYER_RISK_KEYWORDS);
+        return containsAny(combinedText, ANONYMOUS_EMPLOYER_RISK_KEYWORDS)
+                || countKeywordMatches(combinedText, ANONYMOUS_RECRUITER_POST_KEYWORDS)
+                        >= ANONYMOUS_RECRUITER_POST_HIT_MIN;
     }
 
     private boolean hasGenericMarketingPostRisk(
@@ -1885,6 +2010,37 @@ public final class DecisionEngineV1 {
         }
         int upperBoundYen = parseUpperBoundYen(salaryRange);
         return upperBoundYen > NORMALIZED_SCORE_MIN && upperBoundYen <= MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN;
+    }
+
+    private boolean hasRoleScopeSalaryMisaligned(String combinedText, String salaryRange) {
+        if (!isSalaryTransparent(salaryRange)
+                || parseUpperBoundYen(salaryRange) > ROLE_SCOPE_SALARY_MISALIGNED_MAX_YEN) {
+            return false;
+        }
+        return hasExperienceRequirementAtLeast(combinedText, ROLE_SCOPE_MINIMUM_YEARS_EXPERIENCE)
+                && containsAny(combinedText, ROLE_SCOPE_RESPONSIBILITY_KEYWORDS)
+                && countPatternMatches(combinedText, ROLE_SCOPE_TECHNOLOGY_PATTERNS)
+                        >= ROLE_SCOPE_MINIMUM_TECHNOLOGY_COUNT;
+    }
+
+    private boolean hasExperienceRequirementAtLeast(String text, int minimumYears) {
+        Matcher matcher = ROLE_SCOPE_YEARS_EXPERIENCE_PATTERN.matcher(text);
+        while (matcher.find()) {
+            if (Integer.parseInt(matcher.group(1)) >= minimumYears) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int countPatternMatches(String text, List<Pattern> patterns) {
+        int matches = 0;
+        for (Pattern pattern : patterns) {
+            if (pattern.matcher(text).find()) {
+                matches++;
+            }
+        }
+        return matches;
     }
 
     private boolean hasWorkloadPolicyRisk(String combinedText, DecisionSignalsConfig decisionSignals) {

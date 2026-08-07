@@ -8,7 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class RawJobParser {
-    private static final String OPTIONAL_LIST_PREFIX_REGEX = "^\\s*[•・*\\-]?\\s*";
+    private static final String OPTIONAL_LIST_PREFIX_REGEX = "^\\s*[•・*\\-★☆✦✧]?\\s*";
     private static final int LEADING_CANDIDATE_LIMIT = 6;
     private static final Pattern COMPANY_NAME_CANDIDATE_PATTERN = Pattern.compile(
             "^[A-Z][\\w&+,.()'/-]*(?:\\s+[A-Z][\\w&+,.()'/-]*){0,5}$"
@@ -18,6 +18,7 @@ public final class RawJobParser {
             "(?i)looking\\s+for\\s+(?:an?|the)?\\s*(?:experienced|senior|staff|lead|principal|talented)?\\s*"
                     + "([a-z][a-z0-9/+&\\- ]{1,80}?(?:engineer|developer|architect|scientist|manager|designer))\\b"
     );
+    private static final Pattern HIRING_TITLE_PATTERN = Pattern.compile("(?i)^\\s*(?:🚀\\s*)?hiring\\s*:\\s*(.+)$");
     private static final List<Pattern> TITLE_PATTERNS = List.of(
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "(title|role|position)\\s*:\\s*(.+)$"),
             Pattern.compile("(?i)" + OPTIONAL_LIST_PREFIX_REGEX + "job\\s+title\\s*:\\s*(.+)$"),
@@ -136,6 +137,15 @@ public final class RawJobParser {
             "勤務地",
             "給与"
     );
+    private static final List<String> COMPANY_CANDIDATE_NOISE_KEYWORDS = List.of(
+            "japanese",
+            "required",
+            "hybrid",
+            "remote",
+            "work-friendly",
+            "salary"
+    );
+    private static final Pattern JLPT_LEVEL_ONLY_PATTERN = Pattern.compile("(?i)^n[1-5]$");
     private static final Pattern CURRENCY_RANGE_PATTERN = Pattern.compile(
             "(?i)(?:JPY|USD|EUR|¥|\\$|€)\\s*\\d[\\d,]*(?:\\.\\d+)?(?:\\s*(?:million|m))?"
                     + "(?:\\s*(?:-|~|to)\\s*(?:JPY|USD|EUR|¥|\\$|€)?\\s*\\d[\\d,]*(?:\\.\\d+)?"
@@ -225,6 +235,10 @@ public final class RawJobParser {
     }
 
     private Optional<String> inferTitle(List<String> lines) {
+        Optional<String> fromHiringAnnouncement = inferTitleFromHiringAnnouncement(lines);
+        if (fromHiringAnnouncement.isPresent()) {
+            return fromHiringAnnouncement;
+        }
         Optional<String> fromHeading = inferTitleFromHeading(lines);
         if (fromHeading.isPresent()) {
             return fromHeading;
@@ -244,6 +258,20 @@ public final class RawJobParser {
                 if (looksLikeTitleCandidate(nextLine)) {
                     return Optional.of(nextLine);
                 }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> inferTitleFromHiringAnnouncement(List<String> lines) {
+        for (String line : lines) {
+            Matcher matcher = HIRING_TITLE_PATTERN.matcher(line.trim());
+            if (!matcher.matches()) {
+                continue;
+            }
+            String title = matcher.group(1).split("\\s*\\|\\s*", 2)[0].trim();
+            if (looksLikeTitleCandidate(title)) {
+                return Optional.of(title);
             }
         }
         return Optional.empty();
@@ -472,6 +500,12 @@ public final class RawJobParser {
     private boolean looksLikeCompanyCandidate(String line) {
         String normalized = normalizeCandidateLine(line);
         if (normalized.isBlank() || normalized.length() > 100) {
+            return false;
+        }
+        if (JLPT_LEVEL_ONLY_PATTERN.matcher(normalized).matches()) {
+            return false;
+        }
+        if (containsAny(normalize(normalized), COMPANY_CANDIDATE_NOISE_KEYWORDS)) {
             return false;
         }
         if (looksLikeTitleCandidate(normalized)) {

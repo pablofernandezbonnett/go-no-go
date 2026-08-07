@@ -43,6 +43,11 @@ If candidate-aware evaluation is needed, keep the runtime profile local and
 derive it from the private canonical candidate profile maintained outside this
 repository.
 
+When known, declare an exact Japanese JLPT level under `candidate.languages`
+(for example, `Japanese: N5`). An explicit role requirement two or more levels
+higher is an explainable candidate-specific hard filter; see the candidate
+profile guide for the supported values.
+
 ## Common Workflows
 
 - `./gradlew run --args="config validate"`: validate tracked config files.

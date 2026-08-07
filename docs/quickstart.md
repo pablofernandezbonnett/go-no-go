@@ -6,7 +6,7 @@ Fast path to get the monorepo working locally from a fresh clone.
 
 - Git
 - Java 26 on your `PATH`
-- Dart SDK 3.10+ on your `PATH`
+- Dart SDK 3.11+ on your `PATH`
 - `jaspr_cli` installed and available on your `PATH`
 
 You do not need to add personal candidate data to boot the repo. The tracked config and example files are enough for verification, the TUI, and both UIs.
@@ -23,7 +23,7 @@ cd go-no-go
 Install the Jaspr CLI once:
 
 ```bash
-dart pub global activate jaspr_cli ^0.23.2
+dart pub global activate jaspr_cli ^0.23.3
 ```
 
 If `jaspr` is not found afterwards, add the Dart pub global bin directory to your `PATH` and restart your shell.
@@ -86,6 +86,15 @@ Open:
 
 - `http://localhost:8791`
 
+The shortcut also accepts Jaspr arguments, for example:
+
+```bash
+./scripts/run-ops-ui.sh --debug
+```
+
+Its defaults can be overridden with `OPS_UI_PORT`, `OPS_UI_WEB_PORT`,
+`OPS_UI_PROXY_PORT`, `OPS_UI_BIND_HOST`, `ENGINE_ROOT`, and `ENGINE_GRADLEW`.
+
 ## Start the Reports UI
 
 From the repository root:
@@ -97,6 +106,17 @@ From the repository root:
 Open:
 
 - `http://localhost:8792`
+
+The shortcut also accepts Jaspr arguments, for example:
+
+```bash
+./scripts/run-reports-ui.sh --debug
+```
+
+Its defaults can be overridden with `REPORTS_UI_PORT`, `REPORTS_UI_WEB_PORT`,
+`REPORTS_UI_PROXY_PORT`, `REPORTS_UI_BIND_HOST`, `REPORTS_ROOT`, `ENGINE_ROOT`,
+and `ENGINE_GRADLEW`. The helper scripts already reserve separate webdev and
+proxy ports, so both UIs can run at the same time.
 
 ## What to Read Next
 

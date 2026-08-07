@@ -744,7 +744,12 @@ class _EvaluateResultCard extends StatelessComponent {
   Component build(BuildContext context) {
     return _PanelCard(
       title: 'Result · ${result.persona}',
-      description: '${result.evaluation.verdict} · ${result.evaluation.score}/100',
+      description:
+          '${result.evaluation.verdict} · ${formatDecisionScore(
+            verdict: result.evaluation.verdict,
+            score: result.evaluation.score,
+            rawScore: result.evaluation.rawScore,
+          )}',
       isExpanded: isExpanded,
       onToggle: onToggle,
       children: [
@@ -1215,7 +1220,14 @@ class _EvaluationPayloadView extends StatelessComponent {
       ]),
       div(classes: 'summary-grid', [
         _metricCard('Verdict', payload.evaluation.verdict.isEmpty ? 'Unknown' : payload.evaluation.verdict),
-        _metricCard('Score', '${payload.evaluation.score}/100'),
+        _metricCard(
+          'Score',
+          formatDecisionScore(
+            verdict: payload.evaluation.verdict,
+            score: payload.evaluation.score,
+            rawScore: payload.evaluation.rawScore,
+          ),
+        ),
         _metricCard('Salary', payload.jobInput.salaryRange.isEmpty ? 'Unknown' : payload.jobInput.salaryRange),
         _metricCard('Remote', payload.jobInput.remotePolicy.isEmpty ? 'Unknown' : payload.jobInput.remotePolicy),
       ]),

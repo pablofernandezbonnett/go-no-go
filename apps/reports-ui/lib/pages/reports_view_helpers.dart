@@ -23,8 +23,7 @@ enum ReportTableWidth {
   compact,
   medium,
   wide,
-  xwide
-  ;
+  xwide;
 
   String get className => switch (this) {
     ReportTableWidth.compact => 'table-col-compact',
@@ -247,6 +246,13 @@ String describeDecisionFactor(String raw) {
   return humanizeIdentifier(trimmed);
 }
 
+String formatDecisionScore({required String verdict, required int? score, required int? rawScore}) {
+  if (verdict.trim().toUpperCase() == 'NO_GO' && rawScore != null && rawScore < 1) {
+    return score == null ? 'raw $rawScore' : '$score/100 · raw $rawScore';
+  }
+  return score == null ? 'n/a' : '$score/100';
+}
+
 String formatFriendlyDateTime(String rawValue) {
   final trimmed = rawValue.trim();
   if (trimmed.isEmpty) {
@@ -297,6 +303,10 @@ const Map<String, String> _decisionFactorCopy = {
   'japanese_assignment_dependency': 'Some responsibilities may depend on Japanese ability.',
   'language_friction': 'Japanese language expectations may slow the path to offer or onboarding.',
   'language_friction_critical': 'Japanese language expectations look like a major blocker.',
+  'candidate_japanese_level_gap_critical':
+      'The required Japanese level is materially above the declared candidate level.',
+  'role_scope_salary_misaligned':
+      'The salary ceiling looks low for the scope, experience, and technology breadth requested.',
   'consulting_risk': 'The role may lean toward consulting or client-service work.',
   'overtime_risk': 'The workload may be heavier than ideal.',
   'engineering_environment_risk': 'The post gives weak evidence about engineering quality.',

@@ -28,10 +28,12 @@ public final class SignalIds {
 
     public static final String SALARY_LOW_CONFIDENCE = "salary_low_confidence";
     public static final String SALARY_BELOW_PERSONA_FLOOR = "salary_below_persona_floor";
+    public static final String ROLE_SCOPE_SALARY_MISALIGNED = "role_scope_salary_misaligned";
     public static final String ONSITE_BIAS = "onsite_bias";
     public static final String JAPANESE_ASSIGNMENT_DEPENDENCY = "japanese_assignment_dependency";
     public static final String LANGUAGE_FRICTION = "language_friction";
     public static final String LANGUAGE_FRICTION_CRITICAL = "language_friction_critical";
+    public static final String CANDIDATE_JAPANESE_LEVEL_GAP_CRITICAL = "candidate_japanese_level_gap_critical";
     public static final String CONSULTING_RISK = "consulting_risk";
     public static final String OVERTIME_RISK = "overtime_risk";
     public static final String ENGINEERING_ENVIRONMENT_RISK = "engineering_environment_risk";

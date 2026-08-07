@@ -89,6 +89,27 @@ final class RawJobParserTest {
     }
 
     @Test
+    void extractsDecoratedAnnualSalaryAndDoesNotInventAnEmployerFromLanguageRequirements() {
+        String rawText = """
+                ★【Nagoya】Development Engineer / SES Company
+                Business Level Japanese Required
+                ✦Hybrid Work
+                ★Annual salary: 3.5 million yen - 5.1 million yen
+
+                【Required】
+                ・N1
+
+                Childcare support allowance of up to ¥50,000 per month.
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, null, null);
+
+        assertEquals("Unknown Company", result.jobInput().companyName());
+        assertEquals("3.5 million yen - 5.1 million yen", result.jobInput().salaryRange());
+        assertEquals("Hybrid", result.jobInput().remotePolicy());
+    }
+
+    @Test
     void doesNotInferOnsiteOnlyFromGenericOfficeMentionsInNarrativeText() {
         String rawText = """
                 Title: Application Engineer
@@ -171,5 +192,18 @@ final class RawJobParserTest {
 
         assertEquals("Woven By Toyota", result.jobInput().companyName());
         assertEquals("Software Engineer", result.jobInput().title());
+    }
+
+    @Test
+    void infersTheRoleFromDecoratedHiringAnnouncementsBeforeRequirementBullets() {
+        String rawText = """
+                🚀 Hiring: Senior Backend Engineer | Java / Spring Boot | Tokyo, Japan
+                ✅ Strong backend experience with Java / Spring Boot
+                ✅ Experience designing REST APIs and microservices
+                """;
+
+        RawJobExtractionResult result = parser.parse(rawText, null, null);
+
+        assertEquals("Senior Backend Engineer", result.jobInput().title());
     }
 }

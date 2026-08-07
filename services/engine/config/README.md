@@ -43,6 +43,10 @@ Notes:
 - Criteria outside `hard_no` can still appear as risk signals and reduce score.
 - `minimum_salary_yen` is a conservative threshold, not a guess about the posted maximum.
 - `salary_missing` means there is no usable range. `TBD`, negotiable-only text, blank salary, or a single number without a range all count as missing.
+- `role_scope_salary_misaligned` is an additional weighted salary risk for an
+  explicit ceiling at or below ¥6M paired with all of: three or more years of
+  experience, senior responsibility evidence, and four or more named
+  technologies. It is not a general salary-market estimate.
 
 ### `candidate-profiles/`
 
@@ -55,6 +59,11 @@ Current candidate-aware signals:
 
 - positive: `candidate_stack_fit`, `candidate_domain_fit`, `candidate_seniority_fit`
 - risk: `candidate_stack_gap`, `candidate_domain_gap`, `candidate_seniority_mismatch`
+
+Candidate profiles can also declare an exact JLPT level under
+`candidate.languages` (for example, `Japanese: N5`). When a role explicitly
+requires a level at least two steps higher, the engine emits
+`candidate_japanese_level_gap_critical` and forces `NO_GO`.
 
 Optional narrative fields such as `education`, `target_roles`, and `differentiators` support the human-readable explanation layer.
 

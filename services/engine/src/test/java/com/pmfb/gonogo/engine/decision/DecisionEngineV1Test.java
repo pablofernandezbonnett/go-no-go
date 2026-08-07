@@ -8,6 +8,7 @@ import com.pmfb.gonogo.engine.config.BlacklistedCompanyConfig;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.EngineConfig;
+import com.pmfb.gonogo.engine.config.JapaneseProficiency;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
 import com.pmfb.gonogo.engine.config.RuntimeSettingsConfig;
 import com.pmfb.gonogo.engine.job.JobInput;
@@ -291,6 +292,71 @@ final class DecisionEngineV1Test {
         );
 
         assertTrue(result.riskSignals().contains("anonymous_employer_risk"));
+    }
+
+    @Test
+    void flagsAnonymousEmployerRiskForRecruiterLedOpportunityWithoutAnEmployerName() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Senior Backend Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Unspecified",
+                        """
+                                I am looking to speak with engineers for a long-term opportunity
+                                with a large-scale technology organization. Happy to connect and
+                                share more details.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("anonymous_employer_risk"));
+    }
+
+    @Test
+    void keepsAWeightedNoGoInTheLowerDecisionBandInsteadOfForcingZero() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Backend Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Unspecified",
+                        "No additional role detail is available."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.NO_GO, result.verdict());
+        assertTrue(result.hardRejectReasons().isEmpty());
+        assertTrue(result.rawScore() < 1);
+        assertTrue(result.score() > 0);
+        assertTrue(result.score() <= 49);
+    }
+
+    @Test
+    void doesNotTreatAListedTechLeadBackgroundAsManagerScopeForAnIcRole() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Senior Backend Engineer",
+                        "Tokyo",
+                        "TBD",
+                        "Unspecified",
+                        """
+                                Ideal backgrounds include Backend Tech Lead and Senior Java Engineer.
+                                The role is an individual-contributor backend engineering position.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("role_mismatch_manager_vs_ic_title"));
     }
 
     @Test
@@ -637,6 +703,100 @@ final class DecisionEngineV1Test {
         assertTrue(result.positiveSignals().contains("candidate_domain_fit"));
         assertTrue(result.positiveSignals().contains("candidate_seniority_fit"));
         assertFalse(result.riskSignals().contains("candidate_stack_gap"));
+    }
+
+    @Test
+    void rejectsMaterialGapBetweenCandidateJapaneseLevelAndExplicitN1Requirement() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "demo_candidate",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Tokyo",
+                8,
+                List.of("Java", "TypeScript"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                JapaneseProficiency.N5,
+                null
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Unknown Company",
+                        "Development Engineer",
+                        "Nagoya",
+                        "JPY 3,500,000 - 5,100,000",
+                        "Hybrid",
+                        """
+                                Business-level Japanese required.
+                                Requirements:
+                                - N1
+                                - 3+ years of Java and TypeScript experience
+                                """
+                ),
+                pragmaticPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertEquals(Verdict.NO_GO, result.verdict());
+        assertEquals(20, result.score());
+        assertTrue(result.riskSignals().contains("candidate_japanese_level_gap_critical"));
+        assertTrue(result.hardRejectReasons().stream()
+                .anyMatch(reason -> reason.contains("requires Japanese N1") && reason.contains("N5")));
+        assertTrue(result.humanReading().whyWasteOfTime().stream()
+                .anyMatch(reason -> reason.contains("materially above your declared proficiency")));
+    }
+
+    @Test
+    void keepsHumanStackFitCopyBoundedToWholeSkillNames() {
+        CandidateProfileConfig candidateProfile = new CandidateProfileConfig(
+                "demo_candidate",
+                "Demo Candidate",
+                "Senior Backend Engineer",
+                "Tokyo",
+                8,
+                List.of("Go", "Java", "TypeScript"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                JapaneseProficiency.UNSPECIFIED,
+                null
+        );
+
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Example Co",
+                        "Development Engineer",
+                        "Tokyo",
+                        "JPY 8,000,000 - 10,000,000",
+                        "Hybrid",
+                        """
+                                This role helps engineers achieve their career goals.
+                                Requirements:
+                                - Java and TypeScript development experience
+                                """
+                ),
+                defaultPersona(),
+                candidateProfile,
+                defaultConfig()
+        );
+
+        assertTrue(result.humanReading().whyStillInteresting().stream()
+                .anyMatch(reason -> reason.contains("Java") && reason.contains("TypeScript")));
+        assertFalse(result.humanReading().whyStillInteresting().stream()
+                .anyMatch(reason -> reason.contains("Go")));
     }
 
     @Test
@@ -1113,6 +1273,48 @@ final class DecisionEngineV1Test {
         );
 
         assertTrue(result.riskSignals().contains("holiday_policy_risk"));
+    }
+
+    @Test
+    void flagsLowSalaryWhenThePostCombinesSeniorScopeAndBroadStackRequirements() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Scope Heavy Co.",
+                        "Software Engineer",
+                        "Tokyo",
+                        "JPY 4,500,000 - JPY 5,800,000",
+                        "Hybrid",
+                        """
+                                Required: 3+ years of practical experience.
+                                Own requirements definition and upstream phases.
+                                Required technologies: Java, TypeScript, JavaScript, Python, PHP.
+                                """
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertTrue(result.riskSignals().contains("role_scope_salary_misaligned"));
+        assertTrue(result.humanReading().whyWasteOfTime().stream()
+                .anyMatch(item -> item.contains("salary ceiling looks low")));
+    }
+
+    @Test
+    void doesNotFlagRoleScopeSalaryMisalignmentWithoutAllExplicitDemandIndicators() {
+        EvaluationResult result = engine.evaluate(
+                new JobInput(
+                        "Focused Co.",
+                        "Software Engineer",
+                        "Tokyo",
+                        "JPY 4,500,000 - JPY 5,800,000",
+                        "Hybrid",
+                        "Required: 3+ years of practical experience. Required technology: Java."
+                ),
+                defaultPersona(),
+                defaultConfig()
+        );
+
+        assertFalse(result.riskSignals().contains("role_scope_salary_misaligned"));
     }
 
     private PersonaConfig defaultPersona() {
