@@ -1,5 +1,7 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import '../constants/evaluation_contract.dart';
+
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
 import 'reports_view_helpers.dart';
@@ -20,6 +22,7 @@ class _WeeklyPageState extends State<WeeklyPage> {
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedWeeklyId;
 
@@ -27,30 +30,31 @@ class _WeeklyPageState extends State<WeeklyPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      final cachedIndex = _client.peekCachedIndex();
-      if (cachedIndex != null) {
-        _index = cachedIndex;
-        _isLoading = false;
-      } else {
-        _loadIndex();
-      }
+      _loadIndex();
     } else {
       _isLoading = false;
     }
   }
 
   Future<void> _loadIndex({bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
     setState(() {
-      _isLoading = _index == null || forceRefresh;
+      _isLoading = true;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
+      final index = await _client.fetchIndexWithRun(
+        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        view: reportViewWeekly,
+        forceRefresh: forceRefresh,
+      );
+      if (generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
+      if (generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -63,15 +67,22 @@ class _WeeklyPageState extends State<WeeklyPage> {
     final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedWeeklyId = queryParams['weekly'];
-    if (!kIsWeb) return pageLoading('Weekly Digest', 'Loading report index on the client...', description: _description);
+    if (!kIsWeb) {
+      return pageLoading('Weekly Digest', 'Loading report index on the client...', description: _description);
+    }
     if (_loadError != null) return pageError('Weekly Digest', _loadError!, _loadIndex, description: _description);
     final index = _index;
     if (_isLoading && index == null) {
       return pageLoading('Weekly Digest', 'Loading weekly artifacts...', description: _description);
     }
-    if (index == null || index.runs.isEmpty) return pageEmpty('Weekly Digest', 'No runs available.', description: _description);
+    if (index == null || index.runs.isEmpty) {
+      return pageEmpty('Weekly Digest', 'No runs available.', description: _description);
+    }
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Weekly Digest', 'Selected run was not found.', description: _description);
+    if (!run.contentLoaded) {
+      return pageLoading('Weekly Digest', 'Loading weekly artifacts...', description: _description);
+    }
     if (run.weeklyDigestReports.isEmpty) {
       return pageEmpty('Weekly Digest', 'Run ${run.runId} has no weekly digest markdown.', description: _description);
     }
@@ -106,6 +117,7 @@ class _WeeklyPageState extends State<WeeklyPage> {
       _selectedRunId = run.runId;
       _selectedWeeklyId = defaultWeeklyId;
     });
+    _loadIndex();
   }
 }
 
@@ -134,7 +146,10 @@ class _WeeklyBody extends StatelessComponent {
         'Read generated weekly digests for each run and switch between digest variants without leaving the current screen.',
       ),
       card([
-        p([.text('Run: '), code([.text(run.runId)])]),
+        p([
+          .text('Run: '),
+          code([.text(run.runId)]),
+        ]),
         runSelectionTabs(
           runs: runs,
           selectedRunId: run.runId,

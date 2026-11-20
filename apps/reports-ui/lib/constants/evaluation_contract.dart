@@ -2,6 +2,11 @@ const evaluatePageRoute = '/evaluate';
 
 const healthApiPath = '/api/health';
 const reportsIndexApiPath = '/api/reports/index';
+const reportsRunApiPath = '/api/reports/run';
+const reportViewBatch = 'batch';
+const reportViewWeekly = 'weekly';
+const reportViewContext = 'context';
+const reportViewTrends = 'trends';
 const evaluateOptionsApiPath = '/api/evaluate/options';
 const evaluateUrlHistoryApiPath = '/api/evaluate/url-history';
 const evaluateUrlHistoryDetailApiPath = '/api/evaluate/url-history/detail';

@@ -3,6 +3,7 @@ package com.pmfb.gonogo.engine.tui;
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
 import com.pmfb.gonogo.engine.config.PersonaConfig;
+import com.pmfb.gonogo.engine.exception.ConfigLoadException;
 import com.pmfb.gonogo.engine.tui.TuiExecutionPlanFactory.FetchWebRequest;
 import com.pmfb.gonogo.engine.tui.TuiExecutionPlanFactory.PipelineRunRequest;
 import com.pmfb.gonogo.engine.tui.TuiExecutionPlanFactory.QuickCheckMode;
@@ -14,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class TuiApp {
-    private final TuiConfigContext context;
+    private TuiConfigContext context;
     private final TuiPrompts prompts;
     private final TuiCommandRunner commandRunner;
     private final TuiExecutionPlanFactory planFactory;
@@ -44,6 +45,10 @@ public final class TuiApp {
                     prompts.println("Exiting TUI.");
                     return 0;
                 }
+                if (action == Action.RELOAD_CONFIG) {
+                    reloadConfig();
+                    continue;
+                }
 
                 TuiExecutionPlan plan = switch (action) {
                     case RUN_ALL -> promptRunAllPlan();
@@ -51,13 +56,16 @@ public final class TuiApp {
                     case QUICK_CHECK -> promptQuickCheckPlan();
                     case FETCH_WEB -> promptFetchWebPlan();
                     case CONFIG_VALIDATE -> planFactory.buildConfigValidate(context);
+                    case RELOAD_CONFIG -> throw new IllegalStateException("RELOAD_CONFIG must be handled earlier.");
                     case QUIT -> throw new IllegalStateException("QUIT must be handled earlier.");
                 };
 
                 prompts.blankLine();
                 prompts.println("Review:");
                 prompts.println(" " + plan.logicalCommand());
-                prompts.println(" " + plan.gradleCommand());
+                if (!plan.displayArgs().equals(plan.commandArgs())) {
+                    prompts.println(" Pasted text is omitted from this preview.");
+                }
                 prompts.blankLine();
                 if (!prompts.confirm("Run this command", true)) {
                     prompts.blankLine();
@@ -88,6 +96,19 @@ public final class TuiApp {
         prompts.blankLine();
     }
 
+    private void reloadConfig() {
+        try {
+            context = TuiConfigContext.load(context.configDir());
+            prompts.println("Configuration reloaded.");
+        } catch (ConfigLoadException e) {
+            prompts.println("Configuration could not be reloaded; keeping the previous selection list.");
+            for (String error : e.errors()) {
+                prompts.println(" - " + error);
+            }
+        }
+        prompts.blankLine();
+    }
+
     private Action promptAction() {
         List<OptionItem> options = List.of(
                 new OptionItem(Action.RUN_ALL.id, Action.RUN_ALL.description),
@@ -95,6 +116,7 @@ public final class TuiApp {
                 new OptionItem(Action.QUICK_CHECK.id, Action.QUICK_CHECK.description),
                 new OptionItem(Action.FETCH_WEB.id, Action.FETCH_WEB.description),
                 new OptionItem(Action.CONFIG_VALIDATE.id, Action.CONFIG_VALIDATE.description),
+                new OptionItem(Action.RELOAD_CONFIG.id, Action.RELOAD_CONFIG.description),
                 new OptionItem(Action.QUIT.id, Action.QUIT.description)
         );
         String selected = prompts.selectOne("Action", options, Action.RUN_ALL.id);
@@ -300,6 +322,7 @@ public final class TuiApp {
         QUICK_CHECK("quick-check", "Quick check a URL, file, or raw text"),
         FETCH_WEB("fetch-web", "Fetch career pages into raw files"),
         CONFIG_VALIDATE("config-validate", "Validate config"),
+        RELOAD_CONFIG("reload-config", "Reload config and menu options"),
         QUIT("quit", "Quit");
 
         private final String id;

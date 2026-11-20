@@ -16,11 +16,19 @@ class ReportsIndexPayload {
       issues: _asList(json['issues']).map((entry) => ReportIssuePayload.fromJson(_asMap(entry))).toList(),
     );
   }
+
+  ReportsIndexPayload withRun(ReportRunPayload detail) => ReportsIndexPayload(
+    reportsRootExists: reportsRootExists,
+    runs: [for (final run in runs) run.runId == detail.runId ? detail : run],
+    issues: [...issues, ...detail.issues],
+  );
 }
 
 class ReportRunPayload {
   const ReportRunPayload({
     required this.runId,
+    required this.contentLoaded,
+    this.issues = const [],
     required this.batchEvaluationJsonReports,
     required this.batchEvaluationMarkdownReports,
     required this.weeklyDigestReports,
@@ -30,6 +38,8 @@ class ReportRunPayload {
   });
 
   final String runId;
+  final bool contentLoaded;
+  final List<ReportIssuePayload> issues;
   final List<BatchEvaluationJsonPayload> batchEvaluationJsonReports;
   final List<BatchEvaluationMarkdownPayload> batchEvaluationMarkdownReports;
   final List<WeeklyDigestPayload> weeklyDigestReports;
@@ -40,6 +50,8 @@ class ReportRunPayload {
   factory ReportRunPayload.fromJson(Map<String, dynamic> json) {
     return ReportRunPayload(
       runId: json['runId']?.toString() ?? 'unknown',
+      contentLoaded: json['contentLoaded'] == true,
+      issues: _asList(json['issues']).map((entry) => ReportIssuePayload.fromJson(_asMap(entry))).toList(),
       batchEvaluationJsonReports: _asList(
         json['batchEvaluationJsonReports'],
       ).map((entry) => BatchEvaluationJsonPayload.fromJson(_asMap(entry))).toList(),

@@ -78,8 +78,7 @@ Avoid early introduction of:
 - Fail gracefully: render an error state in the component — never throw or crash due to
   missing or malformed artifact data.
 - Before adding a dependency: verify `pubspec.yaml` for an existing equivalent.
-- `build()` methods must not exceed 60 lines. Extract named private `StatelessComponent`
-  sub-classes for large content sections.
+- Keep `build()` methods readable; extract a named component when a content section has a distinct responsibility.
 
 ## Repository Stack
 
@@ -90,7 +89,7 @@ Avoid early introduction of:
 
 - Install deps: `dart pub get`
 - Static analysis: `dart analyze`
-- Run app: `jaspr serve`
+- Run app from the repository root: `./scripts/run-reports-ui.sh`; it supplies stable local ports, engine/report paths, and forwards extra Jaspr arguments.
 
 ## Verification Guardrails
 

@@ -18,7 +18,7 @@ This app is the read-mostly front end for the repository. It turns engine output
 
 ## Data Flow
 
-- Reads the configured reports root, usually `services/engine/output`.
+- Lists report runs from artifact metadata, then reads only the selected view's artifact contents on demand from the configured reports root (usually `services/engine/output`).
 - Stores ad-hoc evaluation artifacts under `ad-hoc-evaluations/`.
 - Delegates evaluation back to the engine instead of implementing scoring logic locally.
 - Keeps filesystem paths and internal runtime details server-side.

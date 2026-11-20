@@ -22,6 +22,7 @@ class ReportIndexBuilder {
     final runs = <String, _RunAccumulator>{};
 
     for (final artifact in sourceResult.artifacts) {
+      final content = artifact.content ?? '';
       final run = runs.putIfAbsent(
         artifact.runId,
         () => _RunAccumulator(runId: artifact.runId),
@@ -33,13 +34,15 @@ class ReportIndexBuilder {
             fileName: artifact.fileName,
             prefix: 'batch-evaluation-',
           );
-          final decoded = _tryDecodeJson(
-            rawJson: artifact.content,
-            relativePath: artifact.relativePath,
-            issues: issues,
-            invalidCode: 'invalid_batch_json',
-            invalidMessage: 'Invalid batch evaluation JSON.',
-          );
+          final decoded = artifact.content == null
+              ? null
+              : _tryDecodeJson(
+                  rawJson: content,
+                  relativePath: artifact.relativePath,
+                  issues: issues,
+                  invalidCode: 'invalid_batch_json',
+                  invalidMessage: 'Invalid batch evaluation JSON.',
+                );
           run.batchEvaluationJsonReports.add(
             BatchEvaluationJsonReport(
               runId: artifact.runId,
@@ -47,7 +50,7 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               reportId: identity.id,
               personaId: identity.personaId,
-              rawJson: artifact.content,
+              rawJson: content,
               decodedJson: _sanitizeBatchPayload(decoded),
               isValidJson: decoded != null,
             ),
@@ -64,7 +67,7 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               reportId: identity.id,
               personaId: identity.personaId,
-              markdownContent: _sanitizeArtifactText(artifact.content),
+              markdownContent: _sanitizeArtifactText(content),
             ),
           );
         case ReportSourceArtifactType.weeklyDigestMarkdown:
@@ -74,7 +77,7 @@ class ReportIndexBuilder {
               relativePath: artifact.relativePath,
               fileName: artifact.fileName,
               weeklyId: _stem(artifact.fileName),
-              markdownContent: _sanitizeArtifactText(artifact.content),
+              markdownContent: _sanitizeArtifactText(content),
             ),
           );
         case ReportSourceArtifactType.trendHistoryYaml:
@@ -89,18 +92,20 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               historyId: identity.id,
               personaId: identity.personaId,
-              yamlContent: _sanitizeArtifactText(artifact.content),
+              yamlContent: _sanitizeArtifactText(content),
             ),
           );
         case ReportSourceArtifactType.trendAlertsJson:
           final identity = _identityFromTrendAlerts(artifact.fileName);
-          final decoded = _tryDecodeJson(
-            rawJson: artifact.content,
-            relativePath: artifact.relativePath,
-            issues: issues,
-            invalidCode: 'invalid_trend_alerts_json',
-            invalidMessage: 'Invalid trend alerts JSON.',
-          );
+          final decoded = artifact.content == null
+              ? null
+              : _tryDecodeJson(
+                  rawJson: content,
+                  relativePath: artifact.relativePath,
+                  issues: issues,
+                  invalidCode: 'invalid_trend_alerts_json',
+                  invalidMessage: 'Invalid trend alerts JSON.',
+                );
           run.trendAlertsReports.add(
             TrendAlertsReport(
               runId: artifact.runId,
@@ -108,7 +113,7 @@ class ReportIndexBuilder {
               fileName: artifact.fileName,
               alertsId: identity.id,
               personaId: identity.personaId,
-              rawJson: _sanitizeJsonArtifactText(artifact.content),
+              rawJson: _sanitizeJsonArtifactText(content),
               decodedJson: _sanitizeArtifactPayload(decoded, blockedKeys: _artifactPathKeys),
               isValidJson: decoded != null,
             ),
@@ -120,7 +125,7 @@ class ReportIndexBuilder {
               relativePath: artifact.relativePath,
               fileName: artifact.fileName,
               companyId: _stem(artifact.fileName),
-              textContent: artifact.content,
+              textContent: content,
             ),
           );
       }
@@ -206,10 +211,10 @@ String _sanitizeArtifactText(String content) {
   final sanitized = <String>[];
   for (final line in lines) {
     final trimmed = line.trimLeft();
-    if (trimmed.startsWith('- source_file:')
-        || trimmed.startsWith('source_file:')
-        || trimmed.startsWith('batch_json:')
-        || trimmed.startsWith('weekly_digest:')) {
+    if (trimmed.startsWith('- source_file:') ||
+        trimmed.startsWith('source_file:') ||
+        trimmed.startsWith('batch_json:') ||
+        trimmed.startsWith('weekly_digest:')) {
       continue;
     }
     sanitized.add(line);

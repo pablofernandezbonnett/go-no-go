@@ -6,6 +6,7 @@ Operational contract for the Go No-Go parent repository.
 
 - Applies to the repository root and cross-project changes.
 - Applies to repository-level documentation, PR hygiene, and ownership boundaries.
+- Applies to dependency choices across all subprojects.
 - Child project-specific rules remain in descendant files when present.
 
 ## Hard Rules
@@ -19,6 +20,8 @@ Operational contract for the Go No-Go parent repository.
 - MUST name the affected subproject explicitly when a PR is scoped to a single subproject.
 - MUST keep `ops-ui` under engine ownership unless an explicit ownership split is planned.
 - MUST remove obsolete repository-level automation rather than carrying dead workflows forward.
+- MUST use the newest stable dependency releases compatible with the active stack when adding or updating dependencies; do not use alpha, beta, RC, snapshot, or other prerelease versions. Keep manifests and lockfiles aligned.
+- MUST keep documented root `scripts/run-*.sh` helpers as the preferred local entry points for Jaspr UIs; helpers own stable default ports, required environment defaults, and forwarding of extra Jaspr arguments.
 - MUST verify source-of-truth project docs and run `./scripts/verify.sh` for root-level or cross-project changes.
 
 ## Repository Layout
@@ -38,8 +41,8 @@ Operational contract for the Go No-Go parent repository.
 
 ## Agent Routing
 
-- For `services/engine/**`, consult `services/engine/AGENTS.md` first.
-- For `services/engine/ops-ui/**`, consult `services/engine/ops-ui/AGENTS.md` first.
+- For `services/engine/**`, consult `services/engine/AGENTS.md`.
+- For `services/engine/ops-ui/**`, also consult `services/engine/ops-ui/AGENTS.md`; its UI-specific rules apply alongside the engine ownership rules.
 - For `apps/reports-ui/**`, consult `apps/reports-ui/AGENTS.md` first.
 - For root docs, workflows, and repository scripts, this file stays authoritative.
 - For cross-project contract changes, consult every affected child `AGENTS.md` plus the root docs.

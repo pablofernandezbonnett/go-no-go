@@ -11,10 +11,10 @@ class ReportIndex {
   final List<ReportRunIndex> runs;
   final List<ReportIndexIssue> issues;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'reportsRootExists': reportsRootExists,
-      'runs': runs.map((run) => run.toJson()).toList(),
+      'runs': runs.map((run) => run.toJson(includeContent: includeContent)).toList(),
       'issues': issues.map((issue) => issue.toJson()).toList(),
     };
   }
@@ -39,15 +39,26 @@ class ReportRunIndex {
   final List<TrendAlertsReport> trendAlertsReports;
   final List<CompanyContextReport> companyContextReports;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
-      'batchEvaluationJsonReports': batchEvaluationJsonReports.map((report) => report.toJson()).toList(),
-      'batchEvaluationMarkdownReports': batchEvaluationMarkdownReports.map((report) => report.toJson()).toList(),
-      'weeklyDigestReports': weeklyDigestReports.map((report) => report.toJson()).toList(),
-      'trendHistoryReports': trendHistoryReports.map((report) => report.toJson()).toList(),
-      'trendAlertsReports': trendAlertsReports.map((report) => report.toJson()).toList(),
-      'companyContextReports': companyContextReports.map((report) => report.toJson()).toList(),
+      'contentLoaded': includeContent,
+      'batchEvaluationJsonReports': batchEvaluationJsonReports
+          .map((report) => report.toJson(includeContent: includeContent))
+          .toList(),
+      'batchEvaluationMarkdownReports': batchEvaluationMarkdownReports
+          .map((report) => report.toJson(includeContent: includeContent))
+          .toList(),
+      'weeklyDigestReports': weeklyDigestReports
+          .map((report) => report.toJson(includeContent: includeContent))
+          .toList(),
+      'trendHistoryReports': trendHistoryReports
+          .map((report) => report.toJson(includeContent: includeContent))
+          .toList(),
+      'trendAlertsReports': trendAlertsReports.map((report) => report.toJson(includeContent: includeContent)).toList(),
+      'companyContextReports': companyContextReports
+          .map((report) => report.toJson(includeContent: includeContent))
+          .toList(),
     };
   }
 }
@@ -73,14 +84,14 @@ class BatchEvaluationJsonReport {
   final Object? decodedJson;
   final bool isValidJson;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'reportId': reportId,
       'personaId': personaId,
-      'decodedJson': decodedJson,
-      'isValidJson': isValidJson,
+      if (includeContent) 'decodedJson': decodedJson,
+      if (includeContent) 'isValidJson': isValidJson,
     };
   }
 }
@@ -102,13 +113,13 @@ class BatchEvaluationMarkdownReport {
   final String? personaId;
   final String markdownContent;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'reportId': reportId,
       'personaId': personaId,
-      'markdownContent': markdownContent,
+      if (includeContent) 'markdownContent': markdownContent,
     };
   }
 }
@@ -128,12 +139,12 @@ class WeeklyDigestReport {
   final String weeklyId;
   final String markdownContent;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'weeklyId': weeklyId,
-      'markdownContent': markdownContent,
+      if (includeContent) 'markdownContent': markdownContent,
     };
   }
 }
@@ -155,13 +166,13 @@ class TrendHistoryReport {
   final String? personaId;
   final String yamlContent;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'historyId': historyId,
       'personaId': personaId,
-      'yamlContent': yamlContent,
+      if (includeContent) 'yamlContent': yamlContent,
     };
   }
 }
@@ -187,15 +198,15 @@ class TrendAlertsReport {
   final Object? decodedJson;
   final bool isValidJson;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'alertsId': alertsId,
       'personaId': personaId,
-      'rawJson': rawJson,
-      'decodedJson': decodedJson,
-      'isValidJson': isValidJson,
+      if (includeContent) 'rawJson': rawJson,
+      if (includeContent) 'decodedJson': decodedJson,
+      if (includeContent) 'isValidJson': isValidJson,
     };
   }
 }
@@ -215,12 +226,12 @@ class CompanyContextReport {
   final String companyId;
   final String textContent;
 
-  Map<String, Object?> toJson() {
+  Map<String, Object?> toJson({bool includeContent = true}) {
     return {
       'runId': runId,
       'fileName': fileName,
       'companyId': companyId,
-      'textContent': textContent,
+      if (includeContent) 'textContent': textContent,
     };
   }
 }

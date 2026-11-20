@@ -320,31 +320,37 @@ class RunManager {
   Future<void> _execute(RunRecord record) async {
     record.status = RunStatus.running;
     record.startedAt = DateTime.now().toUtc();
-    await Directory(record.outputDir).create(recursive: true);
+    try {
+      await Directory(record.outputDir).create(recursive: true);
 
-    final process = await Process.start(
-      record.command,
-      record.arguments,
-      workingDirectory: engineRoot.path,
-      runInShell: false,
-    );
+      final process = await Process.start(
+        record.command,
+        record.arguments,
+        workingDirectory: engineRoot.path,
+        runInShell: false,
+      );
 
-    final stdoutSub = process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) => record.addLogLine('[OUT] $line'));
-    final stderrSub = process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) => record.addLogLine('[ERR] $line'));
+      final stdoutDone = process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .forEach((line) => record.addLogLine('[OUT] $line'));
+      final stderrDone = process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .forEach((line) => record.addLogLine('[ERR] $line'));
 
-    final exitCode = await process.exitCode;
-    await stdoutSub.cancel();
-    await stderrSub.cancel();
-
-    record.exitCode = exitCode;
-    record.finishedAt = DateTime.now().toUtc();
-    record.status = exitCode == 0 ? RunStatus.succeeded : RunStatus.failed;
+      final exitCode = await process.exitCode;
+      await Future.wait([stdoutDone, stderrDone]);
+      record.exitCode = exitCode;
+      record.status = exitCode == 0 ? RunStatus.succeeded : RunStatus.failed;
+    } catch (error) {
+      record.exitCode = -1;
+      record.status = RunStatus.failed;
+      record.addLogLine('[ERR] Engine run could not be started or completed.');
+      stderr.writeln('Run ${record.runId} failed: $error');
+    } finally {
+      record.finishedAt = DateTime.now().toUtc();
+    }
   }
 
   List<String> _buildPipelineArguments({

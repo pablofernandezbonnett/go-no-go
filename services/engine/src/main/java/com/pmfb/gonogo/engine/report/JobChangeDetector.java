@@ -45,6 +45,12 @@ public final class JobChangeDetector {
     private static final String STATUS_UNCHANGED = ChangeStatuses.UNCHANGED;
 
     public ClassificationResult classifyAndPersist(List<CandidateJob> candidates, Path stateFile) throws IOException {
+        ClassificationResult result = classify(candidates, stateFile);
+        persist(result, stateFile);
+        return result;
+    }
+
+    public ClassificationResult classify(List<CandidateJob> candidates, Path stateFile) {
         LoadedState loadedState = loadState(stateFile);
         Map<String, SnapshotEntry> previous = loadedState.entries();
         Map<String, SnapshotEntry> current = new LinkedHashMap<>();
@@ -102,8 +108,6 @@ public final class JobChangeDetector {
         }
 
         removedItems.sort(Comparator.comparing(RemovedJobItem::jobKey));
-        saveState(stateFile, current);
-
         return new ClassificationResult(
                 List.copyOf(jobs),
                 List.copyOf(removedItems),
@@ -113,6 +117,17 @@ public final class JobChangeDetector {
                 removedItems.size(),
                 loadedState.warnings()
         );
+    }
+
+    public void persist(ClassificationResult result, Path stateFile) throws IOException {
+        Map<String, SnapshotEntry> entries = new LinkedHashMap<>();
+        for (ClassifiedJob job : result.jobs()) {
+            entries.put(
+                    job.jobKey(),
+                    SnapshotEntry.fromCandidate(job.jobKey(), job.sourceFile(), job.job(), job.fingerprint())
+            );
+        }
+        saveState(stateFile, entries);
     }
 
     public ChangeDetectionResult detectAndPersist(List<BatchEvaluationItem> inputItems, Path stateFile) throws IOException {

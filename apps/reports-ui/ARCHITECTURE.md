@@ -24,8 +24,8 @@ Jaspr server-mode app with filesystem-backed report loading and a thin server-si
 High-level flow:
 
 1. Engine run writes artifacts into a reports root (engine default in this monorepo: `services/engine/output/`).
-2. UI reads available artifacts from configured root.
-3. UI maps artifacts into view models.
+2. UI discovers artifact metadata from the configured root without reading every file's contents.
+3. When a report view is opened, the server reads only the relevant artifacts from the selected run and maps them into view models.
 4. UI renders report pages (runs, batch, weekly, context, trends).
 5. Optional ad-hoc evaluation submits URL/raw text to the server.
 6. The server runs `services/engine` `evaluate-input` with JSON output and a YAML analysis artifact for one persona or all configured personas.

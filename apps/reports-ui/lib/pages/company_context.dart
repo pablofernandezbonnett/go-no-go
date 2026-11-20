@@ -1,5 +1,6 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import '../constants/evaluation_contract.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
@@ -21,6 +22,7 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedCompanyId;
 
@@ -28,30 +30,31 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      final cachedIndex = _client.peekCachedIndex();
-      if (cachedIndex != null) {
-        _index = cachedIndex;
-        _isLoading = false;
-      } else {
-        _loadIndex();
-      }
+      _loadIndex();
     } else {
       _isLoading = false;
     }
   }
 
   Future<void> _loadIndex({bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
     setState(() {
-      _isLoading = _index == null || forceRefresh;
+      _isLoading = true;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
+      final index = await _client.fetchIndexWithRun(
+        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        view: reportViewContext,
+        forceRefresh: forceRefresh,
+      );
+      if (generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
+      if (generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -64,15 +67,22 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
     final queryParams = currentQueryParams(context);
     final requestedRunId = queryParams['run'];
     final requestedCompanyId = queryParams['company'];
-    if (!kIsWeb) return pageLoading('Company Context', 'Loading report index on the client...', description: _description);
+    if (!kIsWeb) {
+      return pageLoading('Company Context', 'Loading report index on the client...', description: _description);
+    }
     if (_loadError != null) return pageError('Company Context', _loadError!, _loadIndex, description: _description);
     final index = _index;
     if (_isLoading && index == null) {
       return pageLoading('Company Context', 'Loading context artifacts...', description: _description);
     }
-    if (index == null || index.runs.isEmpty) return pageEmpty('Company Context', 'No runs available.', description: _description);
+    if (index == null || index.runs.isEmpty) {
+      return pageEmpty('Company Context', 'No runs available.', description: _description);
+    }
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Company Context', 'Selected run was not found.', description: _description);
+    if (!run.contentLoaded) {
+      return pageLoading('Company Context', 'Loading context artifacts...', description: _description);
+    }
     if (run.companyContextReports.isEmpty) {
       return pageEmpty('Company Context', 'Run ${run.runId} has no company context files.', description: _description);
     }
@@ -102,6 +112,7 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
       _selectedRunId = run.runId;
       _selectedCompanyId = defaultCompanyId;
     });
+    _loadIndex();
   }
 
   void _handleCompanySelected(String runId, String companyId) {
