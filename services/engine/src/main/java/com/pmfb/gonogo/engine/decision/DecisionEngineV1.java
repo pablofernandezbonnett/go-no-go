@@ -403,10 +403,6 @@ public final class DecisionEngineV1 {
             "phase of preparing for ipo",
             "listing on the stock exchange"
     );
-    private static final Pattern SALARY_MILLION_PATTERN = Pattern.compile("(?i)(\\d+(?:\\.\\d+)?)\\s*(m|million)\\b");
-    private static final Pattern SALARY_NUMBER_PATTERN = Pattern.compile("(\\d{1,3}(?:[,.]\\d{3})+|\\d{6,9})");
-    private static final Pattern SALARY_ORDERED_TOKEN_PATTERN =
-            Pattern.compile("(?i)(\\d{1,3}(?:,\\d{3})+|\\d+(?:\\.\\d+)?)\\s*(m|million|k)?");
     private static final List<String> PRODUCT_COMPANY_KEYWORDS = List.of(
             "product ownership",
             "own the product",
@@ -2008,13 +2004,13 @@ public final class DecisionEngineV1 {
         if (!hasManagerScope) {
             return false;
         }
-        int upperBoundYen = parseUpperBoundYen(salaryRange);
+        int upperBoundYen = SalaryRangeParser.upperBoundYen(salaryRange);
         return upperBoundYen > NORMALIZED_SCORE_MIN && upperBoundYen <= MANAGER_SCOPE_SALARY_MISALIGNED_MAX_YEN;
     }
 
     private boolean hasRoleScopeSalaryMisaligned(String combinedText, String salaryRange) {
         if (!isSalaryTransparent(salaryRange)
-                || parseUpperBoundYen(salaryRange) > ROLE_SCOPE_SALARY_MISALIGNED_MAX_YEN) {
+                || SalaryRangeParser.upperBoundYen(salaryRange) > ROLE_SCOPE_SALARY_MISALIGNED_MAX_YEN) {
             return false;
         }
         return hasExperienceRequirementAtLeast(combinedText, ROLE_SCOPE_MINIMUM_YEARS_EXPERIENCE)
@@ -2073,7 +2069,7 @@ public final class DecisionEngineV1 {
         if (salaryRange.isBlank()) {
             return false;
         }
-        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
+        List<Integer> orderedValues = SalaryRangeParser.orderedValues(salaryRange);
         if (orderedValues.size() < 2) {
             return false;
         }
@@ -2090,7 +2086,7 @@ public final class DecisionEngineV1 {
         if (minimumSalaryYen <= 0 || !isSalaryTransparent(salaryRange)) {
             return false;
         }
-        int benchmarkYen = estimateSalaryBenchmarkYen(
+        int benchmarkYen = SalaryRangeParser.benchmarkYen(
                 salaryRange,
                 shouldUseConservativeSalaryBenchmark(job, combinedText, blacklist)
         );
@@ -2105,79 +2101,6 @@ public final class DecisionEngineV1 {
         return isBlacklistedCompany(job.companyName(), blacklist)
                 || hasIntermediaryContractRisk(combinedText)
                 || containsAny(combinedText, CONSULTING_HARD_KEYWORDS);
-    }
-
-    private List<Integer> extractOrderedSalaryValues(String salaryRange) {
-        List<Integer> values = new ArrayList<>();
-        Matcher matcher = SALARY_ORDERED_TOKEN_PATTERN.matcher(salaryRange);
-        while (matcher.find()) {
-            String numberRaw = matcher.group(1);
-            String suffixRaw = matcher.group(2);
-            if (numberRaw == null || numberRaw.isBlank()) {
-                continue;
-            }
-
-            String normalized = numberRaw.replace(",", "");
-            double baseValue;
-            try {
-                baseValue = Double.parseDouble(normalized);
-            } catch (NumberFormatException ignored) {
-                continue;
-            }
-
-            int value = (int) Math.round(baseValue);
-            String suffix = normalize(suffixRaw);
-            if ("m".equals(suffix) || "million".equals(suffix)) {
-                value = (int) Math.round(baseValue * 1_000_000d);
-            } else if ("k".equals(suffix)) {
-                value = (int) Math.round(baseValue * 1_000d);
-            }
-            values.add(value);
-        }
-        return values;
-    }
-
-    private int estimateSalaryBenchmarkYen(String salaryRange, boolean conservativeRange) {
-        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
-        if (orderedValues.size() >= 2) {
-            int lowest = orderedValues.get(0);
-            int highest = orderedValues.get(orderedValues.size() - 1);
-            if (lowest <= highest) {
-                int ratioDivisor = conservativeRange ? 4 : 2;
-                return lowest + ((highest - lowest) / ratioDivisor);
-            }
-        }
-        return parseUpperBoundYen(salaryRange);
-    }
-
-    private int parseUpperBoundYen(String salaryRange) {
-        if (salaryRange.isBlank()) {
-            return NORMALIZED_SCORE_MIN;
-        }
-
-        int maxMillionBasedYen = NORMALIZED_SCORE_MIN;
-        Matcher millionMatcher = SALARY_MILLION_PATTERN.matcher(salaryRange);
-        while (millionMatcher.find()) {
-            double value = Double.parseDouble(millionMatcher.group(1));
-            int yen = (int) Math.round(value * 1_000_000d);
-            if (yen > maxMillionBasedYen) {
-                maxMillionBasedYen = yen;
-            }
-        }
-        if (maxMillionBasedYen > NORMALIZED_SCORE_MIN) {
-            return maxMillionBasedYen;
-        }
-
-        int maxNumber = NORMALIZED_SCORE_MIN;
-        Matcher numberMatcher = SALARY_NUMBER_PATTERN.matcher(salaryRange);
-        while (numberMatcher.find()) {
-            String raw = numberMatcher.group(1).replace(",", "").replace(".", "");
-            int value = Integer.parseInt(raw);
-            if (value > maxNumber) {
-                maxNumber = value;
-            }
-        }
-        return maxNumber;
     }
 
     private int computeCompanyReputationIndex(
@@ -2329,7 +2252,7 @@ public final class DecisionEngineV1 {
         if (salaryRange.isBlank() || containsAny(salaryRange, SALARY_MISSING_KEYWORDS)) {
             return false;
         }
-        List<Integer> orderedValues = extractOrderedSalaryValues(salaryRange);
+        List<Integer> orderedValues = SalaryRangeParser.orderedValues(salaryRange);
         if (orderedValues.size() < 2) {
             return false;
         }

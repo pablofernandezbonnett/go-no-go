@@ -1,6 +1,7 @@
 package com.pmfb.gonogo.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pmfb.gonogo.engine.decision.DecisionEngineV1;
@@ -270,6 +271,61 @@ final class PipelineRunCommandTest {
         assertTrue(json.contains("\"new\": 1"));
         assertTrue(json.contains("\"updated\": 1"));
         assertTrue(json.contains("\"unchanged\": 1"));
+    }
+
+    @Test
+    void failedEvaluationDoesNotAdvanceIncrementalState() throws IOException {
+        Path tempDir = Files.createTempDirectory("gonogo-pipeline-failed-evaluation-test");
+        Path configDir = tempDir.resolve("config");
+        Path rawDir = tempDir.resolve("raw");
+        Path jobsDir = tempDir.resolve("output/jobs");
+        Path outputDir = tempDir.resolve("output");
+        Path weeklyPath = outputDir.resolve("weekly.md");
+        Path stateFile = outputDir.resolve("job-change-state.yaml");
+
+        writeConfig(configDir);
+        Files.createDirectories(rawDir);
+        Files.writeString(
+                rawDir.resolve("job.txt"),
+                """
+                        Company: Money Forward
+                        Title: Backend Engineer
+                        Location: Tokyo
+                        Salary: JPY 9,000,000 - 12,000,000
+                        Work style: Hybrid
+                        English-first team with product ownership.
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        String[] args = {
+                "--persona", "product_expat_engineer",
+                "--raw-input-dir", rawDir.toString(),
+                "--raw-pattern", "*.txt",
+                "--config-dir", configDir.toString(),
+                "--jobs-output-dir", jobsDir.toString(),
+                "--batch-output-dir", outputDir.toString(),
+                "--weekly-output-file", weeklyPath.toString(),
+                "--change-state-file", stateFile.toString(),
+                "--incremental-only", "--disable-trend-history"
+        };
+
+        PipelineRunCommand.JobEvaluationService failingEvaluator = (job, persona, profile, config, context) -> {
+            throw new IllegalStateException("Simulated evaluation failure");
+        };
+        int failedExit = new CommandLine(new PipelineRunCommand(
+                new DecisionEngineV1(), new CareerPageFetchService(), failingEvaluator
+        )).execute(args);
+
+        assertEquals(1, failedExit);
+        assertFalse(Files.exists(stateFile));
+
+        int retryExit = new CommandLine(new PipelineRunCommand()).execute(args);
+        assertEquals(0, retryExit);
+        assertTrue(Files.exists(stateFile));
+        String report = Files.readString(outputDir.resolve("batch-evaluation-product_expat_engineer.json"));
+        assertTrue(report.contains("\"evaluated\": 1"));
+        assertTrue(report.contains("\"new\": 1"));
     }
 
     @Test

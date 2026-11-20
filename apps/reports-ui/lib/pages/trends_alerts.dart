@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+import '../constants/evaluation_contract.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
@@ -23,36 +24,38 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  int _loadGeneration = 0;
   String? _selectedRunId;
 
   @override
   void initState() {
     super.initState();
     if (kIsWeb) {
-      final cachedIndex = _client.peekCachedIndex();
-      if (cachedIndex != null) {
-        _index = cachedIndex;
-        _isLoading = false;
-      } else {
-        _loadIndex();
-      }
+      _loadIndex();
     } else {
       _isLoading = false;
     }
   }
 
   Future<void> _loadIndex({bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
     setState(() {
-      _isLoading = _index == null || forceRefresh;
+      _isLoading = true;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
+      final index = await _client.fetchIndexWithRun(
+        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        view: reportViewTrends,
+        forceRefresh: forceRefresh,
+      );
+      if (generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
+      if (generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -63,15 +66,22 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
   @override
   Component build(BuildContext context) {
     final requestedRunId = currentQueryParams(context)['run'];
-    if (!kIsWeb) return pageLoading('Trends & Alerts', 'Loading report index on the client...', description: _description);
+    if (!kIsWeb) {
+      return pageLoading('Trends & Alerts', 'Loading report index on the client...', description: _description);
+    }
     if (_loadError != null) return pageError('Trends & Alerts', _loadError!, _loadIndex, description: _description);
     final index = _index;
     if (_isLoading && index == null) {
       return pageLoading('Trends & Alerts', 'Loading trend artifacts...', description: _description);
     }
-    if (index == null || index.runs.isEmpty) return pageEmpty('Trends & Alerts', 'No runs available.', description: _description);
+    if (index == null || index.runs.isEmpty) {
+      return pageEmpty('Trends & Alerts', 'No runs available.', description: _description);
+    }
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Trends & Alerts', 'Selected run was not found.', description: _description);
+    if (!run.contentLoaded) {
+      return pageLoading('Trends & Alerts', 'Loading trend artifacts...', description: _description);
+    }
     return _TrendsAlertsBody(run: run, runs: index.runs, onRunSelected: _selectRun);
   }
 
@@ -79,6 +89,7 @@ class _TrendsAlertsPageState extends State<TrendsAlertsPage> {
     setState(() {
       _selectedRunId = run.runId;
     });
+    _loadIndex();
   }
 }
 
@@ -105,7 +116,10 @@ class _TrendsAlertsBody extends StatelessComponent {
         'Inspect trend history and alert artifacts generated from run deltas without exposing raw engine internals in the UI.',
       ),
       card([
-        p([.text('Run: '), code([.text(run.runId)])]),
+        p([
+          .text('Run: '),
+          code([.text(run.runId)]),
+        ]),
         runSelectionTabs(runs: runs, selectedRunId: run.runId, onRunSelected: onRunSelected),
       ]),
       card([

@@ -3,6 +3,7 @@ import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
 import '../components/evaluation_human_reading.dart';
+import '../constants/evaluation_contract.dart';
 import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
 import '../services/batch_report_parser.dart';
@@ -25,6 +26,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedJobId;
 
@@ -32,30 +34,31 @@ class _JobDetailPageState extends State<JobDetailPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      final cachedIndex = _client.peekCachedIndex();
-      if (cachedIndex != null) {
-        _index = cachedIndex;
-        _isLoading = false;
-      } else {
-        _loadIndex();
-      }
+      _loadIndex();
     } else {
       _isLoading = false;
     }
   }
 
   Future<void> _loadIndex({bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
     setState(() {
-      _isLoading = _index == null || forceRefresh;
+      _isLoading = true;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
+      final index = await _client.fetchIndexWithRun(
+        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        view: reportViewBatch,
+        forceRefresh: forceRefresh,
+      );
+      if (generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
+      if (generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -79,6 +82,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     }
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Job Detail', 'Selected run was not found.', description: _description);
+    if (!run.contentLoaded) return pageLoading('Job Detail', 'Loading job details...', description: _description);
     if (run.batchEvaluationJsonReports.isEmpty) {
       return pageEmpty('Job Detail', 'No batch JSON report found for this run.', description: _description);
     }
@@ -104,14 +108,11 @@ class _JobDetailPageState extends State<JobDetailPage> {
   }
 
   void _selectRun(ReportRunPayload run) {
-    final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
-    final nextItems = batchReport == null
-        ? const <BatchItemPayload>[]
-        : batchItemsFromDecodedJson(batchReport.decodedJson);
     setState(() {
       _selectedRunId = run.runId;
-      _selectedJobId = nextItems.isEmpty ? null : nextItems.first.jobId;
+      _selectedJobId = null;
     });
+    _loadIndex();
   }
 
   void _selectJob(String jobId) {

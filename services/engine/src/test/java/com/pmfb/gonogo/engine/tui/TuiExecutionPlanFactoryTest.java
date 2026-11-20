@@ -1,7 +1,6 @@
 package com.pmfb.gonogo.engine.tui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.pmfb.gonogo.engine.config.CandidateProfileConfig;
 import com.pmfb.gonogo.engine.config.CompanyConfig;
@@ -115,7 +114,6 @@ final class TuiExecutionPlanFactoryTest {
                 List.of("check", "--mode=raw-text", "<multiline raw text>"),
                 plan.displayArgs()
         );
-        assertTrue(plan.gradleCommand().contains("<multiline raw text>"));
     }
 
     @Test

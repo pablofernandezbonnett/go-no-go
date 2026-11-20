@@ -24,7 +24,7 @@ class ReportSourceArtifact {
   final String runId;
   final String relativePath;
   final String fileName;
-  final String content;
+  final String? content;
 }
 
 class ReportSourceIssue {
@@ -60,7 +60,11 @@ class ReportSource {
 
   final ReportsRootConfig config;
 
-  Future<ReportSourceResult> discoverArtifacts() async {
+  Future<ReportSourceResult> discoverArtifacts({
+    String? runId,
+    bool includeContent = false,
+    Set<ReportSourceArtifactType>? contentTypes,
+  }) async {
     final reportsRootDirectory = config.resolveDirectory();
     final reportsRootPath = _normalizePath(reportsRootDirectory.path);
     final issues = <ReportSourceIssue>[];
@@ -107,12 +111,19 @@ class ReportSource {
         continue;
       }
 
+      final artifactRunId = _deriveRunId(relativePath);
+      if (runId != null && artifactRunId != runId) {
+        continue;
+      }
+
       try {
-        final content = await entity.readAsString();
+        final content = includeContent && (contentTypes == null || contentTypes.contains(artifactType))
+            ? await entity.readAsString()
+            : null;
         artifacts.add(
           ReportSourceArtifact(
             type: artifactType,
-            runId: _deriveRunId(relativePath),
+            runId: artifactRunId,
             relativePath: relativePath,
             fileName: fileName,
             content: content,

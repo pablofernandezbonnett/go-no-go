@@ -27,7 +27,7 @@ final class TuiAppTest {
                 5
 
 
-                6
+                7
                 """;
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         List<List<String>> executedCommands = new ArrayList<>();
@@ -47,6 +47,41 @@ final class TuiAppTest {
         String rendered = output.toString(StandardCharsets.UTF_8);
         assertTrue(rendered.contains("gonogo config validate"));
         assertTrue(rendered.contains("Exiting TUI."));
+    }
+
+    @Test
+    void reloadsConfigWithoutRestartingTheMenu() throws IOException {
+        Path configDir = Files.createTempDirectory("gonogo-tui-reload-test").resolve("config");
+        writeConfig(configDir);
+        TuiConfigContext context = TuiConfigContext.load(configDir);
+        Files.writeString(
+                configDir.resolve("companies.yaml"),
+                """
+                        companies:
+                          - id: moneyforward
+                            name: Money Forward
+                            career_url: https://corp.moneyforward.com/recruit/
+                            type_hint: fintech_product
+                            region: japan
+                          - id: mercari
+                            name: Mercari
+                            career_url: https://careers.mercari.com/
+                            type_hint: product
+                            region: japan
+                        """,
+                StandardCharsets.UTF_8
+        );
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        TuiPrompts prompts = new LineBasedTuiPrompts(
+                new BufferedReader(new StringReader("6\n7\n")),
+                new PrintWriter(output, true, StandardCharsets.UTF_8)
+        );
+
+        assertEquals(0, new TuiApp(context, prompts, commandArgs -> 0).run());
+        String rendered = output.toString(StandardCharsets.UTF_8);
+        assertTrue(rendered.contains("Configuration reloaded."), rendered);
+        assertTrue(rendered.contains("companies: 2"));
     }
 
     private void writeConfig(Path configDir) throws IOException {

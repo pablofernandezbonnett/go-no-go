@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'persona_tuning_yaml_editor.dart';
+
 final _companyUrlSafety = _CompanyUrlSafety();
 final _configIdPattern = RegExp(r'^[a-z0-9_]+$');
 final _ipv4LiteralPattern = RegExp(r'^\d{1,3}(?:\.\d{1,3}){3}$');
@@ -241,124 +243,30 @@ class EngineConfigRepository {
       throw StateError('Persona "$id" not found.');
     }
 
-    final personasPath = p.join(engineRoot.path, _configFolder, _personasFile);
-    final personasFile = File(personasPath);
-    final rawContent = await personasFile.readAsString();
-
-    // Load all persona details, rebuild entire file.
-    final decoded = loadYaml(rawContent);
-    if (decoded is! YamlMap) {
-      throw StateError('personas.yaml has unexpected format.');
-    }
-
-    final personas = decoded[_personasKey];
-    if (personas is! YamlList) {
-      throw StateError('personas.yaml missing personas list.');
-    }
-
-    // Collect all PersonaDetail objects, replacing tuning for the target persona.
+    final personasFile = File(p.join(engineRoot.path, _configFolder, _personasFile));
+    final original = await personasFile.readAsString();
     final normalizedStrategy = strategy.trim().isEmpty ? 'by_score' : strategy.trim().toLowerCase();
-    final allDetails = <PersonaDetail>[];
-
-    for (final entry in personas) {
-      if (entry is! YamlMap) continue;
-      final entryId = entry[_idKey]?.toString().trim() ?? '';
-
-      List<String> parseStringList(String key) {
-        final raw = entry[key];
-        if (raw is! YamlList) return const [];
-        return raw.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-      }
-
-      Map<String, int> parseWeights() {
-        final raw = entry[_signalWeightsKey];
-        if (raw is! YamlMap) return const {};
-        final result = <String, int>{};
-        for (final k in raw.keys) {
-          final v = raw[k];
-          if (v is num) {
-            result[k.toString()] = v.toInt();
-          }
-        }
-        return result;
-      }
-
-      final entryDescription = entry[_descriptionKey]?.toString().trim() ?? '';
-      final entryStrategy = entry[_rankingStrategyKey]?.toString().trim() ?? 'by_score';
-
-      if (entryId == id) {
-        allDetails.add(
-          PersonaDetail(
-            id: entryId,
-            description: entryDescription,
-            priorities: parseStringList(_prioritiesKey),
-            hardNo: parseStringList(_hardNoKey),
-            acceptableIf: parseStringList(_acceptableIfKey),
-            signalWeights: weights,
-            rankingStrategy: normalizedStrategy,
-            minimumSalaryYen: minimumSalaryYen,
-          ),
-        );
-      } else {
-        allDetails.add(
-          PersonaDetail(
-            id: entryId,
-            description: entryDescription,
-            priorities: parseStringList(_prioritiesKey),
-            hardNo: parseStringList(_hardNoKey),
-            acceptableIf: parseStringList(_acceptableIfKey),
-            signalWeights: parseWeights(),
-            rankingStrategy: entryStrategy.isEmpty ? 'by_score' : entryStrategy,
-            minimumSalaryYen: _parseOptionalInt(entry[_minimumSalaryYenKey]),
-          ),
-        );
-      }
-    }
-
-    // Extract header comments from the original file (lines before 'personas:').
-    final headerLines = <String>[];
-    for (final line in rawContent.split('\n')) {
-      if (line.trimLeft().startsWith('personas:')) break;
-      headerLines.add(line);
-    }
-    final header = headerLines.join('\n');
-
-    // Rebuild the full file.
-    final buffer = StringBuffer();
-    if (header.trim().isNotEmpty) {
-      buffer.write(header);
-      if (!header.endsWith('\n')) buffer.write('\n');
-    }
-    buffer.writeln('$_personasKey:');
-
-    for (int i = 0; i < allDetails.length; i++) {
-      final detail = allDetails[i];
-      final input = PersonaCreateInput(
-        id: detail.id,
-        description: detail.description,
-        priorities: detail.priorities,
-        hardNo: detail.hardNo,
-        acceptableIf: detail.acceptableIf,
-        signalWeights: detail.signalWeights,
-        rankingStrategy: detail.rankingStrategy,
-        minimumSalaryYen: detail.minimumSalaryYen,
-      );
-      if (i > 0) buffer.writeln();
-      buffer.write(_buildPersonaEntry(input));
-    }
-
-    await personasFile.writeAsString(buffer.toString());
-
-    return PersonaDetail(
-      id: id,
-      description: existing.description,
-      priorities: existing.priorities,
-      hardNo: existing.hardNo,
-      acceptableIf: existing.acceptableIf,
-      signalWeights: weights,
+    final updated = const PersonaTuningYamlEditor().update(
+      original,
+      personaId: id,
+      weights: weights,
       rankingStrategy: normalizedStrategy,
       minimumSalaryYen: minimumSalaryYen,
     );
+    if (updated == original) return existing;
+    if (await personasFile.readAsString() != original) {
+      throw StateError('personas.yaml changed while the tuning was being saved.');
+    }
+
+    final temporary = File('${personasFile.path}.tmp.$pid.${DateTime.now().microsecondsSinceEpoch}');
+    try {
+      await temporary.writeAsString(updated, flush: true);
+      await temporary.rename(personasFile.path);
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
+
+    return (await loadPersonaDetail(id))!;
   }
 
   Future<String> _readCurrentContent(File companiesFile) async {

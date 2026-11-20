@@ -2,6 +2,7 @@ import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr_router/jaspr_router.dart';
 
+import '../constants/evaluation_contract.dart';
 import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
 import '../services/batch_report_parser.dart';
@@ -24,6 +25,7 @@ class _BatchPageState extends State<BatchPage> {
   ReportsIndexPayload? _index;
   String? _loadError;
   bool _isLoading = true;
+  int _loadGeneration = 0;
   String? _selectedRunId;
 
   String _verdictFilter = 'ALL';
@@ -33,30 +35,31 @@ class _BatchPageState extends State<BatchPage> {
   void initState() {
     super.initState();
     if (kIsWeb) {
-      final cachedIndex = _client.peekCachedIndex();
-      if (cachedIndex != null) {
-        _index = cachedIndex;
-        _isLoading = false;
-      } else {
-        _loadIndex();
-      }
+      _loadIndex();
     } else {
       _isLoading = false;
     }
   }
 
   Future<void> _loadIndex({bool forceRefresh = false}) async {
+    final generation = ++_loadGeneration;
     setState(() {
-      _isLoading = _index == null || forceRefresh;
+      _isLoading = true;
       _loadError = null;
     });
     try {
-      final index = await _client.fetchIndex(forceRefresh: forceRefresh);
+      final index = await _client.fetchIndexWithRun(
+        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        view: reportViewBatch,
+        forceRefresh: forceRefresh,
+      );
+      if (generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
+      if (generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -76,6 +79,7 @@ class _BatchPageState extends State<BatchPage> {
     if (index == null || index.runs.isEmpty) return pageEmpty('Batch', 'No runs available.', description: _description);
     final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
     if (run == null) return pageEmpty('Batch', 'Selected run was not found.', description: _description);
+    if (!run.contentLoaded) return pageLoading('Batch', 'Loading batch artifacts...', description: _description);
     final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
     final allItems = batchReport == null
         ? const <BatchItemPayload>[]
@@ -106,6 +110,7 @@ class _BatchPageState extends State<BatchPage> {
     setState(() {
       _selectedRunId = run.runId;
     });
+    _loadIndex();
   }
 
   List<BatchItemPayload> _applyFiltersAndSort(List<BatchItemPayload> items) {

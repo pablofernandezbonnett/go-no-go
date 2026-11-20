@@ -26,7 +26,7 @@ It is not the decision engine itself.
 
 - Install deps: `dart pub get`
 - Static analysis: `dart analyze`
-- Run app: `jaspr serve --port 8791 --web-port 5467 --proxy-port 5567`
+- Run app from the repository root: `./scripts/run-ops-ui.sh`; it supplies stable local ports, the engine root, and forwards extra Jaspr arguments.
 
 ## UI Guardrails
 

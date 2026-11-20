@@ -494,6 +494,9 @@ public final class PipelineRunCommand implements Callable<Integer> {
         List<RemovedJobItem> removedItems = List.of();
         List<String> warningMessages = new ArrayList<>();
         List<String> changeWarnings = new ArrayList<>();
+        JobChangeDetector changeDetector = new JobChangeDetector();
+        Path changeStateFile = null;
+        JobChangeDetector.ClassificationResult changeClassification = null;
         int warningCount = 0;
         int newCount = 0;
         int updatedCount = 0;
@@ -542,33 +545,28 @@ public final class PipelineRunCommand implements Callable<Integer> {
 
         List<EvaluableJob> jobsToEvaluate;
         if (!disableChangeDetection) {
-            Path stateFile = resolveChangeStateFile(persona.get().id(), effectiveCandidateProfileId);
-            try {
-                JobChangeDetector detector = new JobChangeDetector();
-                List<JobChangeDetector.CandidateJob> candidates = preparedJobs.stream()
-                        .map(job -> new JobChangeDetector.CandidateJob(job.sourceFile(), job.jobInput()))
-                        .toList();
-                JobChangeDetector.ClassificationResult classification = detector.classifyAndPersist(candidates, stateFile);
-                removedItems = classification.removedItems();
-                newCount = classification.newCount();
-                updatedCount = classification.updatedCount();
-                unchangedCount = classification.unchangedCount();
-                removedCount = classification.removedCount();
-                changeWarnings = classification.warnings();
-                jobsToEvaluate = classification.jobs().stream()
-                        .map(job -> new EvaluableJob(
-                                job.sourceFile(),
-                                job.job(),
-                                job.jobKey(),
-                                job.fingerprint(),
-                                job.changeStatus()
-                        ))
-                        .filter(job -> !incrementalOnly || isChangedStatus(job.changeStatus()))
-                        .toList();
-            } catch (IOException e) {
-                System.err.println("Failed to persist change state file: " + e.getMessage());
-                return 1;
-            }
+            changeStateFile = resolveChangeStateFile(persona.get().id(), effectiveCandidateProfileId);
+            List<JobChangeDetector.CandidateJob> candidates = preparedJobs.stream()
+                    .map(job -> new JobChangeDetector.CandidateJob(job.sourceFile(), job.jobInput()))
+                    .toList();
+            JobChangeDetector.ClassificationResult classification = changeDetector.classify(candidates, changeStateFile);
+            changeClassification = classification;
+            removedItems = classification.removedItems();
+            newCount = classification.newCount();
+            updatedCount = classification.updatedCount();
+            unchangedCount = classification.unchangedCount();
+            removedCount = classification.removedCount();
+            changeWarnings = classification.warnings();
+            jobsToEvaluate = classification.jobs().stream()
+                    .map(job -> new EvaluableJob(
+                            job.sourceFile(),
+                            job.job(),
+                            job.jobKey(),
+                            job.fingerprint(),
+                            job.changeStatus()
+                    ))
+                    .filter(job -> !incrementalOnly || isChangedStatus(job.changeStatus()))
+                    .toList();
         } else {
             unchangedCount = preparedJobs.size();
             jobsToEvaluate = preparedJobs.stream()
@@ -702,6 +700,14 @@ public final class PipelineRunCommand implements Callable<Integer> {
         } catch (IOException e) {
             System.err.println("Failed to write weekly digest: " + e.getMessage());
             return 1;
+        }
+        if (changeClassification != null) {
+            try {
+                changeDetector.persist(changeClassification, changeStateFile);
+            } catch (IOException e) {
+                System.err.println("Failed to persist change state file: " + e.getMessage());
+                return 1;
+            }
         }
         long reportDurationMillis = Instant.now().toEpochMilli() - reportStartedAtMillis;
 

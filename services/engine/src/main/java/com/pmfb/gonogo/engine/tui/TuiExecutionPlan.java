@@ -8,7 +8,6 @@ public record TuiExecutionPlan(
         List<String> displayArgs
 ) {
     private static final String ROOT_COMMAND = "gonogo";
-    private static final String GRADLE_PREFIX = "./gradlew run --args=";
     private static final String SINGLE_QUOTE = "'";
     private static final String SINGLE_QUOTE_ESCAPE = "'\"'\"'";
 
@@ -19,10 +18,6 @@ public record TuiExecutionPlan(
 
     public String logicalCommand() {
         return ROOT_COMMAND + " " + joinTokens(displayArgs);
-    }
-
-    public String gradleCommand() {
-        return GRADLE_PREFIX + shellQuote(String.join(" ", displayArgs));
     }
 
     private String joinTokens(List<String> tokens) {

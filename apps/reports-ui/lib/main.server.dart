@@ -62,10 +62,44 @@ void main() async {
     final sourceResult = await reportSource.discoverArtifacts();
     final index = reportIndexBuilder.build(sourceResult);
     return Response.ok(
-      jsonEncode(index.toJson()),
+      jsonEncode(index.toJson(includeContent: false)),
       headers: const {
         'content-type': jsonContentType,
       },
+    );
+  });
+
+  router.get(reportsRunApiPath, (request) async {
+    final runId = request.url.queryParameters['run']?.trim() ?? '';
+    final view = request.url.queryParameters['view']?.trim() ?? '';
+    if (runId.isEmpty) {
+      return Response(HttpStatus.badRequest, body: 'Run id is required.');
+    }
+    final contentTypes = switch (view) {
+      reportViewBatch => {ReportSourceArtifactType.batchEvaluationJson},
+      reportViewWeekly => {ReportSourceArtifactType.weeklyDigestMarkdown},
+      reportViewContext => {ReportSourceArtifactType.companyContextText},
+      reportViewTrends => {ReportSourceArtifactType.trendHistoryYaml, ReportSourceArtifactType.trendAlertsJson},
+      _ => null,
+    };
+    if (contentTypes == null) {
+      return Response(HttpStatus.badRequest, body: 'Unknown report view.');
+    }
+    final sourceResult = await reportSource.discoverArtifacts(
+      runId: runId,
+      includeContent: true,
+      contentTypes: contentTypes,
+    );
+    final index = reportIndexBuilder.build(sourceResult);
+    if (index.runs.isEmpty) {
+      return Response.notFound('Run was not found.');
+    }
+    return Response.ok(
+      jsonEncode({
+        ...index.runs.single.toJson(),
+        'issues': index.issues.map((issue) => issue.toJson()).toList(),
+      }),
+      headers: const {'content-type': jsonContentType},
     );
   });
 

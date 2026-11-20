@@ -59,6 +59,10 @@ profile guide for the supported values.
 - `./gradlew run --args="rerun-ad-hoc-matrix --candidate-profile pmfb --input-dir output/ad-hoc-evaluations"`: rebuild saved ad-hoc sources for one candidate profile across all personas.
 - `./gradlew installDist && ./build/install/go-no-go-engine/bin/go-no-go-engine tui`: launch the terminal UI.
 
+Incremental pipeline runs save the job-change snapshot only after evaluation and report generation succeed, so failed runs remain eligible for a retry.
+
+The TUI offers **Reload config** to refresh personas, companies, and candidate profiles without restarting it. Its review screen shows the logical command it will execute; pasted text is omitted from that preview.
+
 ## Screens
 
 ![CLI sample evaluation](../../docs/screenshots/cli-check.png)
