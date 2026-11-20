@@ -6,7 +6,7 @@ Fast path to get the monorepo working locally from a fresh clone.
 
 - Git
 - Java 26 on your `PATH`
-- Dart SDK 3.11+ on your `PATH`
+- Dart SDK 3.13.x on your `PATH`
 - `jaspr_cli` installed and available on your `PATH`
 
 You do not need to add personal candidate data to boot the repo. The tracked config and example files are enough for verification, the TUI, and both UIs.
@@ -23,7 +23,7 @@ cd go-no-go
 Install the Jaspr CLI once:
 
 ```bash
-dart pub global activate jaspr_cli ^0.23.3
+dart pub global activate jaspr_cli 0.23.5
 ```
 
 If `jaspr` is not found afterwards, add the Dart pub global bin directory to your `PATH` and restart your shell.
