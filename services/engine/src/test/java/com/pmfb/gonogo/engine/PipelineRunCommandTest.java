@@ -18,7 +18,7 @@ import picocli.CommandLine;
 
 final class PipelineRunCommandTest {
     @Test
-    void runsPipelineEndToEnd() throws IOException {
+    void retriesWeeklyDigestWriteBeforePublishingTrends() throws IOException {
         Path tempDir = Files.createTempDirectory("gonogo-pipeline-test");
         Path configDir = tempDir.resolve("config");
         Path rawDir = tempDir.resolve("raw");
@@ -41,7 +41,10 @@ final class PipelineRunCommandTest {
                 StandardCharsets.UTF_8
         );
 
-        int exitCode = new CommandLine(new GoNoGoCommand()).execute(
+        Path trendHistory = outputDir.resolve("trend-history.yaml");
+        Path alerts = outputDir.resolve("alerts.json");
+        Files.createDirectories(weeklyPath);
+        String[] args = {
                 "pipeline",
                 "run",
                 "--persona", "product_expat_engineer",
@@ -50,8 +53,20 @@ final class PipelineRunCommandTest {
                 "--config-dir", configDir.toString(),
                 "--jobs-output-dir", jobsDir.toString(),
                 "--batch-output-dir", outputDir.toString(),
-                "--weekly-output-file", weeklyPath.toString()
-        );
+                "--weekly-output-file", weeklyPath.toString(),
+                "--trend-history-file", trendHistory.toString(),
+                "--alert-sinks", "json-file",
+                "--alert-json-file", alerts.toString()
+        };
+
+        assertEquals(1, new CommandLine(new GoNoGoCommand()).execute(args));
+        assertFalse(Files.exists(trendHistory));
+        assertFalse(Files.exists(alerts));
+
+        Files.delete(weeklyPath);
+        int exitCode = new CommandLine(new GoNoGoCommand()).execute(args);
+        assertTrue(Files.isRegularFile(trendHistory));
+        assertTrue(Files.isRegularFile(alerts));
 
         assertEquals(0, exitCode);
         assertTrue(Files.exists(jobsDir.resolve("job1.generated.yaml")));

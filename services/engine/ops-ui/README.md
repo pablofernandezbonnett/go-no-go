@@ -17,6 +17,8 @@ This app is the operator layer around the engine. It helps you build explicit pi
 - `Candidate Profiles`: list available profile ids without exposing local YAML contents.
 - `Settings`: adjust local UI polling and refresh behavior.
 
+Saving persona tuning updates the selected persona's tuning fields and keeps existing YAML comments.
+
 ## Start Here
 
 - Repository quickstart: [`../../../docs/quickstart.md`](../../../docs/quickstart.md)

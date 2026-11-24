@@ -26,7 +26,7 @@ The TUI is also a companion layer. It simplifies command execution, but it still
 3. Job posting extraction + normalization
 4. Signal extraction (language, salary, remote, consulting risk, culture/environment signals)
 5. Persona-aware decision engine (hard filters + weighted scoring)
-6. Reporting outputs (batch JSON/Markdown, weekly digest, trend history, alerts)
+6. Write batch reports and the weekly digest, then dispatch trend alerts and update trend history.
 
 ---
 

@@ -29,6 +29,8 @@ import com.pmfb.gonogo.engine.report.RunTrendAlertEngine;
 import com.pmfb.gonogo.engine.report.RunTrendAnalyzer;
 import com.pmfb.gonogo.engine.report.RunTrendSnapshot;
 import com.pmfb.gonogo.engine.report.RunTrendStore;
+import com.pmfb.gonogo.engine.report.TrendAlert;
+import com.pmfb.gonogo.engine.report.TrendAlertDispatchContext;
 import com.pmfb.gonogo.engine.report.TrendAlertSink;
 import com.pmfb.gonogo.engine.report.TrendAlertSinkFactory;
 import com.pmfb.gonogo.engine.report.WeeklyDigestData;
@@ -648,29 +650,45 @@ public final class PipelineRunCommand implements Callable<Integer> {
         WeeklyDigestData digestData = digestGenerator.fromBatchReport(batchJsonPath.toString(), batchReport);
         String digestMarkdown = digestGenerator.toMarkdown(digestData, topPerSection, persona.get().rankingStrategy());
         Path resolvedTrendHistoryFile = null;
+        RunTrendSnapshot currentTrend = null;
+        List<TrendAlert> alerts = List.of();
+        RunTrendStore trendStore = new RunTrendStore();
         if (!disableTrendHistory) {
             resolvedTrendHistoryFile = resolveTrendHistoryFile(persona.get().id(), effectiveCandidateProfileId);
             RunTrendAnalyzer trendAnalyzer = new RunTrendAnalyzer();
             RunTrendAlertEngine trendAlertEngine = new RunTrendAlertEngine();
-            RunTrendStore trendStore = new RunTrendStore();
             RunTrendSnapshot previous = trendStore.loadLatest(resolvedTrendHistoryFile);
-            RunTrendSnapshot current = trendAnalyzer.fromBatchReport(batchReport);
-            String trendMarkdown = trendAnalyzer.toMarkdown(previous, current);
+            currentTrend = trendAnalyzer.fromBatchReport(batchReport);
+            String trendMarkdown = trendAnalyzer.toMarkdown(previous, currentTrend);
             if (!trendMarkdown.isBlank()) {
                 digestMarkdown = digestMarkdown + "\n\n" + trendMarkdown;
             }
             if (!disableTrendAlerts) {
-                var alerts = trendAlertEngine.evaluate(previous, current);
+                alerts = trendAlertEngine.evaluate(previous, currentTrend);
                 trendAlertCount = alerts.size();
                 String alertsMarkdown = trendAlertEngine.toMarkdown(alerts);
                 if (!alertsMarkdown.isBlank()) {
                     digestMarkdown = digestMarkdown + "\n\n" + alertsMarkdown;
                 }
+            }
+        }
 
+        try {
+            Path parent = weeklyOutputFile.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(weeklyOutputFile, digestMarkdown, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            System.err.println("Failed to write weekly digest: " + e.getMessage());
+            return 1;
+        }
+        if (currentTrend != null) {
+            if (!disableTrendAlerts) {
                 try {
                     trendDispatchResults = dispatchTrendAlerts(
                             alerts,
-                            new com.pmfb.gonogo.engine.report.TrendAlertDispatchContext(
+                            new TrendAlertDispatchContext(
                                     persona.get().id(),
                                     effectiveCandidateProfileId,
                                     batchReport.generatedAt(),
@@ -684,22 +702,11 @@ public final class PipelineRunCommand implements Callable<Integer> {
                 }
             }
             try {
-                trendStore.append(resolvedTrendHistoryFile, current, trendHistoryMaxRuns);
+                trendStore.append(resolvedTrendHistoryFile, currentTrend, trendHistoryMaxRuns);
             } catch (IOException e) {
                 System.err.println("Failed to persist trend history: " + e.getMessage());
                 return 1;
             }
-        }
-
-        try {
-            Path parent = weeklyOutputFile.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Files.writeString(weeklyOutputFile, digestMarkdown, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            System.err.println("Failed to write weekly digest: " + e.getMessage());
-            return 1;
         }
         if (changeClassification != null) {
             try {
@@ -1187,8 +1194,8 @@ public final class PipelineRunCommand implements Callable<Integer> {
     }
 
     private List<TrendAlertSink.DispatchResult> dispatchTrendAlerts(
-            List<com.pmfb.gonogo.engine.report.TrendAlert> alerts,
-            com.pmfb.gonogo.engine.report.TrendAlertDispatchContext context
+            List<TrendAlert> alerts,
+            TrendAlertDispatchContext context
     ) throws IOException {
         List<TrendAlertSink> sinks = TrendAlertSinkFactory.create(
                 alertSinks,

@@ -7,17 +7,20 @@ import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
 import '../services/batch_report_parser.dart';
 import '../services/reports_api.dart';
+import 'report_run_location.dart';
 import 'reports_view_helpers.dart';
 
 @client
 class BatchPage extends StatefulComponent {
-  const BatchPage({super.key});
+  const BatchPage({super.key, this.requestedRunId});
+
+  final String? requestedRunId;
 
   @override
   State<BatchPage> createState() => _BatchPageState();
 }
 
-class _BatchPageState extends State<BatchPage> {
+class _BatchPageState extends State<BatchPage> with ReportRunLocation<BatchPage> {
   static const _client = ReportsApiClient();
   static const _description =
       'Scan one batch report, filter verdicts, compare scores, and jump into the full reasoning behind each evaluated job.';
@@ -30,6 +33,15 @@ class _BatchPageState extends State<BatchPage> {
 
   String _verdictFilter = 'ALL';
   String _sortBy = 'score_desc';
+
+  @override
+  String? get initialRouteRunId => component.requestedRunId;
+
+  @override
+  void onRouteRunChanged() {
+    _selectedRunId = null;
+    _loadIndex();
+  }
 
   @override
   void initState() {
@@ -49,17 +61,17 @@ class _BatchPageState extends State<BatchPage> {
     });
     try {
       final index = await _client.fetchIndexWithRun(
-        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        runId: _selectedRunId ?? routeRunId,
         view: reportViewBatch,
         forceRefresh: forceRefresh,
       );
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -69,7 +81,6 @@ class _BatchPageState extends State<BatchPage> {
 
   @override
   Component build(BuildContext context) {
-    final requestedRunId = currentQueryParams(context)['run'];
     if (!kIsWeb) return pageLoading('Batch', 'Loading report index on the client...', description: _description);
     if (_loadError != null) return pageError('Batch', _loadError!, _loadIndex, description: _description);
     final index = _index;
@@ -77,7 +88,7 @@ class _BatchPageState extends State<BatchPage> {
       return pageLoading('Batch', 'Loading batch artifacts...', description: _description);
     }
     if (index == null || index.runs.isEmpty) return pageEmpty('Batch', 'No runs available.', description: _description);
-    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    final run = selectRun(index.runs, _selectedRunId ?? routeRunId);
     if (run == null) return pageEmpty('Batch', 'Selected run was not found.', description: _description);
     if (!run.contentLoaded) return pageLoading('Batch', 'Loading batch artifacts...', description: _description);
     final batchReport = run.batchEvaluationJsonReports.isEmpty ? null : run.batchEvaluationJsonReports.first;
