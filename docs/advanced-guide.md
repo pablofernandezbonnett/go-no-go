@@ -5,13 +5,13 @@ Operational guide for the whole monorepo. This keeps the longer command list out
 ## Prerequisites
 
 - Java 26 on your `PATH`
-- Dart SDK 3.13.x on your `PATH`
+- Dart SDK 3.14.x on your `PATH`
 - `jaspr_cli` installed and available on your `PATH`
 
 Fresh clone setup:
 
 ```bash
-dart pub global activate jaspr_cli 0.23.5
+dart pub global activate jaspr_cli 0.24.0-beta.2
 (cd services/engine/ops-ui && dart pub get)
 (cd apps/reports-ui && dart pub get)
 ```
@@ -140,8 +140,6 @@ Open:
 Optional overrides:
 
 - `OPS_UI_PORT`
-- `OPS_UI_WEB_PORT`
-- `OPS_UI_PROXY_PORT`
 - `OPS_UI_BIND_HOST` (`localhost` by default; use `0.0.0.0` only on purpose)
 - `ENGINE_ROOT`
 - `ENGINE_GRADLEW`
@@ -164,8 +162,6 @@ Open:
 Optional overrides:
 
 - `REPORTS_UI_PORT`
-- `REPORTS_UI_WEB_PORT`
-- `REPORTS_UI_PROXY_PORT`
 - `REPORTS_UI_BIND_HOST` (`localhost` by default; use `0.0.0.0` only on purpose)
 - `REPORTS_ROOT`
 - `ENGINE_ROOT`
@@ -183,13 +179,7 @@ Use the root helper scripts:
 ./scripts/run-reports-ui.sh
 ```
 
-Why this matters:
-
-- `--port` is the final app URL.
-- `--web-port` is the internal webdev resource server.
-- `--proxy-port` is the Jaspr proxy server.
-
-If you see `Address already in use` on `5467`, `5468`, `5567`, or `5568`, the collision is in Jaspr's internal dev services, not the public app URL.
+The helpers use separate app ports (8791 and 8792). Jaspr selects its internal development ports automatically.
 
 ## Artifact Paths
 

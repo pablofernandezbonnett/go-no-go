@@ -3,15 +3,14 @@ description: Browser UI for reading Go/No-Go engine artifacts.
 version: 0.0.1
 
 environment:
-  # The stable Jaspr 0.23 toolchain supports Dart 3.13.x.
-  sdk: '>=3.13.0 <3.14.0'
+  sdk: '>=3.14.0 <3.15.0'
 
 dependencies:
   # Browser-to-server API client used by the Jaspr UI.
   http: ^1.6.0
   # Server-rendered UI framework and its route definitions.
-  jaspr: 0.23.5
-  jaspr_router: ^0.9.0
+  jaspr: 0.24.0-beta.2
+  jaspr_router: 0.10.0-beta.2
   # Safe file-system path construction for server-side artifact access.
   path: ^1.9.1
   # HTTP server and declarative API routing for local-only endpoints.
@@ -22,11 +21,11 @@ dependencies:
 
 dev_dependencies:
   # Runs the code generators used by Jaspr during development and builds.
-  build_runner: 2.15.1
-  # 4.8.6+ requires analyzer 13, which Jaspr 0.23 does not support.
-  build_web_compilers: 4.8.5
+  build_runner: ^2.16.2
+  # Dart 3.14 support starts at 4.8.11.
+  build_web_compilers: ^4.8.12
   # Jaspr's build integration; keep it aligned with the Jaspr runtime.
-  jaspr_builder: 0.23.5
+  jaspr_builder: 0.24.0-beta.2
   # Recommended static-analysis rules for Dart packages.
   lints: ^6.1.0
 
