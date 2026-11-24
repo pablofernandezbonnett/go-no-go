@@ -35,17 +35,46 @@ import 'package:go_no_go_reports_ui/app.dart' as _app;
 ServerOptions get defaultServerOptions => ServerOptions(
   clientId: 'main.client.dart.js',
   clients: {
-    _batch.BatchPage: ClientTarget<_batch.BatchPage>('batch'),
+    _batch.BatchPage: ClientTarget<_batch.BatchPage>(
+      'batch',
+      params: __batchBatchPage,
+    ),
     _company_context.CompanyContextPage:
-        ClientTarget<_company_context.CompanyContextPage>('company_context'),
+        ClientTarget<_company_context.CompanyContextPage>(
+          'company_context',
+          params: __company_contextCompanyContextPage,
+        ),
     _evaluate.EvaluatePage: ClientTarget<_evaluate.EvaluatePage>('evaluate'),
     _job_detail.JobDetailPage: ClientTarget<_job_detail.JobDetailPage>(
       'job_detail',
+      params: __job_detailJobDetailPage,
     ),
     _runs.RunsPage: ClientTarget<_runs.RunsPage>('runs'),
     _trends_alerts.TrendsAlertsPage:
-        ClientTarget<_trends_alerts.TrendsAlertsPage>('trends_alerts'),
-    _weekly.WeeklyPage: ClientTarget<_weekly.WeeklyPage>('weekly'),
+        ClientTarget<_trends_alerts.TrendsAlertsPage>(
+          'trends_alerts',
+          params: __trends_alertsTrendsAlertsPage,
+        ),
+    _weekly.WeeklyPage: ClientTarget<_weekly.WeeklyPage>(
+      'weekly',
+      params: __weeklyWeeklyPage,
+    ),
   },
   styles: () => [..._app.App.styles, ..._header.Header.styles],
 );
+
+Map<String, Object?> __batchBatchPage(_batch.BatchPage c) => {
+  'requestedRunId': c.requestedRunId,
+};
+Map<String, Object?> __company_contextCompanyContextPage(
+  _company_context.CompanyContextPage c,
+) => {'requestedRunId': c.requestedRunId};
+Map<String, Object?> __job_detailJobDetailPage(_job_detail.JobDetailPage c) => {
+  'requestedRunId': c.requestedRunId,
+};
+Map<String, Object?> __trends_alertsTrendsAlertsPage(
+  _trends_alerts.TrendsAlertsPage c,
+) => {'requestedRunId': c.requestedRunId};
+Map<String, Object?> __weeklyWeeklyPage(_weekly.WeeklyPage c) => {
+  'requestedRunId': c.requestedRunId,
+};

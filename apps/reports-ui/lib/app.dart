@@ -29,15 +29,41 @@ class App extends StatelessComponent {
             routes: [
               Route(path: '/', title: 'Runs', builder: (context, state) => const RunsPage()),
               Route(path: evaluatePageRoute, title: 'Evaluate', builder: (context, state) => const EvaluatePage()),
-              Route(path: '/batch', title: 'Batch', builder: (context, state) => const BatchPage()),
-              Route(path: '/job', title: 'Job Detail', builder: (context, state) => const JobDetailPage()),
-              Route(path: '/weekly', title: 'Weekly', builder: (context, state) => const WeeklyPage()),
+              Route(
+                path: '/batch',
+                title: 'Batch',
+                builder: (context, state) => BatchPage(
+                  requestedRunId: state.queryParams['run'],
+                ),
+              ),
+              Route(
+                path: '/job',
+                title: 'Job Detail',
+                builder: (context, state) => JobDetailPage(
+                  requestedRunId: state.queryParams['run'],
+                ),
+              ),
+              Route(
+                path: '/weekly',
+                title: 'Weekly',
+                builder: (context, state) => WeeklyPage(
+                  requestedRunId: state.queryParams['run'],
+                ),
+              ),
               Route(
                 path: '/context',
                 title: 'Company Context',
-                builder: (context, state) => const CompanyContextPage(),
+                builder: (context, state) => CompanyContextPage(
+                  requestedRunId: state.queryParams['run'],
+                ),
               ),
-              Route(path: '/trends', title: 'Trends & Alerts', builder: (context, state) => const TrendsAlertsPage()),
+              Route(
+                path: '/trends',
+                title: 'Trends & Alerts',
+                builder: (context, state) => TrendsAlertsPage(
+                  requestedRunId: state.queryParams['run'],
+                ),
+              ),
             ],
           ),
         ]),

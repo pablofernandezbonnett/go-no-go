@@ -8,17 +8,20 @@ import '../models/batch_item_payload.dart';
 import '../models/reports_index_payload.dart';
 import '../services/batch_report_parser.dart';
 import '../services/reports_api.dart';
+import 'report_run_location.dart';
 import 'reports_view_helpers.dart';
 
 @client
 class JobDetailPage extends StatefulComponent {
-  const JobDetailPage({super.key});
+  const JobDetailPage({super.key, this.requestedRunId});
+
+  final String? requestedRunId;
 
   @override
   State<JobDetailPage> createState() => _JobDetailPageState();
 }
 
-class _JobDetailPageState extends State<JobDetailPage> {
+class _JobDetailPageState extends State<JobDetailPage> with ReportRunLocation<JobDetailPage> {
   static const _client = ReportsApiClient();
   static const _description =
       'Read one evaluated job in plain English first, then inspect the supporting engine details behind the verdict.';
@@ -29,6 +32,16 @@ class _JobDetailPageState extends State<JobDetailPage> {
   int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedJobId;
+
+  @override
+  String? get initialRouteRunId => component.requestedRunId;
+
+  @override
+  void onRouteRunChanged() {
+    _selectedRunId = null;
+    _selectedJobId = null;
+    _loadIndex();
+  }
 
   @override
   void initState() {
@@ -48,17 +61,17 @@ class _JobDetailPageState extends State<JobDetailPage> {
     });
     try {
       final index = await _client.fetchIndexWithRun(
-        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        runId: _selectedRunId ?? routeRunId,
         view: reportViewBatch,
         forceRefresh: forceRefresh,
       );
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -69,7 +82,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
   @override
   Component build(BuildContext context) {
     final queryParams = currentQueryParams(context);
-    final requestedRunId = queryParams['run'];
     final requestedJobId = queryParams['job'];
     if (!kIsWeb) return pageLoading('Job Detail', 'Loading report index on the client...', description: _description);
     if (_loadError != null) return pageError('Job Detail', _loadError!, _loadIndex, description: _description);
@@ -80,7 +92,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
     if (index == null || index.runs.isEmpty) {
       return pageEmpty('Job Detail', 'No runs available.', description: _description);
     }
-    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    final run = selectRun(index.runs, _selectedRunId ?? routeRunId);
     if (run == null) return pageEmpty('Job Detail', 'Selected run was not found.', description: _description);
     if (!run.contentLoaded) return pageLoading('Job Detail', 'Loading job details...', description: _description);
     if (run.batchEvaluationJsonReports.isEmpty) {

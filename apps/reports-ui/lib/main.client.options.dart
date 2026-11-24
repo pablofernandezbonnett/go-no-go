@@ -36,11 +36,13 @@ import 'package:go_no_go_reports_ui/pages/weekly.dart' deferred as _weekly;
 ClientOptions get defaultClientOptions => ClientOptions(
   clients: {
     'batch': ClientLoader(
-      (p) => _batch.BatchPage(),
+      (p) => _batch.BatchPage(requestedRunId: p.get<String?>('requestedRunId')),
       loader: _batch.loadLibrary,
     ),
     'company_context': ClientLoader(
-      (p) => _company_context.CompanyContextPage(),
+      (p) => _company_context.CompanyContextPage(
+        requestedRunId: p.get<String?>('requestedRunId'),
+      ),
       loader: _company_context.loadLibrary,
     ),
     'evaluate': ClientLoader(
@@ -48,16 +50,21 @@ ClientOptions get defaultClientOptions => ClientOptions(
       loader: _evaluate.loadLibrary,
     ),
     'job_detail': ClientLoader(
-      (p) => _job_detail.JobDetailPage(),
+      (p) => _job_detail.JobDetailPage(
+        requestedRunId: p.get<String?>('requestedRunId'),
+      ),
       loader: _job_detail.loadLibrary,
     ),
     'runs': ClientLoader((p) => _runs.RunsPage(), loader: _runs.loadLibrary),
     'trends_alerts': ClientLoader(
-      (p) => _trends_alerts.TrendsAlertsPage(),
+      (p) => _trends_alerts.TrendsAlertsPage(
+        requestedRunId: p.get<String?>('requestedRunId'),
+      ),
       loader: _trends_alerts.loadLibrary,
     ),
     'weekly': ClientLoader(
-      (p) => _weekly.WeeklyPage(),
+      (p) =>
+          _weekly.WeeklyPage(requestedRunId: p.get<String?>('requestedRunId')),
       loader: _weekly.loadLibrary,
     ),
   },

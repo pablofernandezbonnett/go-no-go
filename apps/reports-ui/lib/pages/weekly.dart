@@ -1,20 +1,24 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+
 import '../constants/evaluation_contract.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
+import 'report_run_location.dart';
 import 'reports_view_helpers.dart';
 
 @client
 class WeeklyPage extends StatefulComponent {
-  const WeeklyPage({super.key});
+  const WeeklyPage({super.key, this.requestedRunId});
+
+  final String? requestedRunId;
 
   @override
   State<WeeklyPage> createState() => _WeeklyPageState();
 }
 
-class _WeeklyPageState extends State<WeeklyPage> {
+class _WeeklyPageState extends State<WeeklyPage> with ReportRunLocation<WeeklyPage> {
   static const _client = ReportsApiClient();
   static const _description =
       'Read generated weekly digests for each run and switch between digest variants without leaving the current screen.';
@@ -25,6 +29,16 @@ class _WeeklyPageState extends State<WeeklyPage> {
   int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedWeeklyId;
+
+  @override
+  String? get initialRouteRunId => component.requestedRunId;
+
+  @override
+  void onRouteRunChanged() {
+    _selectedRunId = null;
+    _selectedWeeklyId = null;
+    _loadIndex();
+  }
 
   @override
   void initState() {
@@ -44,17 +58,17 @@ class _WeeklyPageState extends State<WeeklyPage> {
     });
     try {
       final index = await _client.fetchIndexWithRun(
-        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        runId: _selectedRunId ?? routeRunId,
         view: reportViewWeekly,
         forceRefresh: forceRefresh,
       );
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -65,7 +79,6 @@ class _WeeklyPageState extends State<WeeklyPage> {
   @override
   Component build(BuildContext context) {
     final queryParams = currentQueryParams(context);
-    final requestedRunId = queryParams['run'];
     final requestedWeeklyId = queryParams['weekly'];
     if (!kIsWeb) {
       return pageLoading('Weekly Digest', 'Loading report index on the client...', description: _description);
@@ -78,7 +91,7 @@ class _WeeklyPageState extends State<WeeklyPage> {
     if (index == null || index.runs.isEmpty) {
       return pageEmpty('Weekly Digest', 'No runs available.', description: _description);
     }
-    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    final run = selectRun(index.runs, _selectedRunId ?? routeRunId);
     if (run == null) return pageEmpty('Weekly Digest', 'Selected run was not found.', description: _description);
     if (!run.contentLoaded) {
       return pageLoading('Weekly Digest', 'Loading weekly artifacts...', description: _description);

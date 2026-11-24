@@ -1,20 +1,24 @@
 import 'package:jaspr/dom.dart';
 import 'package:jaspr/jaspr.dart';
+
 import '../constants/evaluation_contract.dart';
 
 import '../models/reports_index_payload.dart';
 import '../services/reports_api.dart';
+import 'report_run_location.dart';
 import 'reports_view_helpers.dart';
 
 @client
 class CompanyContextPage extends StatefulComponent {
-  const CompanyContextPage({super.key});
+  const CompanyContextPage({super.key, this.requestedRunId});
+
+  final String? requestedRunId;
 
   @override
   State<CompanyContextPage> createState() => _CompanyContextPageState();
 }
 
-class _CompanyContextPageState extends State<CompanyContextPage> {
+class _CompanyContextPageState extends State<CompanyContextPage> with ReportRunLocation<CompanyContextPage> {
   static const _client = ReportsApiClient();
   static const _description =
       'Read the saved company context artifacts for a run and switch companies instantly without remounting the whole page.';
@@ -25,6 +29,16 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
   int _loadGeneration = 0;
   String? _selectedRunId;
   String? _selectedCompanyId;
+
+  @override
+  String? get initialRouteRunId => component.requestedRunId;
+
+  @override
+  void onRouteRunChanged() {
+    _selectedRunId = null;
+    _selectedCompanyId = null;
+    _loadIndex();
+  }
 
   @override
   void initState() {
@@ -44,17 +58,17 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
     });
     try {
       final index = await _client.fetchIndexWithRun(
-        runId: _selectedRunId ?? Uri.base.queryParameters['run'],
+        runId: _selectedRunId ?? routeRunId,
         view: reportViewContext,
         forceRefresh: forceRefresh,
       );
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _index = index;
         _isLoading = false;
       });
     } catch (error) {
-      if (generation != _loadGeneration) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _loadError = error.toString();
@@ -65,7 +79,6 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
   @override
   Component build(BuildContext context) {
     final queryParams = currentQueryParams(context);
-    final requestedRunId = queryParams['run'];
     final requestedCompanyId = queryParams['company'];
     if (!kIsWeb) {
       return pageLoading('Company Context', 'Loading report index on the client...', description: _description);
@@ -78,7 +91,7 @@ class _CompanyContextPageState extends State<CompanyContextPage> {
     if (index == null || index.runs.isEmpty) {
       return pageEmpty('Company Context', 'No runs available.', description: _description);
     }
-    final run = selectRun(index.runs, _selectedRunId ?? requestedRunId);
+    final run = selectRun(index.runs, _selectedRunId ?? routeRunId);
     if (run == null) return pageEmpty('Company Context', 'Selected run was not found.', description: _description);
     if (!run.contentLoaded) {
       return pageLoading('Company Context', 'Loading context artifacts...', description: _description);
